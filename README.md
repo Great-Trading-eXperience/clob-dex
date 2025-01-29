@@ -1,66 +1,88 @@
-## Foundry
+# CLOB DEX - Decentralized Central Limit Order Book
 
-**Foundry is a blazing fast, portable and modular toolkit for Ethereum application development written in Rust.**
+A high-performance, fully on-chain Central Limit Order Book (CLOB) implementation with price-time priority matching algorithm.
 
-Foundry consists of:
+## Core Features
 
--   **Forge**: Ethereum testing framework (like Truffle, Hardhat and DappTools).
--   **Cast**: Swiss army knife for interacting with EVM smart contracts, sending transactions and getting chain data.
--   **Anvil**: Local Ethereum node, akin to Ganache, Hardhat Network.
--   **Chisel**: Fast, utilitarian, and verbose solidity REPL.
+### Order Management
+- **Limit Orders**: Place orders with specific price and quantity
+- **Market Orders**: Immediate execution at best available prices
+- **Order Cancellation**: Users can cancel their active orders
+- **Reentrancy Protection**: All order operations are protected against reentrancy attacks
 
-## Documentation
+### Order Matching
+- Price-time priority matching algorithm
+- Cross-matching between buy and sell orders
+- Support for partial fills
+- Real-time order execution
 
-https://book.getfoundry.sh/
+### Order Book Structure
+- **Price Tree**: Red-Black Tree implementation for efficient price level management
+  - O(log n) operations for inserting/removing price levels
+  - Quick access to best bid/ask prices
+  - Ordered iteration through price levels
 
-## Usage
+- **Order Queue**:
+  - Double-linked list for order storage at each price level
+  - FIFO (First In, First Out) execution within same price level
+  - Efficient order removal and updates
 
-### Build
+### Data Storage Optimization
+- **Order Packing**: Compact order storage using bit manipulation
+  ```solidity
+  Side (1 bytes) | Price (64 bytes) | OrderId (48 bytes)
+  ```
+- **Active Order Tracking**: Per-user order tracking using EnumerableSet
+- **Price Level Management**: Automatic cleanup of empty price levels
 
-```shell
-$ forge build
+### Key Data Structures
+
+```solidity
+// Price Tree Mapping
+mapping(Side => RBTree.Tree) private priceTrees;
+
+// Order Queues at Each Price Level
+mapping(Side => mapping(Price => OrderQueueLib.OrderQueue)) private orderQueues;
+
+// User's Active Orders
+mapping(address => EnumerableSet.UintSet) private activeUserOrders;
 ```
 
-### Test
+### View Functions
+- Get best bid/ask prices
+- View order queue status at any price level
+- Retrieve user's active orders
+- Get next best price levels with volumes
 
-```shell
-$ forge test
-```
+## Gas Optimization Techniques
 
-### Format
+1. **Efficient Storage**
+   - Minimal storage operations
+   - Packed order data
+   - Optimized mappings
 
-```shell
-$ forge fmt
-```
+2. **Smart Data Structures**
+   - Red-Black Tree for price levels (O(log n) operations)
+   - Double-linked lists for order management
+   - EnumerableSet for tracking active orders
 
-### Gas Snapshots
+3. **Memory Management**
+   - Strategic use of memory vs storage
+   - Optimized array operations
+   - Efficient event emission
 
-```shell
-$ forge snapshot
-```
+## Security Features
 
-### Anvil
+1. **Access Control**
+   - Order cancellation restricted to order owner
+   - Reentrancy protection on all state-modifying functions
 
-```shell
-$ anvil
-```
+2. **Input Validation**
+   - Price and quantity validation
+   - Order existence checks
+   - Price level integrity checks
 
-### Deploy
-
-```shell
-$ forge script script/Counter.s.sol:CounterScript --rpc-url <your_rpc_url> --private-key <your_private_key>
-```
-
-### Cast
-
-```shell
-$ cast <subcommand>
-```
-
-### Help
-
-```shell
-$ forge --help
-$ anvil --help
-$ cast --help
-```
+3. **State Management**
+   - Atomic operations
+   - Consistent state updates
+   - Automatic cleanup of empty states
