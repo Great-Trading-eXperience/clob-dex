@@ -5,7 +5,7 @@ import {IOrderBook} from "./interfaces/IOrderBook.sol";
 import {OrderId, Quantity, Side} from "./types/Types.sol";
 import {BokkyPooBahsRedBlackTreeLibrary as RBTree, Price} from "./libraries/BokkyPooBahsRedBlackTreeLibrary.sol";
 import {OrderQueueLib} from "./libraries/OrderQueue.sol";
-import {OrderMatchingLib} from "./libraries/OrderMatching.sol";
+import {OrderMatching} from "./libraries/OrderMatching.sol";
 import {OrderPacking} from "./libraries/OrderPacking.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
@@ -14,9 +14,11 @@ import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 /// @notice Manages limit and market orders in a decentralized exchange
 /// @dev Implements price-time priority matching with reentrance protection
 contract OrderBook is IOrderBook, ReentrancyGuard {
+    uint256 constant EXPIRY_DAYS = 90 * 24 * 60 * 60; // 90 days in seconds
+
     using RBTree for RBTree.Tree;
     using OrderQueueLib for OrderQueueLib.OrderQueue;
-    using OrderMatchingLib for *;
+    using OrderMatching for *;
     using EnumerableSet for EnumerableSet.UintSet;
     using OrderPacking for *;
 
@@ -54,18 +56,16 @@ contract OrderBook is IOrderBook, ReentrancyGuard {
             price: price,
             timestamp: uint48(block.timestamp),
             quantity: quantity,
-            filled: Quantity.wrap(0)
+            filled: Quantity.wrap(0),
+            expiry: uint48(block.timestamp + EXPIRY_DAYS)
         });
 
-        // Add order to queue
         orderQueues[side][price].addOrder(newOrder, false);
 
-        // Update price tree
         if (!priceTrees[side].exists(price)) {
             priceTrees[side].insert(price);
         }
 
-        // Track user's order
         activeUserOrders[msg.sender].add(
             OrderPacking.packOrder(side, price, OrderId.unwrap(orderId))
         );
@@ -80,8 +80,7 @@ contract OrderBook is IOrderBook, ReentrancyGuard {
             false
         );
 
-        // Match order
-        OrderMatchingLib.matchOrder(
+        OrderMatching.matchOrder(
             newOrder,
             side,
             orderQueues,
@@ -113,10 +112,11 @@ contract OrderBook is IOrderBook, ReentrancyGuard {
             price: Price.wrap(0),
             timestamp: uint48(block.timestamp),
             quantity: quantity,
-            filled: Quantity.wrap(0)
+            filled: Quantity.wrap(0),
+            expiry: uint48(block.timestamp + EXPIRY_DAYS)
         });
 
-        OrderMatchingLib.matchOrder(
+        OrderMatching.matchOrder(
             marketOrder,
             side,
             orderQueues,
@@ -154,7 +154,6 @@ contract OrderBook is IOrderBook, ReentrancyGuard {
 
         queue.removeOrder(OrderId.unwrap(orderId));
 
-        // Remove from user's active orders
         activeUserOrders[msg.sender].remove(
             OrderPacking.packOrder(side, price, OrderId.unwrap(orderId))
         );
@@ -168,14 +167,12 @@ contract OrderBook is IOrderBook, ReentrancyGuard {
             uint48(block.timestamp)
         );
 
-        // Clean up empty price levels
         if (queue.isEmpty()) {
             priceTrees[side].remove(price);
             emit PriceLevelEmpty(side, price);
         }
     }
 
-    // View functions
     function getBestPrice(Side side) external view override returns (Price) {
         return
             side == Side.BUY
@@ -188,8 +185,22 @@ contract OrderBook is IOrderBook, ReentrancyGuard {
         Price price
     ) external view returns (uint256 orderCount, uint256 totalVolume) {
         OrderQueueLib.OrderQueue storage queue = orderQueues[side][price];
-        (, , uint256 count, uint256 volume) = queue.getQueueInfo();
-        return (count, volume);
+        uint256 validOrderCount = 0;
+        uint256 validVolume = 0;
+
+        uint48 currentOrderId = queue.head;
+        while (currentOrderId != 0) {
+            Order storage order = queue.orders[currentOrderId];
+            if (order.expiry > block.timestamp) {
+                validOrderCount++;
+                validVolume +=
+                    uint128(Quantity.unwrap(order.quantity)) -
+                    uint128(Quantity.unwrap(order.filled));
+            }
+            currentOrderId = uint48(OrderId.unwrap(order.next));
+        }
+
+        return (validOrderCount, validVolume);
     }
 
     function getUserActiveOrders(
@@ -197,18 +208,31 @@ contract OrderBook is IOrderBook, ReentrancyGuard {
     ) external view override returns (Order[] memory) {
         EnumerableSet.UintSet storage userOrders = activeUserOrders[user];
         Order[] memory orders = new Order[](userOrders.length());
+        uint256 validOrderCount = 0;
 
         for (uint256 i = 0; i < userOrders.length(); i++) {
             (Side side, Price price, uint48 orderId) = OrderPacking.unpackOrder(
                 userOrders.at(i)
             );
-            orders[i] = orderQueues[side][price].getOrder(orderId);
+            Order memory order = orderQueues[side][price].getOrder(orderId);
+
+            // Skip expired orders
+            if (order.expiry <= block.timestamp) {
+                continue;
+            }
+
+            orders[validOrderCount] = order;
+            validOrderCount++;
+        }
+
+        // Resize array to remove empty slots from expired orders
+        assembly {
+            mstore(orders, validOrderCount)
         }
 
         return orders;
     }
 
-    // Internal helper functions
     function _getNextBestPrice(
         Side side,
         Price price

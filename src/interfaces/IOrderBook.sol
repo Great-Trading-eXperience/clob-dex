@@ -14,6 +14,7 @@ interface IOrderBook {
         uint48 timestamp;
         Quantity quantity;
         Quantity filled;
+        uint48 expiry;
     }
 
     struct PriceVolume {
@@ -21,15 +22,6 @@ interface IOrderBook {
         uint256 volume;
     }
 
-    event OrderMatched(
-        OrderId indexed buyOrderId,
-        OrderId indexed sellOrderId,
-        address indexed buyer,
-        address seller,
-        Price executionPrice,
-        Quantity quantity,
-        uint48 timestamp
-    );
     event OrderPlaced(
         OrderId indexed orderId,
         address indexed user,

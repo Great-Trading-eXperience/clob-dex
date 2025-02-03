@@ -5,18 +5,20 @@ pragma solidity ^0.8.26;
 import "./OrderQueue.sol";
 import {BokkyPooBahsRedBlackTreeLibrary as RBTree, Price} from "./BokkyPooBahsRedBlackTreeLibrary.sol";
 
-/// @title OrderMatchingLib - A library for matching orders in a CLOB
+/// @title OrderMatching - A library for matching orders in a CLOB
 /// @notice Provides functionality to match orders in a Central Limit Order Book
 /// @dev Implements price-time priority matching algorithm
-library OrderMatchingLib {
+library OrderMatching {
     using OrderQueueLib for OrderQueueLib.OrderQueue;
     using RBTree for RBTree.Tree;
 
     event OrderMatched(
-        OrderId buyOrderId,
-        OrderId sellOrderId,
-        uint128 executedQuantity,
-        Price executionPrice
+        address indexed user,
+        OrderId indexed buyOrderId,
+        OrderId indexed sellOrderId,
+        uint48 timestamp,
+        Price executionPrice,
+        Quantity executedQuantity
     );
 
     /// @notice Matches an order against the opposite side of the order book
@@ -126,9 +128,16 @@ library OrderMatchingLib {
             IOrderBook.Order storage matchingOrder = queue.orders[
                 currentOrderId
             ];
+            uint48 nextOrderId = uint48(OrderId.unwrap(matchingOrder.next));
+
+            if (matchingOrder.expiry <= block.timestamp) {
+                queue.removeOrder(currentOrderId);
+                currentOrderId = nextOrderId;
+                continue;
+            }
 
             if (matchingOrder.user == trader) {
-                currentOrderId = uint48(OrderId.unwrap(matchingOrder.next));
+                currentOrderId = nextOrderId;
                 continue;
             }
 
@@ -139,7 +148,6 @@ library OrderMatchingLib {
                 ? remainingAfter
                 : matchingRemaining;
 
-            // Update filled quantities
             matchingOrder.filled = Quantity.wrap(
                 uint128(Quantity.unwrap(matchingOrder.filled)) +
                     executedQuantity
@@ -148,23 +156,23 @@ library OrderMatchingLib {
             filledAmount += executedQuantity;
             queue.totalVolume -= executedQuantity;
 
-            emit OrderMatched(
-                side == Side.BUY ? order.id : OrderId.wrap(currentOrderId),
-                side == Side.SELL ? order.id : OrderId.wrap(currentOrderId),
-                executedQuantity,
-                matchPrice
-            );
-
             if (
                 uint128(Quantity.unwrap(matchingOrder.filled)) ==
                 uint128(Quantity.unwrap(matchingOrder.quantity))
             ) {
-                uint48 nextOrderId = uint48(OrderId.unwrap(matchingOrder.next));
                 queue.removeOrder(currentOrderId);
-                currentOrderId = nextOrderId;
-            } else {
-                currentOrderId = uint48(OrderId.unwrap(matchingOrder.next));
             }
+
+            emit OrderMatched(
+                trader,
+                side == Side.BUY ? order.id : OrderId.wrap(currentOrderId),
+                side == Side.SELL ? order.id : OrderId.wrap(currentOrderId),
+                uint48(block.timestamp),
+                matchPrice,
+                Quantity.wrap(executedQuantity)
+            );
+
+            currentOrderId = nextOrderId;
         }
 
         return (remainingAfter, filledAmount);
