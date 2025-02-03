@@ -2,7 +2,7 @@
 
 pragma solidity ^0.8.26;
 
-import "./OrderQueue.sol";
+import "./OrderQueueLib.sol";
 import {BokkyPooBahsRedBlackTreeLibrary as RBTree, Price} from "./BokkyPooBahsRedBlackTreeLibrary.sol";
 
 /// @title OrderMatching - A library for matching orders in a CLOB

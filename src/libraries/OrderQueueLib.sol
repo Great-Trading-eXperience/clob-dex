@@ -19,23 +19,13 @@ library OrderQueueLib {
         mapping(uint48 => IOrderBook.Order) orders;
     }
 
-    event OrderAdded(
-        uint48 indexed orderId,
-        uint256 quantity,
-        uint48 timestamp
-    );
-    event OrderRemoved(uint48 indexed orderId, uint256 remainingQuantity);
-    event OrderUpdated(uint48 indexed orderId, uint256 newQuantity);
-
     /// @notice Adds a new order to the queue
     /// @param queue The order queue to add to
     /// @param order The order to add
-    /// @param addToFront Whether to add the order to the front of the queue
     /// @return success Whether the operation was successful
     function addOrder(
         OrderQueue storage queue,
-        IOrderBook.Order memory order,
-        bool addToFront
+        IOrderBook.Order memory order
     ) internal returns (bool) {
         uint48 orderId = OrderId.unwrap(order.id);
         queue.orders[orderId] = order;
@@ -43,10 +33,6 @@ library OrderQueueLib {
         if (queue.head == 0) {
             queue.head = orderId;
             queue.tail = orderId;
-        } else if (addToFront) {
-            queue.orders[orderId].next = OrderId.wrap(queue.head);
-            queue.orders[queue.head].prev = OrderId.wrap(orderId);
-            queue.head = orderId;
         } else {
             queue.orders[queue.tail].next = OrderId.wrap(orderId);
             queue.orders[orderId].prev = OrderId.wrap(queue.tail);
@@ -56,11 +42,6 @@ library OrderQueueLib {
         queue.orderCount++;
         queue.totalVolume += uint128(Quantity.unwrap(order.quantity));
 
-        emit OrderAdded(
-            orderId,
-            Quantity.unwrap(order.quantity),
-            order.timestamp
-        );
         return true;
     }
 
@@ -83,7 +64,6 @@ library OrderQueueLib {
         uint256 remainingQuantity = Quantity.unwrap(order.quantity) -
             Quantity.unwrap(order.filled);
 
-        // Update linked list
         if (OrderId.unwrap(order.prev) != 0) {
             queue.orders[uint48(OrderId.unwrap(order.prev))].next = order.next;
         } else {
@@ -99,10 +79,8 @@ library OrderQueueLib {
         queue.orderCount--;
         queue.totalVolume -= remainingQuantity;
 
-        // Clear order data
         delete queue.orders[orderId];
 
-        emit OrderRemoved(orderId, remainingQuantity);
         return remainingQuantity;
     }
 
@@ -113,49 +91,7 @@ library OrderQueueLib {
         return queue.orders[orderId];
     }
 
-    function hasOrder(
-        OrderQueue storage queue,
-        uint48 orderId
-    ) internal view returns (bool) {
-        return Quantity.unwrap(queue.orders[orderId].quantity) > 0;
-    }
-
-    function updateOrderQuantity(
-        OrderQueue storage queue,
-        uint48 orderId,
-        Quantity newQuantity
-    ) internal returns (uint256) {
-        IOrderBook.Order storage order = queue.orders[orderId];
-        if (OrderId.unwrap(order.id) == 0) revert OrderNotFound();
-
-        uint256 oldQuantity = Quantity.unwrap(order.quantity);
-        order.quantity = newQuantity;
-
-        uint256 quantityDiff = oldQuantity > Quantity.unwrap(newQuantity)
-            ? oldQuantity - Quantity.unwrap(newQuantity)
-            : Quantity.unwrap(newQuantity) - oldQuantity;
-
-        if (oldQuantity > Quantity.unwrap(newQuantity)) {
-            queue.totalVolume -= quantityDiff;
-        } else {
-            queue.totalVolume += quantityDiff;
-        }
-
-        emit OrderUpdated(orderId, Quantity.unwrap(newQuantity));
-        return quantityDiff;
-    }
-
     function isEmpty(OrderQueue storage queue) internal view returns (bool) {
         return queue.orderCount == 0;
-    }
-
-    function getQueueInfo(
-        OrderQueue storage queue
-    )
-        internal
-        view
-        returns (uint48 headId, uint48 tailId, uint256 count, uint256 volume)
-    {
-        return (queue.head, queue.tail, queue.orderCount, queue.totalVolume);
     }
 }

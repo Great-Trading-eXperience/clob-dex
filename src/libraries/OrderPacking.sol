@@ -48,16 +48,4 @@ library OrderPacking {
 
         if (orderId == 0) revert InvalidPackedData();
     }
-
-    function getSide(uint256 packed) internal pure returns (Side) {
-        return Side((packed & SIDE_MASK) >> SIDE_SHIFT);
-    }
-
-    function getPrice(uint256 packed) internal pure returns (Price) {
-        return Price.wrap(uint64((packed & PRICE_MASK) >> PRICE_SHIFT));
-    }
-
-    function getOrderId(uint256 packed) internal pure returns (uint48) {
-        return uint48(packed & ORDER_ID_MASK);
-    }
 }

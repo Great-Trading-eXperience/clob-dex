@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.26;
-
 import {Price} from "../libraries/BokkyPooBahsRedBlackTreeLibrary.sol";
 import {OrderId, Quantity, Side} from "../types/Types.sol";
 
@@ -31,6 +30,7 @@ interface IOrderBook {
         uint48 timestamp,
         bool isMarketOrder
     );
+
     event OrderCancelled(
         OrderId indexed orderId,
         address indexed user,
@@ -39,22 +39,26 @@ interface IOrderBook {
         Quantity remainingQuantity,
         uint48 timestamp
     );
-    event PriceLevelEmpty(Side indexed side, Price price);
 
     function placeOrder(
         Price price,
         Quantity quantity,
         Side side
     ) external returns (OrderId);
+
     function placeMarketOrder(
         Quantity quantity,
         Side side
     ) external returns (OrderId);
+
     function cancelOrder(Side side, Price price, OrderId orderId) external;
+
     function getUserActiveOrders(
         address user
     ) external view returns (Order[] memory);
+
     function getBestPrice(Side side) external view returns (Price);
+
     function getNextBestPrices(
         Side side,
         Price price,

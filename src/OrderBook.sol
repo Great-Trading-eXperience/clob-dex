@@ -4,7 +4,7 @@ pragma solidity ^0.8.26;
 import {IOrderBook} from "./interfaces/IOrderBook.sol";
 import {OrderId, Quantity, Side} from "./types/Types.sol";
 import {BokkyPooBahsRedBlackTreeLibrary as RBTree, Price} from "./libraries/BokkyPooBahsRedBlackTreeLibrary.sol";
-import {OrderQueueLib} from "./libraries/OrderQueue.sol";
+import {OrderQueueLib} from "./libraries/OrderQueueLib.sol";
 import {OrderMatching} from "./libraries/OrderMatching.sol";
 import {OrderPacking} from "./libraries/OrderPacking.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
@@ -60,7 +60,7 @@ contract OrderBook is IOrderBook, ReentrancyGuard {
             expiry: uint48(block.timestamp + EXPIRY_DAYS)
         });
 
-        orderQueues[side][price].addOrder(newOrder, false);
+        orderQueues[side][price].addOrder(newOrder);
 
         if (!priceTrees[side].exists(price)) {
             priceTrees[side].insert(price);
@@ -169,7 +169,6 @@ contract OrderBook is IOrderBook, ReentrancyGuard {
 
         if (queue.isEmpty()) {
             priceTrees[side].remove(price);
-            emit PriceLevelEmpty(side, price);
         }
     }
 
@@ -216,7 +215,6 @@ contract OrderBook is IOrderBook, ReentrancyGuard {
             );
             Order memory order = orderQueues[side][price].getOrder(orderId);
 
-            // Skip expired orders
             if (order.expiry <= block.timestamp) {
                 continue;
             }
@@ -225,28 +223,11 @@ contract OrderBook is IOrderBook, ReentrancyGuard {
             validOrderCount++;
         }
 
-        // Resize array to remove empty slots from expired orders
         assembly {
             mstore(orders, validOrderCount)
         }
 
         return orders;
-    }
-
-    function _getNextBestPrice(
-        Side side,
-        Price price
-    ) private view returns (Price) {
-        if (RBTree.isEmpty(price)) {
-            return
-                side == Side.BUY
-                    ? priceTrees[side].last()
-                    : priceTrees[side].first();
-        }
-        return
-            side == Side.BUY
-                ? priceTrees[side].prev(price)
-                : priceTrees[side].next(price);
     }
 
     function getNextBestPrices(
@@ -268,5 +249,21 @@ contract OrderBook is IOrderBook, ReentrancyGuard {
         }
 
         return levels;
+    }
+
+    function _getNextBestPrice(
+        Side side,
+        Price price
+    ) private view returns (Price) {
+        if (RBTree.isEmpty(price)) {
+            return
+                side == Side.BUY
+                    ? priceTrees[side].last()
+                    : priceTrees[side].first();
+        }
+        return
+            side == Side.BUY
+                ? priceTrees[side].prev(price)
+                : priceTrees[side].next(price);
     }
 }
