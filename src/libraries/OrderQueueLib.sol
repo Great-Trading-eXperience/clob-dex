@@ -14,7 +14,7 @@ library OrderQueueLib {
     struct OrderQueue {
         uint48 head;
         uint48 tail;
-        uint256 orderCount;
+        uint48 orderCount;
         uint256 totalVolume;
         mapping(uint48 => IOrderBook.Order) orders;
     }
@@ -39,8 +39,10 @@ library OrderQueueLib {
             queue.tail = orderId;
         }
 
-        queue.orderCount++;
-        queue.totalVolume += uint128(Quantity.unwrap(order.quantity));
+        unchecked {
+            queue.totalVolume += uint128(Quantity.unwrap(order.quantity));
+            queue.orderCount++;
+        }
 
         return true;
     }

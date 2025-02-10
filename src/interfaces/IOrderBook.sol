@@ -9,11 +9,11 @@ interface IOrderBook {
         address user;
         OrderId next;
         OrderId prev;
-        Price price;
         uint48 timestamp;
+        uint48 expiry;
+        Price price;
         Quantity quantity;
         Quantity filled;
-        uint48 expiry;
     }
 
     struct PriceVolume {
@@ -28,6 +28,7 @@ interface IOrderBook {
         Price price,
         Quantity quantity,
         uint48 timestamp,
+        uint48 expiry,
         bool isMarketOrder
     );
 

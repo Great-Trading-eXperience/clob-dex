@@ -46,7 +46,11 @@ contract OrderBook is IOrderBook, ReentrancyGuard {
         if (Quantity.unwrap(quantity) == 0) revert InvalidQuantity();
         if (Price.unwrap(price) == 0) revert InvalidPrice(Price.unwrap(price));
 
-        OrderId orderId = OrderId.wrap(nextOrderId++);
+        unchecked {
+            nextOrderId++;
+        }
+
+        OrderId orderId = OrderId.wrap(nextOrderId);
 
         Order memory newOrder = Order({
             id: orderId,
@@ -77,6 +81,7 @@ contract OrderBook is IOrderBook, ReentrancyGuard {
             price,
             quantity,
             uint48(block.timestamp),
+            newOrder.expiry,
             false
         );
 
@@ -132,6 +137,7 @@ contract OrderBook is IOrderBook, ReentrancyGuard {
             Price.wrap(0),
             quantity,
             uint48(block.timestamp),
+            marketOrder.expiry,
             true
         );
 
@@ -182,9 +188,9 @@ contract OrderBook is IOrderBook, ReentrancyGuard {
     function getOrderQueue(
         Side side,
         Price price
-    ) external view returns (uint256 orderCount, uint256 totalVolume) {
+    ) external view returns (uint48 orderCount, uint256 totalVolume) {
         OrderQueueLib.OrderQueue storage queue = orderQueues[side][price];
-        uint256 validOrderCount = 0;
+        uint48 validOrderCount = 0;
         uint256 validVolume = 0;
 
         uint48 currentOrderId = queue.head;
@@ -207,9 +213,9 @@ contract OrderBook is IOrderBook, ReentrancyGuard {
     ) external view override returns (Order[] memory) {
         EnumerableSet.UintSet storage userOrders = activeUserOrders[user];
         Order[] memory orders = new Order[](userOrders.length());
-        uint256 validOrderCount = 0;
+        uint48 validOrderCount = 0;
 
-        for (uint256 i = 0; i < userOrders.length(); i++) {
+        for (uint48 i = 0; i < userOrders.length(); i++) {
             (Side side, Price price, uint48 orderId) = OrderPacking.unpackOrder(
                 userOrders.at(i)
             );

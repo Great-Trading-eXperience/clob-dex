@@ -20,7 +20,7 @@ contract OrderBookTest is Test {
         vm.startPrank(alice);
         orderBook.placeOrder(Price.wrap(1000), Quantity.wrap(10), Side.SELL);
 
-        (uint256 orderCount, uint256 totalVolume) = orderBook.getOrderQueue(
+        (uint48 orderCount, uint256 totalVolume) = orderBook.getOrderQueue(
             Side.SELL,
             Price.wrap(1000)
         );
@@ -40,7 +40,7 @@ contract OrderBookTest is Test {
 
         orderBook.cancelOrder(Side.SELL, Price.wrap(1000), orderId);
 
-        (uint256 orderCount, uint256 totalVolume) = orderBook.getOrderQueue(
+        (uint48 orderCount, uint256 totalVolume) = orderBook.getOrderQueue(
             Side.SELL,
             Price.wrap(1000)
         );
@@ -60,7 +60,7 @@ contract OrderBookTest is Test {
         vm.prank(charlie);
         orderBook.placeMarketOrder(Quantity.wrap(15), Side.BUY);
 
-        (uint256 orderCount, uint256 totalVolume) = orderBook.getOrderQueue(
+        (uint48 orderCount, uint256 totalVolume) = orderBook.getOrderQueue(
             Side.SELL,
             Price.wrap(1000)
         );
@@ -84,7 +84,7 @@ contract OrderBookTest is Test {
         vm.prank(bob);
         orderBook.placeOrder(Price.wrap(1000), Quantity.wrap(10), Side.BUY);
 
-        (uint256 orderCount, uint256 totalVolume) = orderBook.getOrderQueue(
+        (uint48 orderCount, uint256 totalVolume) = orderBook.getOrderQueue(
             Side.SELL,
             Price.wrap(1000)
         );
@@ -164,12 +164,16 @@ contract OrderBookTest is Test {
 
     function testOrderBookWithHundredsOfTradersbuyAndSell() public {
         address[] memory traders = new address[](100);
-        for (uint i = 0; i < 100; i++) {
+        for (uint256 i = 0; i < 100; i++) {
             traders[i] = address(uint160(i + 1000));
         }
 
-        for (uint priceLevel = 0; priceLevel < 25; priceLevel++) {
-            for (uint traderIdx = 0; traderIdx < traders.length; traderIdx++) {
+        for (uint256 priceLevel = 0; priceLevel < 25; priceLevel++) {
+            for (
+                uint256 traderIdx = 0;
+                traderIdx < traders.length;
+                traderIdx++
+            ) {
                 vm.prank(traders[traderIdx]);
                 orderBook.placeOrder(
                     Price.wrap(uint64(1000 + priceLevel)),
@@ -179,8 +183,12 @@ contract OrderBookTest is Test {
             }
         }
 
-        for (uint priceLevel = 25; priceLevel < 50; priceLevel++) {
-            for (uint traderIdx = 0; traderIdx < traders.length; traderIdx++) {
+        for (uint256 priceLevel = 25; priceLevel < 50; priceLevel++) {
+            for (
+                uint256 traderIdx = 0;
+                traderIdx < traders.length;
+                traderIdx++
+            ) {
                 vm.prank(traders[traderIdx]);
                 orderBook.placeOrder(
                     Price.wrap(uint64(1000 + priceLevel)),
