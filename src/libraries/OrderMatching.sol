@@ -72,6 +72,16 @@ library OrderMatching {
             }
         }
 
+        if (remaining == 0 && !isMarketOrder) {
+            orders[orderSide][order.price].removeOrder(
+                OrderId.unwrap(order.id)
+            );
+
+            if (orders[orderSide][order.price].orderCount == 0) {
+                priceTrees[orderSide].remove(order.price);
+            }
+        }
+
         return filled;
     }
 
