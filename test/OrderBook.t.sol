@@ -99,8 +99,10 @@ contract OrderBookTest is Test {
         orderBook.placeOrder(Price.wrap(900), Quantity.wrap(5), Side.SELL);
         vm.stopPrank();
 
-        Price bestPrice = orderBook.getBestPrice(Side.SELL);
-        assertEq(Price.unwrap(bestPrice), 900);
+        OrderBook.PriceVolume memory bestPriceVolume = orderBook.getBestPrice(
+            Side.SELL
+        );
+        assertEq(Price.unwrap(bestPriceVolume.price), 900);
     }
 
     function testGetNextBestPrices() public {

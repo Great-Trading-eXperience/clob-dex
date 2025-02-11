@@ -58,7 +58,7 @@ interface IOrderBook {
         address user
     ) external view returns (Order[] memory);
 
-    function getBestPrice(Side side) external view returns (Price);
+    function getBestPrice(Side side) external view returns (PriceVolume memory);
 
     function getNextBestPrices(
         Side side,

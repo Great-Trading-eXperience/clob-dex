@@ -46,10 +46,6 @@ contract OrderBook is IOrderBook, ReentrancyGuard {
         if (Quantity.unwrap(quantity) == 0) revert InvalidQuantity();
         if (Price.unwrap(price) == 0) revert InvalidPrice(Price.unwrap(price));
 
-        unchecked {
-            nextOrderId++;
-        }
-
         OrderId orderId = OrderId.wrap(nextOrderId);
 
         Order memory newOrder = Order({
@@ -93,6 +89,10 @@ contract OrderBook is IOrderBook, ReentrancyGuard {
             msg.sender,
             false
         );
+
+        unchecked {
+            nextOrderId++;
+        }
 
         return orderId;
     }
@@ -178,11 +178,18 @@ contract OrderBook is IOrderBook, ReentrancyGuard {
         }
     }
 
-    function getBestPrice(Side side) external view override returns (Price) {
+    function getBestPrice(
+        Side side
+    ) external view override returns (PriceVolume memory) {
+        Price price = side == Side.BUY
+            ? priceTrees[side].last()
+            : priceTrees[side].first();
+
         return
-            side == Side.BUY
-                ? priceTrees[side].last()
-                : priceTrees[side].first();
+            PriceVolume({
+                price: price,
+                volume: orderQueues[side][price].totalVolume
+            });
     }
 
     function getOrderQueue(
