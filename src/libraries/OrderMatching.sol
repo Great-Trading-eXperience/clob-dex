@@ -16,6 +16,7 @@ library OrderMatching {
         address indexed user,
         OrderId indexed buyOrderId,
         OrderId indexed sellOrderId,
+        Side side,
         uint48 timestamp,
         Price executionPrice,
         Quantity executedQuantity
@@ -133,58 +134,77 @@ library OrderMatching {
         uint48 currentOrderId = queue.head;
         filledAmount = 0;
         remainingAfter = remaining;
+        uint128 executedQuantity;
 
         while (currentOrderId != 0 && remainingAfter > 0) {
-            IOrderBook.Order storage matchingOrder = queue.orders[
+            (currentOrderId, executedQuantity) = processMatchingOrder(
+                order,
+                side,
+                matchPrice,
+                remainingAfter,
+                queue,
+                trader,
                 currentOrderId
-            ];
-            uint48 nextOrderId = uint48(OrderId.unwrap(matchingOrder.next));
-
-            if (matchingOrder.expiry <= block.timestamp) {
-                queue.removeOrder(currentOrderId);
-                currentOrderId = nextOrderId;
-                continue;
-            }
-
-            if (matchingOrder.user == trader) {
-                currentOrderId = nextOrderId;
-                continue;
-            }
-
-            uint128 matchingRemaining = uint128(
-                Quantity.unwrap(matchingOrder.quantity)
-            ) - uint128(Quantity.unwrap(matchingOrder.filled));
-            uint128 executedQuantity = remainingAfter < matchingRemaining
-                ? remainingAfter
-                : matchingRemaining;
-
-            matchingOrder.filled = Quantity.wrap(
-                uint128(Quantity.unwrap(matchingOrder.filled)) +
-                    executedQuantity
             );
+
             remainingAfter -= executedQuantity;
             filledAmount += executedQuantity;
-            queue.totalVolume -= executedQuantity;
-
-            if (
-                uint128(Quantity.unwrap(matchingOrder.filled)) ==
-                uint128(Quantity.unwrap(matchingOrder.quantity))
-            ) {
-                queue.removeOrder(currentOrderId);
-            }
-
-            emit OrderMatched(
-                trader,
-                side == Side.BUY ? order.id : OrderId.wrap(currentOrderId),
-                side == Side.SELL ? order.id : OrderId.wrap(currentOrderId),
-                uint48(block.timestamp),
-                matchPrice,
-                Quantity.wrap(executedQuantity)
-            );
-
-            currentOrderId = nextOrderId;
         }
 
         return (remainingAfter, filledAmount);
+    }
+
+    function processMatchingOrder(
+        IOrderBook.Order memory order,
+        Side side,
+        Price matchPrice,
+        uint128 remainingQty,
+        OrderQueueLib.OrderQueue storage queue,
+        address trader,
+        uint48 currentOrderId
+    ) private returns (uint48 nextOrderId, uint128 executedQuantity) {
+        IOrderBook.Order storage matchingOrder = queue.orders[currentOrderId];
+        nextOrderId = uint48(OrderId.unwrap(matchingOrder.next));
+        executedQuantity = 0;
+
+        if (matchingOrder.expiry <= block.timestamp) {
+            queue.removeOrder(currentOrderId);
+            return (nextOrderId, 0);
+        }
+
+        if (matchingOrder.user == trader) {
+            return (nextOrderId, 0);
+        }
+
+        uint128 matchingRemaining = uint128(
+            Quantity.unwrap(matchingOrder.quantity)
+        ) - uint128(Quantity.unwrap(matchingOrder.filled));
+        executedQuantity = remainingQty < matchingRemaining
+            ? remainingQty
+            : matchingRemaining;
+
+        matchingOrder.filled = Quantity.wrap(
+            uint128(Quantity.unwrap(matchingOrder.filled)) + executedQuantity
+        );
+        queue.totalVolume -= executedQuantity;
+
+        if (
+            uint128(Quantity.unwrap(matchingOrder.filled)) ==
+            uint128(Quantity.unwrap(matchingOrder.quantity))
+        ) {
+            queue.removeOrder(currentOrderId);
+        }
+
+        emit OrderMatched(
+            trader,
+            side == Side.BUY ? order.id : OrderId.wrap(currentOrderId),
+            side == Side.SELL ? order.id : OrderId.wrap(currentOrderId),
+            side,
+            uint48(block.timestamp),
+            matchPrice,
+            Quantity.wrap(executedQuantity)
+        );
+
+        return (nextOrderId, executedQuantity);
     }
 }
