@@ -15,3 +15,11 @@ enum Side {
     BUY,
     SELL
 }
+
+enum Status {
+    OPEN,
+    PARTIALLY_FILLED,
+    FILLED,
+    CANCELLED,
+    EXPIRED
+}

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.26;
 import {Price} from "../libraries/BokkyPooBahsRedBlackTreeLibrary.sol";
-import {OrderId, Quantity, Side} from "../types/Types.sol";
+import {OrderId, Quantity, Side, Status} from "../types/Types.sol";
 
 interface IOrderBook {
     struct Order {
@@ -12,6 +12,7 @@ interface IOrderBook {
         uint48 timestamp;
         uint48 expiry;
         Price price;
+        Status status;
         Quantity quantity;
         Quantity filled;
     }
@@ -29,16 +30,15 @@ interface IOrderBook {
         Quantity quantity,
         uint48 timestamp,
         uint48 expiry,
-        bool isMarketOrder
+        bool isMarketOrder,
+        Status status
     );
 
     event OrderCancelled(
         OrderId indexed orderId,
         address indexed user,
-        Side indexed side,
-        Price price,
-        Quantity remainingQuantity,
-        uint48 timestamp
+        uint48 timestamp,
+        Status status
     );
 
     function placeOrder(

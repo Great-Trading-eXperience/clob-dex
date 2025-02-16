@@ -2,5 +2,13 @@
 src = "src"
 out = "out"
 libs = ["lib"]
+solc = "0.8.26" # Add your specific compiler version here
+
 
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
+[profile.rpc]
+url = "https://testnet.riselabs.xyz"
+
+[profile.verification]
+verifier = "blockscout"
+verifier-url = "https://testnet-explorer.riselabs.xyz/api/"

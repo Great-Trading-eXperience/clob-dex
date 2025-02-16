@@ -4,6 +4,7 @@ pragma solidity ^0.8.26;
 
 import "./OrderQueueLib.sol";
 import {BokkyPooBahsRedBlackTreeLibrary as RBTree, Price} from "./BokkyPooBahsRedBlackTreeLibrary.sol";
+import {Status} from "../types/Types.sol";
 
 /// @title OrderMatching - A library for matching orders in a CLOB
 /// @notice Provides functionality to match orders in a Central Limit Order Book
@@ -21,6 +22,8 @@ library OrderMatching {
         Price executionPrice,
         Quantity executedQuantity
     );
+
+    event UpdateOrder(OrderId indexed orderId, uint48 timestamp, Quantity filled, Status status);
 
     /// @notice Matches an order against the opposite side of the order book
     /// @param order The order to be matched
@@ -149,6 +152,10 @@ library OrderMatching {
 
             remainingAfter -= executedQuantity;
             filledAmount += executedQuantity;
+
+            if (filledAmount > 0) {
+                emit UpdateOrder(order.id, uint48(block.timestamp), Quantity.wrap(filledAmount), remainingAfter == 0 ? Status.FILLED : Status.PARTIALLY_FILLED);
+            }
         }
 
         return (remainingAfter, filledAmount);
@@ -169,6 +176,12 @@ library OrderMatching {
 
         if (matchingOrder.expiry <= block.timestamp) {
             queue.removeOrder(currentOrderId);
+            emit UpdateOrder(
+                OrderId.wrap(currentOrderId),
+                uint48(block.timestamp),
+                Quantity.wrap(0),
+                Status.EXPIRED
+            );
             return (nextOrderId, 0);
         }
 
@@ -188,13 +201,6 @@ library OrderMatching {
         );
         queue.totalVolume -= executedQuantity;
 
-        if (
-            uint128(Quantity.unwrap(matchingOrder.filled)) ==
-            uint128(Quantity.unwrap(matchingOrder.quantity))
-        ) {
-            queue.removeOrder(currentOrderId);
-        }
-
         emit OrderMatched(
             trader,
             side == Side.BUY ? order.id : OrderId.wrap(currentOrderId),
@@ -204,6 +210,13 @@ library OrderMatching {
             matchPrice,
             Quantity.wrap(executedQuantity)
         );
+
+        if (
+            uint128(Quantity.unwrap(matchingOrder.filled)) ==
+            uint128(Quantity.unwrap(matchingOrder.quantity))
+        ) {
+            queue.removeOrder(currentOrderId);
+        }
 
         return (nextOrderId, executedQuantity);
     }

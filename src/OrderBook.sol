@@ -2,7 +2,7 @@
 pragma solidity ^0.8.26;
 
 import {IOrderBook} from "./interfaces/IOrderBook.sol";
-import {OrderId, Quantity, Side} from "./types/Types.sol";
+import {OrderId, Quantity, Side, Status} from "./types/Types.sol";
 import {BokkyPooBahsRedBlackTreeLibrary as RBTree, Price} from "./libraries/BokkyPooBahsRedBlackTreeLibrary.sol";
 import {OrderQueueLib} from "./libraries/OrderQueueLib.sol";
 import {OrderMatching} from "./libraries/OrderMatching.sol";
@@ -57,7 +57,8 @@ contract OrderBook is IOrderBook, ReentrancyGuard {
             timestamp: uint48(block.timestamp),
             quantity: quantity,
             filled: Quantity.wrap(0),
-            expiry: uint48(block.timestamp + EXPIRY_DAYS)
+            expiry: uint48(block.timestamp + EXPIRY_DAYS),
+            status: Status.OPEN
         });
 
         orderQueues[side][price].addOrder(newOrder);
@@ -78,7 +79,8 @@ contract OrderBook is IOrderBook, ReentrancyGuard {
             quantity,
             uint48(block.timestamp),
             newOrder.expiry,
-            false
+            false,
+            Status.OPEN
         );
 
         OrderMatching.matchOrder(
@@ -118,17 +120,9 @@ contract OrderBook is IOrderBook, ReentrancyGuard {
             timestamp: uint48(block.timestamp),
             quantity: quantity,
             filled: Quantity.wrap(0),
-            expiry: uint48(block.timestamp + EXPIRY_DAYS)
+            expiry: uint48(block.timestamp + EXPIRY_DAYS),
+            status: Status.OPEN
         });
-
-        OrderMatching.matchOrder(
-            marketOrder,
-            side,
-            orderQueues,
-            priceTrees,
-            msg.sender,
-            true
-        );
 
         emit OrderPlaced(
             orderId,
@@ -138,6 +132,16 @@ contract OrderBook is IOrderBook, ReentrancyGuard {
             quantity,
             uint48(block.timestamp),
             marketOrder.expiry,
+            true,
+            Status.OPEN
+        );
+
+        OrderMatching.matchOrder(
+            marketOrder,
+            side,
+            orderQueues,
+            priceTrees,
+            msg.sender,
             true
         );
 
@@ -154,11 +158,14 @@ contract OrderBook is IOrderBook, ReentrancyGuard {
 
         if (order.user != msg.sender) revert UnauthorizedCancellation();
 
-        Quantity remainingQuantity = Quantity.wrap(
-            Quantity.unwrap(order.quantity) - Quantity.unwrap(order.filled)
-        );
-
         queue.removeOrder(OrderId.unwrap(orderId));
+
+        emit OrderMatching.UpdateOrder(
+            orderId,
+            uint48(block.timestamp),
+            order.filled,
+            Status.CANCELLED
+        );
 
         activeUserOrders[msg.sender].remove(
             OrderPacking.packOrder(side, price, OrderId.unwrap(orderId))
@@ -167,10 +174,8 @@ contract OrderBook is IOrderBook, ReentrancyGuard {
         emit OrderCancelled(
             orderId,
             msg.sender,
-            side,
-            price,
-            remainingQuantity,
-            uint48(block.timestamp)
+            uint48(block.timestamp),
+            Status.CANCELLED
         );
 
         if (queue.isEmpty()) {
