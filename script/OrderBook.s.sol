@@ -12,7 +12,7 @@ contract OrderBookScript is Script {
     function run() public {
         vm.startBroadcast();
 
-        orderBook = new OrderBook();
+        // orderBook = new OrderBook();
 
         vm.stopBroadcast();
     }

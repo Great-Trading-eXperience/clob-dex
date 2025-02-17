@@ -3,8 +3,15 @@ pragma solidity ^0.8.26;
 
 import {Test, console} from "forge-std/Test.sol";
 import {OrderBook} from "../src/OrderBook.sol";
+import {PoolManager} from "../src/PoolManager.sol";
 import {OrderId, Quantity, Side} from "../src/types/Types.sol";
+import {Currency} from "../src/types/Currency.sol";
+import {PoolKey} from "../src/types/Pool.sol";
 import {Price} from "../src/libraries/BokkyPooBahsRedBlackTreeLibrary.sol";
+import {ERC20Mock} from "@openzeppelin/contracts/mocks/token/ERC20Mock.sol";
+import {MockWETH} from "../src/mocks/MockWETH.sol";
+import {MockUSDC} from "../src/mocks/MockUSDC.sol";
+import {MockPoolManager} from "./mocks/MockPoolManager.sol";
 
 contract OrderBookTest is Test {
     OrderBook public orderBook;
@@ -12,18 +19,29 @@ contract OrderBookTest is Test {
     address bob = address(0x2);
     address charlie = address(0x3);
 
+    address baseTokenAddress;
+    address quoteTokenAddress;
+    MockPoolManager public mockPoolManager;
+
     function setUp() public {
-        orderBook = new OrderBook();
+        baseTokenAddress = address(new MockWETH());
+        quoteTokenAddress = address(new MockUSDC());
+
+        PoolKey memory poolKey =
+            PoolKey({baseCurrency: Currency.wrap(baseTokenAddress), quoteCurrency: Currency.wrap(quoteTokenAddress)});
+
+        mockPoolManager = new MockPoolManager(alice);
+        orderBook = new OrderBook(address(mockPoolManager), poolKey);
     }
 
     function testBasicOrderPlacement() public {
         vm.startPrank(alice);
-        orderBook.placeOrder(Price.wrap(1000), Quantity.wrap(10), Side.SELL);
+        orderBook.placeOrder(Price.wrap(1000), Quantity.wrap(10), Side.SELL, alice);
 
-        (uint48 orderCount, uint256 totalVolume) = orderBook.getOrderQueue(
-            Side.SELL,
-            Price.wrap(1000)
-        );
+        (uint48 orderCount, uint256 totalVolume) = orderBook.getOrderQueue(Side.SELL, Price.wrap(1000));
+
+        console.log("Order Count:", orderCount);
+        console.log("Total Volume:", totalVolume);
 
         assertEq(orderCount, 1);
         assertEq(totalVolume, 10);
@@ -32,18 +50,13 @@ contract OrderBookTest is Test {
 
     function testOrderCancellation() public {
         vm.startPrank(alice);
-        OrderId orderId = orderBook.placeOrder(
-            Price.wrap(1000),
-            Quantity.wrap(10),
-            Side.SELL
-        );
+        OrderId orderId = orderBook.placeOrder(Price.wrap(1000), Quantity.wrap(10), Side.SELL, alice);
 
-        orderBook.cancelOrder(Side.SELL, Price.wrap(1000), orderId);
+        orderBook.cancelOrder(Side.SELL, Price.wrap(1000), orderId, alice);
 
-        (uint48 orderCount, uint256 totalVolume) = orderBook.getOrderQueue(
-            Side.SELL,
-            Price.wrap(1000)
-        );
+        (uint48 orderCount, uint256 totalVolume) = orderBook.getOrderQueue(Side.SELL, Price.wrap(1000));
+        console.log("Order Count:", orderCount);
+        console.log("Total Volume:", totalVolume);
 
         assertEq(orderCount, 0);
         assertEq(totalVolume, 0);
@@ -52,42 +65,37 @@ contract OrderBookTest is Test {
 
     function testMarketOrder() public {
         vm.prank(alice);
-        orderBook.placeOrder(Price.wrap(1000), Quantity.wrap(10), Side.SELL);
+        orderBook.placeOrder(Price.wrap(2000), Quantity.wrap(20), Side.SELL, alice);
 
         vm.prank(bob);
-        orderBook.placeOrder(Price.wrap(1050), Quantity.wrap(10), Side.SELL);
+        orderBook.placeOrder(Price.wrap(1050), Quantity.wrap(10), Side.SELL, bob);
 
         vm.prank(charlie);
-        orderBook.placeMarketOrder(Quantity.wrap(15), Side.BUY);
+        orderBook.placeMarketOrder(Quantity.wrap(15), Side.BUY, charlie);
 
-        (uint48 orderCount, uint256 totalVolume) = orderBook.getOrderQueue(
-            Side.SELL,
-            Price.wrap(1000)
-        );
+        (uint48 orderCount, uint256 totalVolume) = orderBook.getOrderQueue(Side.SELL, Price.wrap(1000));
+        console.log("Order Count:", orderCount);
+        console.log("Total Volume:", totalVolume);
 
         assertEq(totalVolume, 0);
         assertEq(orderCount, 0);
 
-        (orderCount, totalVolume) = orderBook.getOrderQueue(
-            Side.SELL,
-            Price.wrap(1050)
-        );
+        (orderCount, totalVolume) = orderBook.getOrderQueue(Side.SELL, Price.wrap(2000));
+        console.log("Order Count:", orderCount);
+        console.log("Total Volume:", totalVolume);
 
-        assertEq(totalVolume, 5);
+        assertEq(totalVolume, 15);
         assertEq(orderCount, 1);
     }
 
     function testOrderMatching() public {
         vm.prank(alice);
-        orderBook.placeOrder(Price.wrap(1000), Quantity.wrap(10), Side.SELL);
+        orderBook.placeOrder(Price.wrap(1000), Quantity.wrap(10), Side.SELL, alice);
 
         vm.prank(bob);
-        orderBook.placeOrder(Price.wrap(1000), Quantity.wrap(10), Side.BUY);
+        orderBook.placeOrder(Price.wrap(1000), Quantity.wrap(10), Side.BUY, bob);
 
-        (uint48 orderCount, uint256 totalVolume) = orderBook.getOrderQueue(
-            Side.SELL,
-            Price.wrap(1000)
-        );
+        (uint48 orderCount, uint256 totalVolume) = orderBook.getOrderQueue(Side.SELL, Price.wrap(1000));
 
         assertEq(orderCount, 0);
         assertEq(totalVolume, 0);
@@ -95,8 +103,8 @@ contract OrderBookTest is Test {
 
     function testGetBestPrice() public {
         vm.startPrank(alice);
-        orderBook.placeOrder(Price.wrap(1000), Quantity.wrap(10), Side.SELL);
-        orderBook.placeOrder(Price.wrap(900), Quantity.wrap(5), Side.SELL);
+        orderBook.placeOrder(Price.wrap(1000), Quantity.wrap(10), Side.SELL, alice);
+        orderBook.placeOrder(Price.wrap(900), Quantity.wrap(5), Side.SELL, alice);
         vm.stopPrank();
 
         OrderBook.PriceVolume memory bestPriceVolume = orderBook.getBestPrice(
@@ -107,16 +115,12 @@ contract OrderBookTest is Test {
 
     function testGetNextBestPrices() public {
         vm.startPrank(alice);
-        orderBook.placeOrder(Price.wrap(1000), Quantity.wrap(10), Side.SELL);
-        orderBook.placeOrder(Price.wrap(900), Quantity.wrap(5), Side.SELL);
-        orderBook.placeOrder(Price.wrap(800), Quantity.wrap(3), Side.SELL);
+        orderBook.placeOrder(Price.wrap(1000), Quantity.wrap(10), Side.SELL, alice);
+        orderBook.placeOrder(Price.wrap(900), Quantity.wrap(5), Side.SELL, alice);
+        orderBook.placeOrder(Price.wrap(800), Quantity.wrap(3), Side.SELL, alice);
         vm.stopPrank();
 
-        OrderBook.PriceVolume[] memory levels = orderBook.getNextBestPrices(
-            Side.SELL,
-            Price.wrap(0),
-            3
-        );
+        OrderBook.PriceVolume[] memory levels = orderBook.getNextBestPrices(Side.SELL, Price.wrap(0), 3);
 
         assertEq(Price.unwrap(levels[0].price), 800);
         assertEq(levels[0].volume, 3);
@@ -128,13 +132,11 @@ contract OrderBookTest is Test {
 
     function testGetUserActiveOrders() public {
         vm.startPrank(alice);
-        orderBook.placeOrder(Price.wrap(1000), Quantity.wrap(10), Side.SELL);
-        orderBook.placeOrder(Price.wrap(900), Quantity.wrap(5), Side.SELL);
+        orderBook.placeOrder(Price.wrap(1000), Quantity.wrap(10), Side.SELL, alice);
+        orderBook.placeOrder(Price.wrap(900), Quantity.wrap(5), Side.SELL, alice);
         vm.stopPrank();
 
-        OrderBook.Order[] memory aliceOrders = orderBook.getUserActiveOrders(
-            alice
-        );
+        OrderBook.Order[] memory aliceOrders = orderBook.getUserActiveOrders(alice);
         assertEq(aliceOrders.length, 2);
         assertEq(alice, aliceOrders[0].user);
         assertEq(alice, aliceOrders[1].user);
@@ -142,22 +144,18 @@ contract OrderBookTest is Test {
 
     function testUnauthorizedCancellation() public {
         vm.prank(alice);
-        OrderId orderId = orderBook.placeOrder(
-            Price.wrap(1000),
-            Quantity.wrap(10),
-            Side.SELL
-        );
+        OrderId orderId = orderBook.placeOrder(Price.wrap(1000), Quantity.wrap(10), Side.SELL, alice);
 
         vm.prank(bob);
         vm.expectRevert(OrderBook.UnauthorizedCancellation.selector);
-        orderBook.cancelOrder(Side.SELL, Price.wrap(1000), orderId);
+        orderBook.cancelOrder(Side.SELL, Price.wrap(1000), orderId, bob);
     }
 
     function testGasUsageOrderPlacement() public {
         vm.startPrank(alice);
         uint256 gasBefore = gasleft();
 
-        orderBook.placeOrder(Price.wrap(1000), Quantity.wrap(10), Side.SELL);
+        orderBook.placeOrder(Price.wrap(1000), Quantity.wrap(10), Side.SELL, alice);
 
         uint256 gasUsed = gasBefore - gasleft();
         console.log("Gas used for order placement:", gasUsed);
@@ -171,77 +169,45 @@ contract OrderBookTest is Test {
         }
 
         for (uint256 priceLevel = 0; priceLevel < 25; priceLevel++) {
-            for (
-                uint256 traderIdx = 0;
-                traderIdx < traders.length;
-                traderIdx++
-            ) {
+            for (uint256 traderIdx = 0; traderIdx < traders.length; traderIdx++) {
                 vm.prank(traders[traderIdx]);
                 orderBook.placeOrder(
-                    Price.wrap(uint64(1000 + priceLevel)),
-                    Quantity.wrap(10),
-                    Side.BUY
+                    Price.wrap(uint64(1000 + priceLevel)), Quantity.wrap(10), Side.BUY, traders[traderIdx]
                 );
             }
         }
 
         for (uint256 priceLevel = 25; priceLevel < 50; priceLevel++) {
-            for (
-                uint256 traderIdx = 0;
-                traderIdx < traders.length;
-                traderIdx++
-            ) {
+            for (uint256 traderIdx = 0; traderIdx < traders.length; traderIdx++) {
                 vm.prank(traders[traderIdx]);
                 orderBook.placeOrder(
-                    Price.wrap(uint64(1000 + priceLevel)),
-                    Quantity.wrap(10),
-                    Side.SELL
+                    Price.wrap(uint64(1000 + priceLevel)), Quantity.wrap(10), Side.SELL, traders[traderIdx]
                 );
             }
         }
 
-        (uint256 buyOrderCount, ) = orderBook.getOrderQueue(
-            Side.BUY,
-            Price.wrap(1024)
-        );
-        assertEq(
-            buyOrderCount,
-            100,
-            "Should have 100 buy orders at price 1024"
-        );
+        (uint256 buyOrderCount,) = orderBook.getOrderQueue(Side.BUY, Price.wrap(1024));
+        assertEq(buyOrderCount, 100, "Should have 100 buy orders at price 1024");
 
-        (uint256 sellOrderCount, ) = orderBook.getOrderQueue(
-            Side.SELL,
-            Price.wrap(1025)
-        );
-        assertEq(
-            sellOrderCount,
-            100,
-            "Should have 100 sell orders at price 1025"
-        );
+        (uint256 sellOrderCount,) = orderBook.getOrderQueue(Side.SELL, Price.wrap(1025));
+        assertEq(sellOrderCount, 100, "Should have 100 sell orders at price 1025");
     }
 
     function testMarketOrderMatching() public {
         // Setup sell orders
         vm.startPrank(alice);
-        orderBook.placeOrder(Price.wrap(1000), Quantity.wrap(10), Side.SELL);
-        orderBook.placeOrder(Price.wrap(1100), Quantity.wrap(5), Side.SELL);
+        orderBook.placeOrder(Price.wrap(1000), Quantity.wrap(10), Side.SELL, alice);
+        orderBook.placeOrder(Price.wrap(1100), Quantity.wrap(5), Side.SELL, alice);
         vm.stopPrank();
 
         // Place market buy order
         vm.startPrank(bob);
-        orderBook.placeMarketOrder(Quantity.wrap(15), Side.BUY);
+        orderBook.placeMarketOrder(Quantity.wrap(15), Side.BUY, bob);
         vm.stopPrank();
 
         // Verify orders were matched
-        (uint256 orderCount1, uint256 totalVolume1) = orderBook.getOrderQueue(
-            Side.SELL,
-            Price.wrap(1000)
-        );
-        (uint256 orderCount2, uint256 totalVolume2) = orderBook.getOrderQueue(
-            Side.SELL,
-            Price.wrap(1100)
-        );
+        (uint256 orderCount1, uint256 totalVolume1) = orderBook.getOrderQueue(Side.SELL, Price.wrap(1000));
+        (uint256 orderCount2, uint256 totalVolume2) = orderBook.getOrderQueue(Side.SELL, Price.wrap(1100));
 
         assertEq(orderCount1, 0, "First order queue should be empty");
         assertEq(totalVolume1, 0, "First order queue volume should be 0");
@@ -252,19 +218,16 @@ contract OrderBookTest is Test {
     function testPartialMarketOrderMatching() public {
         // Setup sell order
         vm.startPrank(alice);
-        orderBook.placeOrder(Price.wrap(1000), Quantity.wrap(10), Side.SELL);
+        orderBook.placeOrder(Price.wrap(1000), Quantity.wrap(10), Side.SELL, alice);
         vm.stopPrank();
 
         // Place partial market buy order
         vm.startPrank(bob);
-        orderBook.placeMarketOrder(Quantity.wrap(6), Side.BUY);
+        orderBook.placeMarketOrder(Quantity.wrap(6), Side.BUY, bob);
         vm.stopPrank();
 
         // Verify partial fill
-        (uint256 orderCount, uint256 totalVolume) = orderBook.getOrderQueue(
-            Side.SELL,
-            Price.wrap(1000)
-        );
+        (uint256 orderCount, uint256 totalVolume) = orderBook.getOrderQueue(Side.SELL, Price.wrap(1000));
 
         assertEq(orderCount, 1, "Order should still exist");
         assertEq(totalVolume, 4, "Remaining volume should be 4");

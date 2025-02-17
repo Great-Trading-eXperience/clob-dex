@@ -9,6 +9,11 @@ import {OrderMatching} from "./libraries/OrderMatching.sol";
 import {OrderPacking} from "./libraries/OrderPacking.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+import {PoolKey} from "./types/Pool.sol";
+import {IERC6909Lock} from "./interfaces/external/IERC6909Lock.sol";
+
+import {Currency} from "./types/Currency.sol";
+import {IPoolManager} from "./interfaces/IPoolManager.sol";
 
 /// @title OrderBook - A Central Limit Order Book implementation
 /// @notice Manages limit and market orders in a decentralized exchange
@@ -28,21 +33,28 @@ contract OrderBook is IOrderBook, ReentrancyGuard {
 
     mapping(address => EnumerableSet.UintSet) private activeUserOrders;
     mapping(Side => RBTree.Tree) private priceTrees;
-    mapping(Side => mapping(Price => OrderQueueLib.OrderQueue))
-        private orderQueues;
+    mapping(Side => mapping(Price => OrderQueueLib.OrderQueue)) private orderQueues;
 
     uint48 private nextOrderId = 1;
+    address private poolManager;
+    PoolKey private poolKey;
+
+    constructor(address _poolManager, PoolKey memory _poolKey) {
+        poolManager = _poolManager;
+        poolKey = _poolKey;
+    }
 
     /// @notice Places a new limit order
     /// @param price The price of the order
     /// @param quantity The quantity of the order
     /// @param side The side of the order (BUY/SELL)
     /// @return orderId The ID of the placed order
-    function placeOrder(
-        Price price,
-        Quantity quantity,
-        Side side
-    ) external override nonReentrant returns (OrderId) {
+    function placeOrder(Price price, Quantity quantity, Side side, address user)
+        external
+        override
+        nonReentrant
+        returns (OrderId)
+    {
         if (Quantity.unwrap(quantity) == 0) revert InvalidQuantity();
         if (Price.unwrap(price) == 0) revert InvalidPrice(Price.unwrap(price));
 
@@ -50,7 +62,7 @@ contract OrderBook is IOrderBook, ReentrancyGuard {
 
         Order memory newOrder = Order({
             id: orderId,
-            user: msg.sender,
+            user: user,
             next: OrderId.wrap(0),
             prev: OrderId.wrap(0),
             price: price,
@@ -67,30 +79,23 @@ contract OrderBook is IOrderBook, ReentrancyGuard {
             priceTrees[side].insert(price);
         }
 
-        activeUserOrders[msg.sender].add(
-            OrderPacking.packOrder(side, price, OrderId.unwrap(orderId))
-        );
+        activeUserOrders[user].add(OrderPacking.packOrder(side, price, OrderId.unwrap(orderId)));
 
         emit OrderPlaced(
-            orderId,
-            msg.sender,
-            side,
-            price,
-            quantity,
-            uint48(block.timestamp),
-            newOrder.expiry,
-            false,
-            Status.OPEN
+            orderId, user, side, price, quantity, uint48(block.timestamp), newOrder.expiry, false, Status.OPEN
         );
 
-        OrderMatching.matchOrder(
-            newOrder,
-            side,
-            orderQueues,
-            priceTrees,
-            msg.sender,
-            false
-        );
+        // Lock balance
+        (Currency currency, uint256 amount) =
+            IPoolManager(poolManager).calculateAmountAndCurrency(poolKey, price, quantity, side);
+        IERC6909Lock(poolManager).lock(user, currency.toId(), amount);
+
+        Pool memory pool = Pool({poolManager: poolManager, poolKey: poolKey});
+
+        OrderMatching.MatchOrder memory matchOrder =
+            OrderMatching.MatchOrder({order: newOrder, pool: pool, side: side, trader: user});
+
+        OrderMatching.matchOrder(matchOrder, orderQueues, priceTrees, false);
 
         unchecked {
             nextOrderId++;
@@ -103,17 +108,19 @@ contract OrderBook is IOrderBook, ReentrancyGuard {
     /// @param quantity The quantity of the order
     /// @param side The side of the order (BUY/SELL)
     /// @return orderId The ID of the placed order
-    function placeMarketOrder(
-        Quantity quantity,
-        Side side
-    ) external override nonReentrant returns (OrderId) {
+    function placeMarketOrder(Quantity quantity, Side side, address user)
+        external
+        override
+        nonReentrant
+        returns (OrderId)
+    {
         if (Quantity.unwrap(quantity) == 0) revert InvalidQuantity();
 
         OrderId orderId = OrderId.wrap(nextOrderId++);
 
         Order memory marketOrder = Order({
             id: orderId,
-            user: msg.sender,
+            user: user,
             next: OrderId.wrap(0),
             prev: OrderId.wrap(0),
             price: Price.wrap(0),
@@ -136,71 +143,59 @@ contract OrderBook is IOrderBook, ReentrancyGuard {
             Status.OPEN
         );
 
-        OrderMatching.matchOrder(
-            marketOrder,
-            side,
-            orderQueues,
-            priceTrees,
-            msg.sender,
-            true
+        Pool memory pool = Pool({poolManager: poolManager, poolKey: poolKey});
+
+        OrderMatching.MatchOrder memory matchOrder =
+            OrderMatching.MatchOrder({order: marketOrder, side: side, pool: pool, trader: user});
+
+        OrderMatching.matchOrder(matchOrder, orderQueues, priceTrees, true);
+
+        emit OrderPlaced(
+            orderId, user, side, Price.wrap(0), quantity, uint48(block.timestamp), marketOrder.expiry, true
         );
 
         return orderId;
     }
 
-    function cancelOrder(
-        Side side,
-        Price price,
-        OrderId orderId
-    ) external override {
+    function cancelOrder(Side side, Price price, OrderId orderId, address user) external override {
         OrderQueueLib.OrderQueue storage queue = orderQueues[side][price];
         Order storage order = queue.orders[OrderId.unwrap(orderId)];
 
-        if (order.user != msg.sender) revert UnauthorizedCancellation();
+        if (order.user != user) revert UnauthorizedCancellation();
 
         queue.removeOrder(OrderId.unwrap(orderId));
 
-        emit OrderMatching.UpdateOrder(
-            orderId,
-            uint48(block.timestamp),
-            order.filled,
-            Status.CANCELLED
-        );
+        emit OrderMatching.UpdateOrder(orderId, uint48(block.timestamp), order.filled, Status.CANCELLED);
 
-        activeUserOrders[msg.sender].remove(
-            OrderPacking.packOrder(side, price, OrderId.unwrap(orderId))
-        );
+        activeUserOrders[user].remove(OrderPacking.packOrder(side, price, OrderId.unwrap(orderId)));
 
-        emit OrderCancelled(
-            orderId,
-            msg.sender,
-            uint48(block.timestamp),
-            Status.CANCELLED
-        );
+        emit OrderCancelled(orderId, user, uint48(block.timestamp), Status.CANCELLED);
+
+        Quantity remainingQuantity = Quantity.wrap(Quantity.unwrap(order.quantity) - Quantity.unwrap(order.filled));
+
+        queue.removeOrder(OrderId.unwrap(orderId));
+
+        activeUserOrders[user].remove(OrderPacking.packOrder(side, price, OrderId.unwrap(orderId)));
+
+        emit OrderCancelled(orderId, user, side, price, remainingQuantity, uint48(block.timestamp));
+
+        // Unlock balance
+        (Currency currency, uint256 amount) =
+            IPoolManager(poolManager).calculateAmountAndCurrency(poolKey, price, remainingQuantity, side);
+        IERC6909Lock(poolManager).unlock(user, currency.toId(), amount);
 
         if (queue.isEmpty()) {
             priceTrees[side].remove(price);
         }
     }
 
-    function getBestPrice(
-        Side side
-    ) external view override returns (PriceVolume memory) {
-        Price price = side == Side.BUY
-            ? priceTrees[side].last()
-            : priceTrees[side].first();
+    function getBestPrice(Side side) external view override returns (PriceVolume memory) {
+        Price price = side == Side.BUY ? priceTrees[side].last() : priceTrees[side].first();
 
-        return
-            PriceVolume({
-                price: price,
-                volume: orderQueues[side][price].totalVolume
-            });
+        return PriceVolume({price: price, volume: orderQueues[side][price].totalVolume});
     }
 
-    function getOrderQueue(
-        Side side,
-        Price price
-    ) external view returns (uint48 orderCount, uint256 totalVolume) {
+    function getOrderQueue(Side side, Price price) external view returns (uint48 orderCount, uint256 totalVolume) {
         OrderQueueLib.OrderQueue storage queue = orderQueues[side][price];
         uint48 validOrderCount = 0;
         uint256 validVolume = 0;
@@ -210,9 +205,7 @@ contract OrderBook is IOrderBook, ReentrancyGuard {
             Order storage order = queue.orders[currentOrderId];
             if (order.expiry > block.timestamp) {
                 validOrderCount++;
-                validVolume +=
-                    uint128(Quantity.unwrap(order.quantity)) -
-                    uint128(Quantity.unwrap(order.filled));
+                validVolume += uint128(Quantity.unwrap(order.quantity)) - uint128(Quantity.unwrap(order.filled));
             }
             currentOrderId = uint48(OrderId.unwrap(order.next));
         }
@@ -220,17 +213,13 @@ contract OrderBook is IOrderBook, ReentrancyGuard {
         return (validOrderCount, validVolume);
     }
 
-    function getUserActiveOrders(
-        address user
-    ) external view override returns (Order[] memory) {
+    function getUserActiveOrders(address user) external view override returns (Order[] memory) {
         EnumerableSet.UintSet storage userOrders = activeUserOrders[user];
         Order[] memory orders = new Order[](userOrders.length());
         uint48 validOrderCount = 0;
 
         for (uint48 i = 0; i < userOrders.length(); i++) {
-            (Side side, Price price, uint48 orderId) = OrderPacking.unpackOrder(
-                userOrders.at(i)
-            );
+            (Side side, Price price, uint48 orderId) = OrderPacking.unpackOrder(userOrders.at(i));
             Order memory order = orderQueues[side][price].getOrder(orderId);
 
             if (order.expiry <= block.timestamp) {
@@ -248,11 +237,12 @@ contract OrderBook is IOrderBook, ReentrancyGuard {
         return orders;
     }
 
-    function getNextBestPrices(
-        Side side,
-        Price price,
-        uint8 count
-    ) external view override returns (PriceVolume[] memory) {
+    function getNextBestPrices(Side side, Price price, uint8 count)
+        external
+        view
+        override
+        returns (PriceVolume[] memory)
+    {
         PriceVolume[] memory levels = new PriceVolume[](count);
         Price currentPrice = price;
 
@@ -260,28 +250,16 @@ contract OrderBook is IOrderBook, ReentrancyGuard {
             currentPrice = _getNextBestPrice(side, currentPrice);
             if (RBTree.isEmpty(currentPrice)) break;
 
-            levels[i] = PriceVolume({
-                price: currentPrice,
-                volume: orderQueues[side][currentPrice].totalVolume
-            });
+            levels[i] = PriceVolume({price: currentPrice, volume: orderQueues[side][currentPrice].totalVolume});
         }
 
         return levels;
     }
 
-    function _getNextBestPrice(
-        Side side,
-        Price price
-    ) private view returns (Price) {
+    function _getNextBestPrice(Side side, Price price) private view returns (Price) {
         if (RBTree.isEmpty(price)) {
-            return
-                side == Side.BUY
-                    ? priceTrees[side].last()
-                    : priceTrees[side].first();
+            return side == Side.BUY ? priceTrees[side].last() : priceTrees[side].first();
         }
-        return
-            side == Side.BUY
-                ? priceTrees[side].prev(price)
-                : priceTrees[side].next(price);
+        return side == Side.BUY ? priceTrees[side].prev(price) : priceTrees[side].next(price);
     }
 }

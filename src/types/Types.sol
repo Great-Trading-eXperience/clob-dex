@@ -23,3 +23,11 @@ enum Status {
     CANCELLED,
     EXPIRED
 }
+
+library SideLibrary {
+    function opposite(Side side) internal pure returns (Side) {
+        return side == Side.BUY ? Side.SELL : Side.BUY;
+    }
+}
+
+using SideLibrary for Side global;

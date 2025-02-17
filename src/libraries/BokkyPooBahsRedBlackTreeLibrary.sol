@@ -15,8 +15,16 @@ pragma solidity ^0.8.0;
 // ----------------------------------------------------------------------------
 type Price is uint64; // 2^64 = 18, 446,744,073, 709,552,000
 
-library BokkyPooBahsRedBlackTreeLibrary {
+library PriceLibrary {
+    function decimals(Price /* price */ ) internal pure returns (uint8) {
+        // Assuming the Price type is a fixed-point number with 8 decimal places
+        return 8;
+    }
+}
 
+using PriceLibrary for Price global;
+
+library BokkyPooBahsRedBlackTreeLibrary {
     struct Node {
         Price parent;
         Price left;
@@ -48,6 +56,7 @@ library BokkyPooBahsRedBlackTreeLibrary {
             }
         }
     }
+
     function last(Tree storage self) internal view returns (Price key) {
         key = self.root;
         if (isNotEmpty(key)) {
@@ -56,6 +65,7 @@ library BokkyPooBahsRedBlackTreeLibrary {
             }
         }
     }
+
     function next(Tree storage self, Price target) internal view returns (Price cursor) {
         if (isEmpty(target)) {
             revert CannotFindNextEmptyKey();
@@ -70,6 +80,7 @@ library BokkyPooBahsRedBlackTreeLibrary {
             }
         }
     }
+
     function prev(Tree storage self, Price target) internal view returns (Price cursor) {
         if (isEmpty(target)) {
             revert CannotFindPrevEmptyKey();
@@ -84,21 +95,30 @@ library BokkyPooBahsRedBlackTreeLibrary {
             }
         }
     }
+
     function exists(Tree storage self, Price key) internal view returns (bool) {
         return isNotEmpty(key) && ((Price.unwrap(key) == Price.unwrap(self.root)) || isNotEmpty(self.nodes[key].parent));
     }
+
     function isEmpty(Price key) internal pure returns (bool) {
         return Price.unwrap(key) == Price.unwrap(EMPTY);
     }
+
     function isNotEmpty(Price key) internal pure returns (bool) {
         return Price.unwrap(key) != Price.unwrap(EMPTY);
     }
+
     function getEmpty() internal pure returns (Price) {
         return EMPTY;
     }
-    function getNode(Tree storage self, Price key) internal view returns (Price returnKey, Price parent, Price left, Price right, uint8 red) {
+
+    function getNode(Tree storage self, Price key)
+        internal
+        view
+        returns (Price returnKey, Price parent, Price left, Price right, uint8 red)
+    {
         require(exists(self, key));
-        return(key, self.nodes[key].parent, self.nodes[key].left, self.nodes[key].right, self.nodes[key].red);
+        return (key, self.nodes[key].parent, self.nodes[key].left, self.nodes[key].right, self.nodes[key].red);
     }
 
     function insert(Tree storage self, Price key) internal {
@@ -128,6 +148,7 @@ library BokkyPooBahsRedBlackTreeLibrary {
         }
         insertFixup(self, key);
     }
+
     function remove(Tree storage self, Price key) internal {
         if (isEmpty(key)) {
             revert CannotRemoveEmptyKey();
@@ -183,6 +204,7 @@ library BokkyPooBahsRedBlackTreeLibrary {
         }
         return key;
     }
+
     function treeMaximum(Tree storage self, Price key) private view returns (Price) {
         while (isNotEmpty(self.nodes[key].right)) {
             key = self.nodes[key].right;
@@ -209,6 +231,7 @@ library BokkyPooBahsRedBlackTreeLibrary {
         self.nodes[cursor].left = key;
         self.nodes[key].parent = cursor;
     }
+
     function rotateRight(Tree storage self, Price key) private {
         Price cursor = self.nodes[key].left;
         Price keyParent = self.nodes[key].parent;
@@ -242,8 +265,8 @@ library BokkyPooBahsRedBlackTreeLibrary {
                     key = self.nodes[keyParent].parent;
                 } else {
                     if (Price.unwrap(key) == Price.unwrap(self.nodes[keyParent].right)) {
-                      key = keyParent;
-                      rotateLeft(self, key);
+                        key = keyParent;
+                        rotateLeft(self, key);
                     }
                     keyParent = self.nodes[key].parent;
                     self.nodes[keyParent].red = RED_FALSE;
@@ -259,8 +282,8 @@ library BokkyPooBahsRedBlackTreeLibrary {
                     key = self.nodes[keyParent].parent;
                 } else {
                     if (Price.unwrap(key) == Price.unwrap(self.nodes[keyParent].left)) {
-                      key = keyParent;
-                      rotateRight(self, key);
+                        key = keyParent;
+                        rotateRight(self, key);
                     }
                     keyParent = self.nodes[key].parent;
                     self.nodes[keyParent].red = RED_FALSE;
@@ -285,6 +308,7 @@ library BokkyPooBahsRedBlackTreeLibrary {
             }
         }
     }
+
     function removeFixup(Tree storage self, Price key) private {
         Price cursor;
         while (Price.unwrap(key) != Price.unwrap(self.root) && self.nodes[key].red != RED_TRUE) {
@@ -297,7 +321,10 @@ library BokkyPooBahsRedBlackTreeLibrary {
                     rotateLeft(self, keyParent);
                     cursor = self.nodes[keyParent].right;
                 }
-                if (self.nodes[self.nodes[cursor].left].red != RED_TRUE && self.nodes[self.nodes[cursor].right].red != RED_TRUE) {
+                if (
+                    self.nodes[self.nodes[cursor].left].red != RED_TRUE
+                        && self.nodes[self.nodes[cursor].right].red != RED_TRUE
+                ) {
                     self.nodes[cursor].red = RED_TRUE;
                     key = keyParent;
                 } else {
@@ -321,7 +348,10 @@ library BokkyPooBahsRedBlackTreeLibrary {
                     rotateRight(self, keyParent);
                     cursor = self.nodes[keyParent].left;
                 }
-                if (self.nodes[self.nodes[cursor].right].red != RED_TRUE && self.nodes[self.nodes[cursor].left].red != RED_TRUE) {
+                if (
+                    self.nodes[self.nodes[cursor].right].red != RED_TRUE
+                        && self.nodes[self.nodes[cursor].left].red != RED_TRUE
+                ) {
                     self.nodes[cursor].red = RED_TRUE;
                     key = keyParent;
                 } else {
