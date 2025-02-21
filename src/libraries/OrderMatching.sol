@@ -1,14 +1,14 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 
 pragma solidity ^0.8.26;
 
 import "./OrderQueueLib.sol";
 import {BokkyPooBahsRedBlackTreeLibrary as RBTree, Price} from "./BokkyPooBahsRedBlackTreeLibrary.sol";
 import {Status} from "../types/Types.sol";
-import {IERC6909Lock} from "../interfaces/external/IERC6909Lock.sol";
-import {IPoolManager} from "../interfaces/IPoolManager.sol";
+import {IBalanceManager} from "../interfaces/IBalanceManager.sol";
 import {Currency} from "../types/Currency.sol";
 import {Quantity} from "../types/Types.sol";
+import {PoolKey} from "../types/Pool.sol";
 
 /// @title OrderMatching - A library for matching orders in a CLOB
 /// @notice Provides functionality to match orders in a Central Limit Order Book
@@ -30,10 +30,13 @@ library OrderMatching {
 
     struct MatchOrder {
         IOrderBook.Order order;
-        IOrderBook.Pool pool;
         Side side;
         address trader;
+        address balanceManager;
+        PoolKey poolKey;
     }
+
+    event UpdateOrder(OrderId indexed orderId, uint48 timestamp, Quantity filled, Status status);
 
     /// @notice Matches an order against the opposite side of the order book
     /// @param _params The parameters for matching the order, including order details, pool, side, and trader
@@ -58,12 +61,9 @@ library OrderMatching {
             Price bestPrice = getBestMatchingPrice(priceTrees[oppositeSide], order.price, side, isMarketOrder);
 
             if (RBTree.isEmpty(bestPrice)) break;
-            uint128 newFilled;
 
-            (remaining, newFilled) =
-                processMatchingAtPrice(_params, bestPrice, remaining, orders[oppositeSide][bestPrice]);
-            filled += newFilled;
-            order.filled = Quantity.wrap(uint128(Quantity.unwrap(order.filled)) + newFilled);
+            (remaining, filled) =
+                processMatchingAtPrice(_params, bestPrice, remaining, orders[oppositeSide][bestPrice], filled);
 
             if (orders[oppositeSide][bestPrice].orderCount == 0) {
                 priceTrees[oppositeSide].remove(bestPrice);
@@ -81,12 +81,6 @@ library OrderMatching {
         return filled;
     }
 
-    /// @notice Gets the best matching price for an order
-    /// @param priceTree The price tree to search in
-    /// @param orderPrice The price of the order
-    /// @param side The side of the order
-    /// @param isMarketOrder Whether the order is a market order
-    /// @return The best matching price
     function getBestMatchingPrice(RBTree.Tree storage priceTree, Price orderPrice, Side side, bool isMarketOrder)
         private
         view
@@ -117,68 +111,89 @@ library OrderMatching {
         MatchOrder memory _params,
         Price matchPrice,
         uint128 remaining,
-        OrderQueueLib.OrderQueue storage queue
+        OrderQueueLib.OrderQueue storage queue,
+        uint128 totalFilled
     ) private returns (uint128 remainingAfter, uint128 filledAmount) {
-        IOrderBook.Order memory order = _params.order;
-        IOrderBook.Pool memory pool = _params.pool;
-        Side side = _params.side;
-        address trader = _params.trader;
         uint48 currentOrderId = queue.head;
 
-        filledAmount = 0;
-        remainingAfter = remaining;
-        uint128 executedQuantity;
-
-        while (currentOrderId != 0 && remainingAfter > 0) {
-            IOrderBook.Order storage matchingOrder = queue.orders[currentOrderId];
-            uint48 nextOrderId = uint48(OrderId.unwrap(matchingOrder.next));
-
-            if (matchingOrder.expiry <= block.timestamp) {
-                queue.removeOrder(currentOrderId);
-                currentOrderId = nextOrderId;
-                continue;
-            }
-
-            if (matchingOrder.user == trader) {
-                currentOrderId = nextOrderId;
-                continue;
-            }
-            uint128 matchingRemaining =
-                uint128(Quantity.unwrap(matchingOrder.quantity)) - uint128(Quantity.unwrap(matchingOrder.filled));
-            executedQuantity = remainingAfter < matchingRemaining ? remainingAfter : matchingRemaining;
-
-            matchingOrder.filled = Quantity.wrap(uint128(Quantity.unwrap(matchingOrder.filled)) + executedQuantity);
-            remainingAfter -= executedQuantity;
-            filledAmount += executedQuantity;
-
-            if (uint128(Quantity.unwrap(matchingOrder.filled)) == uint128(Quantity.unwrap(matchingOrder.quantity))) {
-                queue.removeOrder(currentOrderId);
-            }
-
-            emit OrderMatched(
-                trader,
-                side == Side.BUY ? order.id : OrderId.wrap(currentOrderId),
-                side == Side.SELL ? order.id : OrderId.wrap(currentOrderId),
-                uint48(block.timestamp),
-                matchPrice,
-                Quantity.wrap(executedQuantity)
-            );
-
-            // Transfer Locked balance
-            (Currency currency0, uint256 amount0) = IPoolManager(pool.poolManager).calculateAmountAndCurrency(
-                pool.poolKey, matchPrice, Quantity.wrap(executedQuantity), side
-            );
-            IERC6909Lock(pool.poolManager).transferLockedFrom(trader, matchingOrder.user, currency0.toId(), amount0);
-
-            (Currency currency1, uint256 amount1) = IPoolManager(pool.poolManager).calculateAmountAndCurrency(
-                pool.poolKey, matchPrice, Quantity.wrap(executedQuantity), side.opposite()
-            );
-            IERC6909Lock(pool.poolManager).transferLockedFrom(matchingOrder.user, trader, currency1.toId(), amount1);
-
-            currentOrderId = nextOrderId;
+        while (currentOrderId != 0 && remaining > 0) {
+            (remaining, totalFilled, currentOrderId) =
+                handleOrder(_params, matchPrice, remaining, queue, currentOrderId, totalFilled);
         }
 
-        return (remainingAfter, filledAmount);
+        return (remaining, totalFilled);
+    }
+
+    function handleOrder(
+        MatchOrder memory _params,
+        Price matchPrice,
+        uint128 remaining,
+        OrderQueueLib.OrderQueue storage queue,
+        uint48 currentOrderId,
+        uint128 totalFilled
+    ) private returns (uint128 remainingAfter, uint128 newTotalFilled, uint48 nextOrderId) {
+        IOrderBook.Order storage matchingOrder = queue.orders[currentOrderId];
+        nextOrderId = uint48(OrderId.unwrap(matchingOrder.next));
+
+        if (matchingOrder.expiry <= block.timestamp) {
+            queue.removeOrder(currentOrderId);
+            return (remaining, totalFilled, nextOrderId);
+        }
+
+        if (matchingOrder.user == _params.trader) {
+            return (remaining, totalFilled, nextOrderId);
+        }
+
+        uint128 matchingRemaining =
+            uint128(Quantity.unwrap(matchingOrder.quantity)) - uint128(Quantity.unwrap(matchingOrder.filled));
+        uint128 executedQuantity = remaining < matchingRemaining ? remaining : matchingRemaining;
+
+        matchingOrder.filled = Quantity.wrap(uint128(Quantity.unwrap(matchingOrder.filled)) + executedQuantity);
+        remaining -= executedQuantity;
+        totalFilled += executedQuantity;
+        queue.totalVolume -= executedQuantity;
+
+        transferBalances(
+            _params.balanceManager,
+            _params.trader,
+            matchingOrder.user,
+            _params.poolKey,
+            matchPrice,
+            Quantity.wrap(executedQuantity),
+            _params.side
+        );
+
+        if (uint128(Quantity.unwrap(matchingOrder.filled)) == uint128(Quantity.unwrap(matchingOrder.quantity))) {
+            queue.removeOrder(currentOrderId);
+        }
+
+        emit OrderMatched(
+            _params.trader,
+            _params.side == Side.BUY ? _params.order.id : OrderId.wrap(currentOrderId),
+            _params.side == Side.SELL ? _params.order.id : OrderId.wrap(currentOrderId),
+            _params.side,
+            uint48(block.timestamp),
+            matchPrice,
+            Quantity.wrap(executedQuantity)
+        );
+
+        return (remaining, totalFilled, nextOrderId);
+    }
+
+    function transferBalances(
+        address balanceManager,
+        address trader,
+        address matchingUser,
+        PoolKey memory poolKey,
+        Price matchPrice,
+        Quantity executedQuantity,
+        Side side
+    ) private {
+        (Currency currency0, uint256 amount0, Currency currency1, uint256 amount1) =
+            poolKey.calculateAmountsAndCurrencies(matchPrice, executedQuantity, side);
+
+        IBalanceManager(balanceManager).transferFrom(trader, matchingUser, currency0, amount0);
+        IBalanceManager(balanceManager).transferLockedFrom(matchingUser, trader, currency1, amount1);
     }
 
     function processMatchingOrder(

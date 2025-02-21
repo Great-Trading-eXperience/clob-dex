@@ -4,6 +4,9 @@ import "forge-std/Script.sol";
 import "../src/interfaces/IOrderBook.sol";
 import "../src/OrderBook.sol";
 import "../src/types/Types.sol";
+import "../src/mocks/MockUSDC.sol";
+import "../src/mocks/MockWETH.sol";
+import "../src/mocks/MockBalanceManager.sol";
 
 contract MockOrderBookScript is Script {
     OrderBook public orderBook;
@@ -43,7 +46,14 @@ contract MockOrderBookScript is Script {
 
     function run() public {
         vm.startBroadcast();
-        orderBook = new OrderBook();
+        address baseTokenAddress = address(new MockWETH());
+        address quoteTokenAddress = address(new MockUSDC());
+
+        PoolKey memory poolKey =
+            PoolKey({baseCurrency: Currency.wrap(baseTokenAddress), quoteCurrency: Currency.wrap(quoteTokenAddress)});
+
+        MockBalanceManager balanceeManager = new MockBalanceManager(msg.sender);
+        orderBook = new OrderBook(msg.sender, address(balanceeManager), 1000e18, 1e16, poolKey);
         vm.stopBroadcast();
 
         createBuyOrders();
@@ -58,35 +68,19 @@ contract MockOrderBookScript is Script {
         uint128 quantity = 50e18;
 
         vm.startBroadcast(privateKeys[0]);
-        orderBook.placeOrder(
-            Price.wrap(matchPrice),
-            Quantity.wrap(quantity),
-            Side.SELL
-        );
+        orderBook.placeOrder(Price.wrap(matchPrice), Quantity.wrap(quantity), Side.SELL, traders[0]);
         vm.stopBroadcast();
 
         vm.startBroadcast(privateKeys[9]);
-        orderBook.placeOrder(
-            Price.wrap(matchPrice),
-            Quantity.wrap(quantity),
-            Side.BUY
-        );
+        orderBook.placeOrder(Price.wrap(matchPrice), Quantity.wrap(quantity), Side.BUY, traders[9]);
         vm.stopBroadcast();
 
         vm.startBroadcast(privateKeys[9]);
-        orderBook.placeOrder(
-            Price.wrap(matchPrice),
-            Quantity.wrap(quantity),
-            Side.SELL
-        );
+        orderBook.placeOrder(Price.wrap(matchPrice), Quantity.wrap(quantity), Side.SELL, traders[9]);
         vm.stopBroadcast();
 
         vm.startBroadcast(privateKeys[0]);
-        orderBook.placeOrder(
-            Price.wrap(matchPrice),
-            Quantity.wrap(quantity),
-            Side.BUY
-        );
+        orderBook.placeOrder(Price.wrap(matchPrice), Quantity.wrap(quantity), Side.BUY, traders[0]);
         vm.stopBroadcast();
     }
 
@@ -94,19 +88,19 @@ contract MockOrderBookScript is Script {
         uint128 marketQuantity = 125e18;
 
         vm.startBroadcast(privateKeys[2]);
-        orderBook.placeMarketOrder(Quantity.wrap(marketQuantity), Side.BUY);
+        orderBook.placeMarketOrder(Quantity.wrap(marketQuantity), Side.BUY, traders[2]);
         vm.stopBroadcast();
 
         vm.startBroadcast(privateKeys[9]);
-        orderBook.placeMarketOrder(Quantity.wrap(marketQuantity), Side.SELL);
+        orderBook.placeMarketOrder(Quantity.wrap(marketQuantity), Side.SELL, traders[9]);
         vm.stopBroadcast();
 
         vm.startBroadcast(privateKeys[9]);
-        orderBook.placeMarketOrder(Quantity.wrap(10e18), Side.SELL);
+        orderBook.placeMarketOrder(Quantity.wrap(10e18), Side.SELL, traders[9]);
         vm.stopBroadcast();
 
         vm.startBroadcast(privateKeys[9]);
-        orderBook.placeMarketOrder(Quantity.wrap(5e18), Side.SELL);
+        orderBook.placeMarketOrder(Quantity.wrap(5e18), Side.SELL, traders[9]);
         vm.stopBroadcast();
     }
 
@@ -115,13 +109,10 @@ contract MockOrderBookScript is Script {
         uint128 cancelQuantity = 25e18;
 
         vm.startBroadcast(privateKeys[0]);
-        OrderId orderId = orderBook.placeOrder(
-            Price.wrap(cancelPrice),
-            Quantity.wrap(cancelQuantity),
-            Side.BUY
-        );
+        OrderId orderId =
+            orderBook.placeOrder(Price.wrap(cancelPrice), Quantity.wrap(cancelQuantity), Side.BUY, traders[0]);
 
-        orderBook.cancelOrder(Side.BUY, Price.wrap(cancelPrice), orderId);
+        orderBook.cancelOrder(Side.BUY, Price.wrap(cancelPrice), orderId, traders[0]);
         vm.stopBroadcast();
     }
 
@@ -130,15 +121,11 @@ contract MockOrderBookScript is Script {
         uint64 priceStep = 1e8;
         uint128 fixedQuantity = 100e18;
 
-        for (uint i = 0; i < 10; i++) {
+        for (uint256 i = 0; i < 10; i++) {
             uint64 price = basePrice + (99 - uint64(i)) * priceStep;
 
             vm.startBroadcast(privateKeys[i % privateKeys.length]);
-            orderBook.placeOrder(
-                Price.wrap(price),
-                Quantity.wrap(fixedQuantity),
-                Side.BUY
-            );
+            orderBook.placeOrder(Price.wrap(price), Quantity.wrap(fixedQuantity), Side.BUY, traders[i % traders.length]);
             vm.stopBroadcast();
         }
     }
@@ -148,14 +135,12 @@ contract MockOrderBookScript is Script {
         uint64 priceStep = 1e8;
         uint128 fixedQuantity = 100e18;
 
-        for (uint i = 0; i < 10; i++) {
+        for (uint256 i = 0; i < 10; i++) {
             uint64 price = basePrice + (uint64(i) * priceStep);
 
             vm.startBroadcast(privateKeys[i % privateKeys.length]);
             orderBook.placeOrder(
-                Price.wrap(price),
-                Quantity.wrap(fixedQuantity),
-                Side.SELL
+                Price.wrap(price), Quantity.wrap(fixedQuantity), Side.SELL, traders[i % traders.length]
             );
             vm.stopBroadcast();
         }

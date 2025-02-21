@@ -85,18 +85,34 @@ library CurrencyLibrary {
     //         }
     //     }
     // }
-
     function transfer(Currency currency, address to, uint256 amount) internal {
+        bool success;
+        if (isAddressZero(currency)) {
+            // Transfer the ETH and revert if it fails.
+            (success,) = to.call{value: amount}("");
+            if (!success) {
+                revert NativeTransferFailed();
+            }
+        } else {
+            // Transfer the ERC20 tokens and revert if it fails.
+            success = IERC20(Currency.unwrap(currency)).transfer(to, amount);
+            if (!success) {
+                revert ERC20TransferFailed();
+            }
+        }
+    }
+
+    function transferFrom(Currency currency, address from, address to, uint256 amount) internal {
         bool success;
         if (currency.isAddressZero()) {
             // Transfer the ETH and revert if it fails.
             (success,) = to.call{value: amount}("");
             if (!success) {
-                revert ERC20TransferFailed();
+                revert NativeTransferFailed();
             }
         } else {
-            // Transfer the ERC20 tokens and revert if it fails.
-            success = IERC20(Currency.unwrap(currency)).transfer(to, amount);
+            // Transfer the ERC20 tokens using transferFrom and revert if it fails.
+            success = IERC20(Currency.unwrap(currency)).transferFrom(from, to, amount);
             if (!success) {
                 revert ERC20TransferFailed();
             }

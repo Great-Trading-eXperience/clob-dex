@@ -4,13 +4,9 @@ pragma solidity ^0.8.26;
 import {Price} from "../libraries/BokkyPooBahsRedBlackTreeLibrary.sol";
 import {OrderId, Quantity, Side, Status} from "../types/Types.sol";
 import {PoolKey} from "../types/Pool.sol";
+import {Currency} from "../types/Currency.sol";
 
 interface IOrderBook {
-    struct Pool {
-        address poolManager;
-        PoolKey poolKey;
-    }
-
     struct Order {
         OrderId id;
         address user;
@@ -43,11 +39,15 @@ interface IOrderBook {
 
     event OrderCancelled(OrderId indexed orderId, address indexed user, uint48 timestamp, Status status);
 
+    function setRouter(address router) external;
+
     function placeOrder(Price price, Quantity quantity, Side side, address user) external returns (OrderId);
 
     function placeMarketOrder(Quantity quantity, Side side, address user) external returns (OrderId);
 
     function cancelOrder(Side side, Price price, OrderId orderId, address user) external;
+
+    function getOrderQueue(Side side, Price price) external view returns (uint48 orderCount, uint256 totalVolume);
 
     function getUserActiveOrders(address user) external view returns (Order[] memory);
 

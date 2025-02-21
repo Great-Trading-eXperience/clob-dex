@@ -3,8 +3,6 @@ pragma solidity ^0.8.26;
 
 import {IOrderBook} from "../interfaces/IOrderBook.sol";
 import {OrderId, Quantity, Side} from "../types/Types.sol";
-import {IERC6909Lock} from "../interfaces/external/IERC6909Lock.sol";
-import {IPoolManager} from "../interfaces/IPoolManager.sol";
 
 /// @title OrderQueueLib - A library for managing order queues
 /// @notice Provides functionality for maintaining price-time priority queues

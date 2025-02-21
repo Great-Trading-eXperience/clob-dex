@@ -17,7 +17,6 @@ type Price is uint64; // 2^64 = 18, 446,744,073, 709,552,000
 
 library PriceLibrary {
     function decimals(Price /* price */ ) internal pure returns (uint8) {
-        // Assuming the Price type is a fixed-point number with 8 decimal places
         return 8;
     }
 }

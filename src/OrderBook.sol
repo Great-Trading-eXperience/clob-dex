@@ -10,15 +10,16 @@ import {OrderPacking} from "./libraries/OrderPacking.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import {PoolKey} from "./types/Pool.sol";
-import {IERC6909Lock} from "./interfaces/external/IERC6909Lock.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 import {Currency} from "./types/Currency.sol";
-import {IPoolManager} from "./interfaces/IPoolManager.sol";
+// import {IPoolManager} from "../interfaces/IPoolManager.sol";
+import {IBalanceManager} from "./interfaces/IBalanceManager.sol";
 
 /// @title OrderBook - A Central Limit Order Book implementation
 /// @notice Manages limit and market orders in a decentralized exchange
 /// @dev Implements price-time priority matching with reentrance protection
-contract OrderBook is IOrderBook, ReentrancyGuard {
+contract OrderBook is Ownable, IOrderBook, ReentrancyGuard {
     uint256 constant EXPIRY_DAYS = 90 * 24 * 60 * 60; // 90 days in seconds
 
     using RBTree for RBTree.Tree;
@@ -30,18 +31,44 @@ contract OrderBook is IOrderBook, ReentrancyGuard {
     error UnauthorizedCancellation();
     error InvalidPrice(uint256 price);
     error InvalidQuantity();
+    error UnauthorizedRouter(address reouter);
 
     mapping(address => EnumerableSet.UintSet) private activeUserOrders;
     mapping(Side => RBTree.Tree) private priceTrees;
     mapping(Side => mapping(Price => OrderQueueLib.OrderQueue)) private orderQueues;
+    mapping(address => bool) private authorizedOperators; // To allow Routers or other contracts
 
     uint48 private nextOrderId = 1;
-    address private poolManager;
+    address private balanceManager;
+    address private router;
+    uint256 private maxOrderAmount;
+    uint256 private lotSize;
     PoolKey private poolKey;
 
-    constructor(address _poolManager, PoolKey memory _poolKey) {
-        poolManager = _poolManager;
+    constructor(
+        address _poolManager,
+        address _balanceManager,
+        uint256 _maxOrderAmount,
+        uint256 _lotSize,
+        PoolKey memory _poolKey
+    ) Ownable(_poolManager) {
+        balanceManager = _balanceManager;
+        maxOrderAmount = _maxOrderAmount;
+        lotSize = _lotSize;
         poolKey = _poolKey;
+    }
+
+    // Restrict access to authorized only
+    modifier onlyRouter() {
+        if (msg.sender != router && msg.sender != owner()) {
+            revert UnauthorizedRouter(msg.sender);
+        }
+        _;
+    }
+
+    // Set authorized operators (e.g., Router)
+    function setRouter(address _router) external onlyOwner {
+        router = _router;
     }
 
     /// @notice Places a new limit order
@@ -52,6 +79,7 @@ contract OrderBook is IOrderBook, ReentrancyGuard {
     function placeOrder(Price price, Quantity quantity, Side side, address user)
         external
         override
+        onlyRouter
         nonReentrant
         returns (OrderId)
     {
@@ -86,14 +114,16 @@ contract OrderBook is IOrderBook, ReentrancyGuard {
         );
 
         // Lock balance
-        (Currency currency, uint256 amount) =
-            IPoolManager(poolManager).calculateAmountAndCurrency(poolKey, price, quantity, side);
-        IERC6909Lock(poolManager).lock(user, currency.toId(), amount);
+        (Currency currency, uint256 amount) = poolKey.calculateAmountAndCurrency(price, quantity, side);
+        IBalanceManager(balanceManager).lock(user, currency, amount);
 
-        Pool memory pool = Pool({poolManager: poolManager, poolKey: poolKey});
-
-        OrderMatching.MatchOrder memory matchOrder =
-            OrderMatching.MatchOrder({order: newOrder, pool: pool, side: side, trader: user});
+        OrderMatching.MatchOrder memory matchOrder = OrderMatching.MatchOrder({
+            order: newOrder,
+            side: side,
+            trader: user,
+            balanceManager: balanceManager,
+            poolKey: poolKey
+        });
 
         OrderMatching.matchOrder(matchOrder, orderQueues, priceTrees, false);
 
@@ -111,6 +141,7 @@ contract OrderBook is IOrderBook, ReentrancyGuard {
     function placeMarketOrder(Quantity quantity, Side side, address user)
         external
         override
+        onlyRouter
         nonReentrant
         returns (OrderId)
     {
@@ -143,21 +174,20 @@ contract OrderBook is IOrderBook, ReentrancyGuard {
             Status.OPEN
         );
 
-        Pool memory pool = Pool({poolManager: poolManager, poolKey: poolKey});
-
-        OrderMatching.MatchOrder memory matchOrder =
-            OrderMatching.MatchOrder({order: marketOrder, side: side, pool: pool, trader: user});
+        OrderMatching.MatchOrder memory matchOrder = OrderMatching.MatchOrder({
+            order: marketOrder,
+            side: side,
+            trader: user,
+            balanceManager: balanceManager,
+            poolKey: poolKey
+        });
 
         OrderMatching.matchOrder(matchOrder, orderQueues, priceTrees, true);
-
-        emit OrderPlaced(
-            orderId, user, side, Price.wrap(0), quantity, uint48(block.timestamp), marketOrder.expiry, true
-        );
 
         return orderId;
     }
 
-    function cancelOrder(Side side, Price price, OrderId orderId, address user) external override {
+    function cancelOrder(Side side, Price price, OrderId orderId, address user) external override onlyRouter {
         OrderQueueLib.OrderQueue storage queue = orderQueues[side][price];
         Order storage order = queue.orders[OrderId.unwrap(orderId)];
 
@@ -177,12 +207,9 @@ contract OrderBook is IOrderBook, ReentrancyGuard {
 
         activeUserOrders[user].remove(OrderPacking.packOrder(side, price, OrderId.unwrap(orderId)));
 
-        emit OrderCancelled(orderId, user, side, price, remainingQuantity, uint48(block.timestamp));
-
         // Unlock balance
-        (Currency currency, uint256 amount) =
-            IPoolManager(poolManager).calculateAmountAndCurrency(poolKey, price, remainingQuantity, side);
-        IERC6909Lock(poolManager).unlock(user, currency.toId(), amount);
+        (Currency currency, uint256 amount) = poolKey.calculateAmountAndCurrency(price, remainingQuantity, side);
+        IBalanceManager(balanceManager).unlock(user, currency, amount);
 
         if (queue.isEmpty()) {
             priceTrees[side].remove(price);
