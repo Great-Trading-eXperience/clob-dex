@@ -11,7 +11,11 @@ contract BalanceManager is Ownable, ReentrancyGuard {
     event Withdrawal(address indexed user, uint256 indexed id, uint256 amount);
     event OperatorSet(address indexed operator, bool approved);
     event TransferFrom(
-        address indexed operator, address indexed sender, address indexed receiver, uint256 id, uint256 amount
+        address indexed operator,
+        address indexed sender,
+        address indexed receiver,
+        uint256 id,
+        uint256 amount
     );
 
     error InsufficientBalance(address user, uint256 id, uint256 want, uint256 have);
@@ -20,16 +24,22 @@ contract BalanceManager is Ownable, ReentrancyGuard {
     error UnauthorizedOperator(address operator);
 
     mapping(address owner => mapping(uint256 id => uint256 balance)) public balanceOf;
-    mapping(address owner => mapping(address operator => mapping(uint256 id => uint256 amount))) public lockedBalanceOf;
+    mapping(address owner => mapping(address operator => mapping(uint256 id => uint256 amount)))
+        public lockedBalanceOf;
     mapping(address => bool) private authorizedOperators; // To allow Routers or other contracts
 
     address private feeReceiver; // Address that receives fees
 
     uint256 public feeMaker; // e.g., 1 for 0.1%
     uint256 public feeTaker; // e.g., 5 for 0.5%
-    uint256 constant FEE_UNIT = 1_000;
+    uint256 constant FEE_UNIT = 1000;
 
-    constructor(address _owner, address _feeReceiver, uint256 _feeMaker, uint256 _feeTaker) Ownable(_owner) {
+    constructor(
+        address _owner,
+        address _feeReceiver,
+        uint256 _feeMaker,
+        uint256 _feeTaker
+    ) Ownable(_owner) {
         feeReceiver = _feeReceiver;
         feeMaker = _feeMaker;
         feeTaker = _feeTaker;
@@ -51,7 +61,11 @@ contract BalanceManager is Ownable, ReentrancyGuard {
         return balanceOf[user][currency.toId()];
     }
 
-    function getLockedBalance(address user, address operator, Currency currency) external view returns (uint256) {
+    function getLockedBalance(
+        address user,
+        address operator,
+        Currency currency
+    ) external view returns (uint256) {
         return lockedBalanceOf[user][operator][currency.toId()];
     }
 
@@ -94,7 +108,9 @@ contract BalanceManager is Ownable, ReentrancyGuard {
         }
 
         if (balanceOf[user][currency.toId()] < amount) {
-            revert InsufficientBalance(user, currency.toId(), amount, balanceOf[user][currency.toId()]);
+            revert InsufficientBalance(
+                user, currency.toId(), amount, balanceOf[user][currency.toId()]
+            );
         }
         balanceOf[user][currency.toId()] -= amount;
         currency.transfer(user, amount);
@@ -106,7 +122,9 @@ contract BalanceManager is Ownable, ReentrancyGuard {
             revert UnauthorizedOperator(msg.sender);
         }
         if (balanceOf[user][currency.toId()] < amount) {
-            revert InsufficientBalance(user, currency.toId(), amount, balanceOf[user][currency.toId()]);
+            revert InsufficientBalance(
+                user, currency.toId(), amount, balanceOf[user][currency.toId()]
+            );
         }
         balanceOf[user][currency.toId()] -= amount;
         lockedBalanceOf[user][msg.sender][currency.toId()] += amount;
@@ -130,16 +148,21 @@ contract BalanceManager is Ownable, ReentrancyGuard {
         return true;
     }
 
-    function transferLockedFrom(address sender, address receiver, Currency currency, uint256 amount)
-        external
-        returns (bool)
-    {
+    function transferLockedFrom(
+        address sender,
+        address receiver,
+        Currency currency,
+        uint256 amount
+    ) external returns (bool) {
         if (!authorizedOperators[msg.sender]) {
             revert UnauthorizedOperator(msg.sender);
         }
         if (lockedBalanceOf[sender][msg.sender][currency.toId()] < amount) {
             revert InsufficientBalance(
-                sender, currency.toId(), amount, lockedBalanceOf[sender][msg.sender][currency.toId()]
+                sender,
+                currency.toId(),
+                amount,
+                lockedBalanceOf[sender][msg.sender][currency.toId()]
             );
         }
 
@@ -160,15 +183,19 @@ contract BalanceManager is Ownable, ReentrancyGuard {
         return true;
     }
 
-    function transferFrom(address sender, address receiver, Currency currency, uint256 amount)
-        external
-        returns (bool)
-    {
+    function transferFrom(
+        address sender,
+        address receiver,
+        Currency currency,
+        uint256 amount
+    ) external returns (bool) {
         if (!authorizedOperators[msg.sender]) {
             revert UnauthorizedOperator(msg.sender);
         }
         if (balanceOf[sender][currency.toId()] < amount) {
-            revert InsufficientBalance(sender, currency.toId(), amount, balanceOf[sender][currency.toId()]);
+            revert InsufficientBalance(
+                sender, currency.toId(), amount, balanceOf[sender][currency.toId()]
+            );
         }
 
         // Determine fee based on the role (maker/taker)

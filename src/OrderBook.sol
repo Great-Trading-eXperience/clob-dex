@@ -3,7 +3,10 @@ pragma solidity ^0.8.26;
 
 import {IOrderBook} from "./interfaces/IOrderBook.sol";
 import {OrderId, Quantity, Side, Status} from "./types/Types.sol";
-import {BokkyPooBahsRedBlackTreeLibrary as RBTree, Price} from "./libraries/BokkyPooBahsRedBlackTreeLibrary.sol";
+import {
+    BokkyPooBahsRedBlackTreeLibrary as RBTree,
+    Price
+} from "./libraries/BokkyPooBahsRedBlackTreeLibrary.sol";
 import {OrderQueueLib} from "./libraries/OrderQueueLib.sol";
 import {OrderMatching} from "./libraries/OrderMatching.sol";
 import {OrderPacking} from "./libraries/OrderPacking.sol";
@@ -76,13 +79,12 @@ contract OrderBook is Ownable, IOrderBook, ReentrancyGuard {
     /// @param quantity The quantity of the order
     /// @param side The side of the order (BUY/SELL)
     /// @return orderId The ID of the placed order
-    function placeOrder(Price price, Quantity quantity, Side side, address user)
-        external
-        override
-        onlyRouter
-        nonReentrant
-        returns (OrderId)
-    {
+    function placeOrder(
+        Price price,
+        Quantity quantity,
+        Side side,
+        address user
+    ) external override onlyRouter nonReentrant returns (OrderId) {
         if (Quantity.unwrap(quantity) == 0) revert InvalidQuantity();
         if (Price.unwrap(price) == 0) revert InvalidPrice(Price.unwrap(price));
 
@@ -110,11 +112,20 @@ contract OrderBook is Ownable, IOrderBook, ReentrancyGuard {
         activeUserOrders[user].add(OrderPacking.packOrder(side, price, OrderId.unwrap(orderId)));
 
         emit OrderPlaced(
-            orderId, user, side, price, quantity, uint48(block.timestamp), newOrder.expiry, false, Status.OPEN
+            orderId,
+            user,
+            side,
+            price,
+            quantity,
+            uint48(block.timestamp),
+            newOrder.expiry,
+            false,
+            Status.OPEN
         );
 
         // Lock balance
-        (Currency currency, uint256 amount) = poolKey.calculateAmountAndCurrency(price, quantity, side);
+        (Currency currency, uint256 amount) =
+            poolKey.calculateAmountAndCurrency(price, quantity, side);
         IBalanceManager(balanceManager).lock(user, currency, amount);
 
         OrderMatching.MatchOrder memory matchOrder = OrderMatching.MatchOrder({
@@ -138,13 +149,11 @@ contract OrderBook is Ownable, IOrderBook, ReentrancyGuard {
     /// @param quantity The quantity of the order
     /// @param side The side of the order (BUY/SELL)
     /// @return orderId The ID of the placed order
-    function placeMarketOrder(Quantity quantity, Side side, address user)
-        external
-        override
-        onlyRouter
-        nonReentrant
-        returns (OrderId)
-    {
+    function placeMarketOrder(
+        Quantity quantity,
+        Side side,
+        address user
+    ) external override onlyRouter nonReentrant returns (OrderId) {
         if (Quantity.unwrap(quantity) == 0) revert InvalidQuantity();
 
         OrderId orderId = OrderId.wrap(nextOrderId++);
@@ -187,30 +196,36 @@ contract OrderBook is Ownable, IOrderBook, ReentrancyGuard {
         return orderId;
     }
 
-    function cancelOrder(Side side, Price price, OrderId orderId, address user) external override onlyRouter {
+    function cancelOrder(
+        Side side,
+        Price price,
+        OrderId orderId,
+        address user
+    ) external override onlyRouter {
         OrderQueueLib.OrderQueue storage queue = orderQueues[side][price];
         Order storage order = queue.orders[OrderId.unwrap(orderId)];
 
         if (order.user != user) revert UnauthorizedCancellation();
 
+        // Remove the order from the queue
         queue.removeOrder(OrderId.unwrap(orderId));
 
-        emit OrderMatching.UpdateOrder(orderId, uint48(block.timestamp), order.filled, Status.CANCELLED);
-
-        activeUserOrders[user].remove(OrderPacking.packOrder(side, price, OrderId.unwrap(orderId)));
-
+        // Emit event for order update and cancellation
+        emit OrderMatching.UpdateOrder(
+            orderId, uint48(block.timestamp), order.filled, Status.CANCELLED
+        );
         emit OrderCancelled(orderId, user, uint48(block.timestamp), Status.CANCELLED);
 
-        Quantity remainingQuantity = Quantity.wrap(Quantity.unwrap(order.quantity) - Quantity.unwrap(order.filled));
-
-        queue.removeOrder(OrderId.unwrap(orderId));
-
+        // Remove the order from active user orders
         activeUserOrders[user].remove(OrderPacking.packOrder(side, price, OrderId.unwrap(orderId)));
 
-        // Unlock balance
-        (Currency currency, uint256 amount) = poolKey.calculateAmountAndCurrency(price, remainingQuantity, side);
+        Quantity remainingQuantity =
+            Quantity.wrap(Quantity.unwrap(order.quantity) - Quantity.unwrap(order.filled));
+        (Currency currency, uint256 amount) =
+            poolKey.calculateAmountAndCurrency(price, remainingQuantity, side);
         IBalanceManager(balanceManager).unlock(user, currency, amount);
 
+        // Remove price from price tree if the queue is empty
         if (queue.isEmpty()) {
             priceTrees[side].remove(price);
         }
@@ -222,7 +237,10 @@ contract OrderBook is Ownable, IOrderBook, ReentrancyGuard {
         return PriceVolume({price: price, volume: orderQueues[side][price].totalVolume});
     }
 
-    function getOrderQueue(Side side, Price price) external view returns (uint48 orderCount, uint256 totalVolume) {
+    function getOrderQueue(
+        Side side,
+        Price price
+    ) external view returns (uint48 orderCount, uint256 totalVolume) {
         OrderQueueLib.OrderQueue storage queue = orderQueues[side][price];
         uint48 validOrderCount = 0;
         uint256 validVolume = 0;
@@ -232,7 +250,8 @@ contract OrderBook is Ownable, IOrderBook, ReentrancyGuard {
             Order storage order = queue.orders[currentOrderId];
             if (order.expiry > block.timestamp) {
                 validOrderCount++;
-                validVolume += uint128(Quantity.unwrap(order.quantity)) - uint128(Quantity.unwrap(order.filled));
+                validVolume += uint128(Quantity.unwrap(order.quantity))
+                    - uint128(Quantity.unwrap(order.filled));
             }
             currentOrderId = uint48(OrderId.unwrap(order.next));
         }
@@ -264,12 +283,11 @@ contract OrderBook is Ownable, IOrderBook, ReentrancyGuard {
         return orders;
     }
 
-    function getNextBestPrices(Side side, Price price, uint8 count)
-        external
-        view
-        override
-        returns (PriceVolume[] memory)
-    {
+    function getNextBestPrices(
+        Side side,
+        Price price,
+        uint8 count
+    ) external view override returns (PriceVolume[] memory) {
         PriceVolume[] memory levels = new PriceVolume[](count);
         Price currentPrice = price;
 
@@ -277,7 +295,10 @@ contract OrderBook is Ownable, IOrderBook, ReentrancyGuard {
             currentPrice = _getNextBestPrice(side, currentPrice);
             if (RBTree.isEmpty(currentPrice)) break;
 
-            levels[i] = PriceVolume({price: currentPrice, volume: orderQueues[side][currentPrice].totalVolume});
+            levels[i] = PriceVolume({
+                price: currentPrice,
+                volume: orderQueues[side][currentPrice].totalVolume
+            });
         }
 
         return levels;

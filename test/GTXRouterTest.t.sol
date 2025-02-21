@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
 import {Test, console} from "forge-std/Test.sol";
@@ -26,10 +27,10 @@ contract GTXRouterTest is Test {
 
     uint256 private feeMaker = 5; // 0.5%
     uint256 private feeTaker = 1; // 0.1%
-    uint256 constant FEE_UNIT = 1_000;
+    uint256 constant FEE_UNIT = 1000;
 
     uint256 private initialBalance = 1000 ether;
-    uint256 private initialBalanceUSDC = 100000_000000;
+    uint256 private initialBalanceUSDC = 100_000_000_000;
     uint256 private initialBalanceWETH = 10 ether;
 
     function setUp() public {
@@ -60,13 +61,6 @@ contract GTXRouterTest is Test {
         vm.stopPrank();
     }
 
-    // Logs:
-    //   Price: 3000_0000_0000
-    //   Quantity: 1_000000000000000000
-    //   Setting side to SELL
-    //   User Balance: 9_000000000000000000
-    //   User Locked Balance: 1_000000000000000000
-    //   Order placed with ID: 2
     function testPlaceOrder() public {
         // Deposit first
         uint256 depositAmount = 10 ether;
@@ -105,13 +99,6 @@ contract GTXRouterTest is Test {
         vm.stopPrank();
     }
 
-    // Logs:
-    //   Price: 300000000000
-    //   Quantity: 1000000000000000000
-    //   Setting side to SELL
-    //   Order with deposit placed with ID: 2
-    //   Order Count: 1
-    //   Total Volume: 1000000000000000000
     function testPlaceOrderWithDeposit() public {
         uint256 depositAmount = 10 ether;
         vm.startPrank(user);
@@ -138,7 +125,8 @@ contract GTXRouterTest is Test {
 
         // Check the balance and locked balance from the balance manager
         uint256 balance = balanceManager.getBalance(user, weth);
-        uint256 lockedBalance = balanceManager.getLockedBalance(user, address(poolManager.getPool(key).orderBook), weth);
+        uint256 lockedBalance =
+            balanceManager.getLockedBalance(user, address(poolManager.getPool(key).orderBook), weth);
 
         console.log("User Balance:", balance);
         console.log("User Locked Balance:", lockedBalance);
@@ -161,7 +149,8 @@ contract GTXRouterTest is Test {
         assertEq(totalVolume, 0);
 
         uint256 balance = balanceManager.getBalance(user, usdc);
-        uint256 lockedBalance = balanceManager.getLockedBalance(user, address(poolManager.getPool(key).orderBook), usdc);
+        uint256 lockedBalance =
+            balanceManager.getLockedBalance(user, address(poolManager.getPool(key).orderBook), usdc);
 
         console.log("User Balance:", balance);
         console.log("User Locked Balance:", lockedBalance);
@@ -203,7 +192,8 @@ contract GTXRouterTest is Test {
         assertEq(totalVolume, 0);
 
         uint256 balance = balanceManager.getBalance(user, usdc);
-        uint256 lockedBalance = balanceManager.getLockedBalance(user, address(poolManager.getPool(key).orderBook), usdc);
+        uint256 lockedBalance =
+            balanceManager.getLockedBalance(user, address(poolManager.getPool(key).orderBook), usdc);
 
         console.log("User Balance:", balance);
         console.log("User Locked Balance:", lockedBalance);
@@ -221,22 +211,27 @@ contract GTXRouterTest is Test {
         mockWETH.mint(alice, initialBalanceWETH);
         IERC20(Currency.unwrap(weth)).approve(address(balanceManager), initialBalanceWETH);
         // balanceManager.deposit(weth, initialBalanceWETH);
-        gtxRouter.placeOrderWithDeposit(key, price, Quantity.wrap(Quantity.unwrap(quantity) / 2), Side.SELL);
+        gtxRouter.placeOrderWithDeposit(
+            key, price, Quantity.wrap(Quantity.unwrap(quantity) / 2), Side.SELL
+        );
         vm.stopPrank();
 
         vm.startPrank(bob);
         mockWETH.mint(bob, initialBalanceWETH);
         IERC20(Currency.unwrap(weth)).approve(address(balanceManager), initialBalanceWETH);
         // balanceManager.deposit(weth, initialBalanceWETH);
-        gtxRouter.placeOrderWithDeposit(key, price2, Quantity.wrap(2 * Quantity.unwrap(quantity)), Side.SELL);
+        gtxRouter.placeOrderWithDeposit(
+            key, price2, Quantity.wrap(2 * Quantity.unwrap(quantity)), Side.SELL
+        );
         vm.stopPrank();
 
         vm.startPrank(user);
         mockWETH.mint(user, initialBalanceUSDC);
         IERC20(Currency.unwrap(usdc)).approve(address(balanceManager), initialBalanceUSDC);
         // balanceManager.deposit(usdc, initialBalanceUSDC);
-        OrderId orderId =
-            gtxRouter.placeMarketOrderWithDeposit(key, price, Quantity.wrap(Quantity.unwrap(quantity) / 2), Side.BUY);
+        OrderId orderId = gtxRouter.placeMarketOrderWithDeposit(
+            key, price, Quantity.wrap(Quantity.unwrap(quantity) / 2), Side.BUY
+        );
 
         (uint48 orderCount, uint256 totalVolume) = gtxRouter.getOrderQueue(key, Side.SELL, price);
         console.log("Order Count:", orderCount);
@@ -247,7 +242,8 @@ contract GTXRouterTest is Test {
         assertEq(totalVolume, 0);
 
         uint256 balance = balanceManager.getBalance(user, usdc);
-        uint256 lockedBalance = balanceManager.getLockedBalance(user, address(poolManager.getPool(key).orderBook), usdc);
+        uint256 lockedBalance =
+            balanceManager.getLockedBalance(user, address(poolManager.getPool(key).orderBook), usdc);
 
         console.log("User Balance:", balance);
         console.log("User Locked Balance:", lockedBalance);
@@ -263,7 +259,8 @@ contract GTXRouterTest is Test {
         vm.expectRevert(abi.encodeWithSignature("UnauthorizedCancellation()")); // Expect the UnauthorizedCancellation error
         gtxRouter.cancelOrder(key, side, price, orderId);
         console.log(
-            "Order cancellation expected to revert with UnauthorizedCancellation for ID:", OrderId.unwrap(orderId)
+            "Order cancellation expected to revert with UnauthorizedCancellation for ID:",
+            OrderId.unwrap(orderId)
         );
     }
 
@@ -291,7 +288,8 @@ contract GTXRouterTest is Test {
 
         // Check the balance and locked balance from the balance manager
         uint256 balance = balanceManager.getBalance(user, weth);
-        uint256 lockedBalance = balanceManager.getLockedBalance(user, address(poolManager.getPool(key).orderBook), weth);
+        uint256 lockedBalance =
+            balanceManager.getLockedBalance(user, address(poolManager.getPool(key).orderBook), weth);
 
         console.log("User Balance:", balance);
         console.log("User Locked Balance:", lockedBalance);

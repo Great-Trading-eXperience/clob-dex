@@ -37,27 +37,37 @@ contract PoolManager is Ownable, IPoolManager {
         router = _router;
     }
 
-    function createPool(PoolKey calldata key, uint256 _lotSize, uint256 _maxOrderAmount) external {
+    function createPool(
+        PoolKey calldata key,
+        uint256 _lotSize,
+        uint256 _maxOrderAmount
+    ) external returns (Pool memory pool) {
         if (router == address(0)) {
             revert InvalidRouter();
         }
 
         PoolId id = key.toId();
-        IOrderBook orderBook = new OrderBook(address(this), balanceManager, _maxOrderAmount, _lotSize, key);
+        IOrderBook orderBook =
+            new OrderBook(address(this), balanceManager, _maxOrderAmount, _lotSize, key);
 
         // Effects: Update the state before any external interaction
-        pools[id] = Pool({
+        pool = Pool({
             orderBook: orderBook,
             baseCurrency: key.baseCurrency,
             quoteCurrency: key.quoteCurrency,
             lotSize: _lotSize,
             maxOrderAmount: _maxOrderAmount
         });
+        pools[id] = pool;
 
         // Interactions: External calls after state changes
         orderBook.setRouter(router);
         IBalanceManager(balanceManager).setAuthorizedOperator(address(orderBook), true);
 
-        emit PoolCreated(id, address(orderBook), key.baseCurrency, key.quoteCurrency, _lotSize, _maxOrderAmount);
+        emit PoolCreated(
+            id, address(orderBook), key.baseCurrency, key.quoteCurrency, _lotSize, _maxOrderAmount
+        );
+
+        return pool;
     }
 }
