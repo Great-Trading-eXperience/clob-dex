@@ -119,5 +119,19 @@ Here are the deployed contract addresses and their corresponding links on the Ri
   - **Explorer Link:** [View on RiseLabs Testnet Explorer](https://testnet-explorer.riselabs.xyz/address/0x35234957aC7ba5d61257d72443F8F5f0C431fD00)
 
 - **GTXRouter Contract**
+
   - **Address:** `0xed2582315b355ad0FFdF4928Ca353773c9a588e3`
   - **Explorer Link:** [View on RiseLabs Testnet Explorer](https://testnet-explorer.riselabs.xyz/address/0xed2582315b355ad0FFdF4928Ca353773c9a588e3)
+
+The following mock token addresses are used for creating pools in the OrderBook.
+
+- **Mock USDC Contract**
+
+  - **Address:** `0x2E6D0aA9ca3348870c7cbbC28BF6ea90A3C1fE36`
+  - **Purpose:** This is a mock USDC token used for testing the OrderBook functionalities.
+  - **Explorer Link:** [View on RiseLabs Testnet Explorer](https://testnet-explorer.riselabs.xyz/address/0x2E6D0aA9ca3348870c7cbbC28BF6ea90A3C1fE36)
+
+- **Mock WETH Contract**
+  - **Address:** `0xc4CebF58836707611439e23996f4FA4165Ea6A28`
+  - **Purpose:** This is a mock WETH token used for testing the OrderBook functionalities.
+  - **Explorer Link:** [View on RiseLabs Testnet Explorer](https://testnet-explorer.riselabs.xyz/address/0xc4CebF58836707611439e23996f4FA4165Ea6A28)
