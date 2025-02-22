@@ -21,32 +21,42 @@ contract GTXRouter {
         balanceManager = IBalanceManager(_balanceManager);
     }
 
-    function placeOrder(PoolKey calldata key, Price price, Quantity quantity, Side side)
-        public
-        returns (OrderId orderId)
-    {
+    function placeOrder(
+        PoolKey calldata key,
+        Price price,
+        Quantity quantity,
+        Side side
+    ) public returns (OrderId orderId) {
         IPoolManager.Pool memory pool = poolManager.getPool(key);
         orderId = pool.orderBook.placeOrder(price, quantity, side, msg.sender);
     }
 
-    function placeOrderWithDeposit(PoolKey calldata key, Price price, Quantity quantity, Side side)
-        external
-        returns (OrderId orderId)
-    {
+    function placeOrderWithDeposit(
+        PoolKey calldata key,
+        Price price,
+        Quantity quantity,
+        Side side
+    ) external returns (OrderId orderId) {
         (Currency currency, uint256 amount) = key.calculateAmountAndCurrency(price, quantity, side);
         IBalanceManager(balanceManager).deposit(currency, amount, msg.sender);
         orderId = placeOrder(key, price, quantity, side);
     }
 
-    function placeMarketOrder(PoolKey calldata key, Quantity quantity, Side side) public returns (OrderId orderId) {
+    function placeMarketOrder(
+        PoolKey calldata key,
+        Quantity quantity,
+        Side side
+    ) public returns (OrderId orderId) {
         IPoolManager.Pool memory pool = poolManager.getPool(key);
         orderId = pool.orderBook.placeMarketOrder(quantity, side, msg.sender);
     }
 
-    function placeMarketOrderWithDeposit(PoolKey calldata key, Price price, Quantity quantity, Side side)
-        external
-        returns (OrderId orderId)
-    {
+    function placeMarketOrderWithDeposit(
+        PoolKey calldata key,
+        Price price,
+        Quantity quantity,
+        Side side
+    ) external returns (OrderId orderId) {
         (Currency currency, uint256 amount) = key.calculateAmountAndCurrency(price, quantity, side);
         IBalanceManager(balanceManager).deposit(currency, amount, msg.sender);
         orderId = placeMarketOrder(key, quantity, side);
@@ -57,34 +67,37 @@ contract GTXRouter {
         pool.orderBook.cancelOrder(side, price, orderId, msg.sender);
     }
 
-    function getBestPrice(PoolKey calldata key, Side side) external view returns (IOrderBook.PriceVolume memory) {
+    function getBestPrice(
+        PoolKey calldata key,
+        Side side
+    ) external view returns (IOrderBook.PriceVolume memory) {
         IPoolManager.Pool memory pool = poolManager.getPool(key);
         return pool.orderBook.getBestPrice(side);
     }
 
-    function getOrderQueue(PoolKey calldata key, Side side, Price price)
-        external
-        view
-        returns (uint48 orderCount, uint256 totalVolume)
-    {
+    function getOrderQueue(
+        PoolKey calldata key,
+        Side side,
+        Price price
+    ) external view returns (uint48 orderCount, uint256 totalVolume) {
         IPoolManager.Pool memory pool = poolManager.getPool(key);
         return pool.orderBook.getOrderQueue(side, price);
     }
 
-    function getUserActiveOrders(PoolKey calldata key, address user)
-        external
-        view
-        returns (IOrderBook.Order[] memory)
-    {
+    function getUserActiveOrders(
+        PoolKey calldata key,
+        address user
+    ) external view returns (IOrderBook.Order[] memory) {
         IPoolManager.Pool memory pool = poolManager.getPool(key);
         return pool.orderBook.getUserActiveOrders(user);
     }
 
-    function getNextBestPrices(PoolKey calldata key, Side side, Price price, uint8 count)
-        external
-        view
-        returns (IOrderBook.PriceVolume[] memory)
-    {
+    function getNextBestPrices(
+        PoolKey calldata key,
+        Side side,
+        Price price,
+        uint8 count
+    ) external view returns (IOrderBook.PriceVolume[] memory) {
         IPoolManager.Pool memory pool = poolManager.getPool(key);
         return pool.orderBook.getNextBestPrices(side, price, count);
     }

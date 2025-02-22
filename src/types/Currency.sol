@@ -5,7 +5,12 @@ import {IERC20} from "forge-std/interfaces/IERC20.sol";
 
 type Currency is address;
 
-using {greaterThan as >, lessThan as <, greaterThanOrEqualTo as >=, equals as ==} for Currency global;
+using {
+    greaterThan as >,
+    lessThan as <,
+    greaterThanOrEqualTo as >=,
+    equals as ==
+} for Currency global;
 using CurrencyLibrary for Currency global;
 
 function equals(Currency currency, Currency other) pure returns (bool) {

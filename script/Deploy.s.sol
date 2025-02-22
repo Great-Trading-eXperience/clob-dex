@@ -9,6 +9,7 @@ import "../src/mocks/mockWETH.sol";
 import "../src/mocks/mockUSDC.sol";
 import {DeployMocks} from "./DeployMocks.s.sol";
 import {DeployContracts} from "./DeployContracts.s.sol";
+import {MockOrderBookFromRouter} from "./MockOrderBookFromRouter.s.sol";
 import {HelperConfig} from "./HelperConfig.s.sol";
 import {console} from "forge-std/Script.sol";
 import "forge-std/Vm.sol";
@@ -22,8 +23,11 @@ contract Deploy {
         // console.log("DeployMocks contract deployed at:", address(deployMocks));
         // deployMocks.run();
 
-        deployContracts = new DeployContracts();
-        console.log("DeployedContracts deployed at:", address(deployContracts));
-        deployContracts.run();
+        // deployContracts = new DeployContracts();
+        // console.log("DeployedContracts deployed at:", address(deployContracts));
+        // deployContracts.run();
+
+        MockOrderBookFromRouter runFromRouter = new MockOrderBookFromRouter();
+        runFromRouter.run();
     }
 }

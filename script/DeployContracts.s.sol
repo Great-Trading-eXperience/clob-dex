@@ -17,8 +17,9 @@ contract DeployContracts is DeployHelpers {
     function setUp() public {}
 
     function run() public {
-        uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
+        uint256 deployerPrivateKey = getDeployerKey();
         address owner = vm.addr(deployerPrivateKey);
+        vm.allowCheatcodes(owner);
         vm.startBroadcast(deployerPrivateKey);
 
         HelperConfig config = new HelperConfig();

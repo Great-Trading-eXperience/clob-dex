@@ -53,12 +53,8 @@ contract HelperConfig is DeployHelpers {
             return activeNetworkConfig;
         }
 
-        vm.startBroadcast(getDeployerKey());
-
         MockUSDC mockUSDC = new MockUSDC();
         MockWETH mockWeth = new MockWETH();
-
-        vm.stopBroadcast();
 
         return NetworkConfig({weth: address(mockWeth), usdc: address(mockUSDC)});
     }

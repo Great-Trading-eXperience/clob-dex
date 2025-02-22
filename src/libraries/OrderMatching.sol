@@ -3,7 +3,9 @@
 pragma solidity ^0.8.26;
 
 import "./OrderQueueLib.sol";
-import {BokkyPooBahsRedBlackTreeLibrary as RBTree, Price} from "./BokkyPooBahsRedBlackTreeLibrary.sol";
+import {
+    BokkyPooBahsRedBlackTreeLibrary as RBTree, Price
+} from "./BokkyPooBahsRedBlackTreeLibrary.sol";
 import {Status} from "../types/Types.sol";
 import {IBalanceManager} from "../interfaces/IBalanceManager.sol";
 import {Currency} from "../types/Currency.sol";
@@ -54,16 +56,19 @@ library OrderMatching {
         Side side = _params.side;
 
         Side oppositeSide = side.opposite();
-        uint128 remaining = uint128(Quantity.unwrap(order.quantity)) - uint128(Quantity.unwrap(order.filled));
+        uint128 remaining =
+            uint128(Quantity.unwrap(order.quantity)) - uint128(Quantity.unwrap(order.filled));
         filled = 0;
 
         while (remaining > 0) {
-            Price bestPrice = getBestMatchingPrice(priceTrees[oppositeSide], order.price, side, isMarketOrder);
+            Price bestPrice =
+                getBestMatchingPrice(priceTrees[oppositeSide], order.price, side, isMarketOrder);
 
             if (RBTree.isEmpty(bestPrice)) break;
 
-            (remaining, filled) =
-                processMatchingAtPrice(_params, bestPrice, remaining, orders[oppositeSide][bestPrice], filled);
+            (remaining, filled) = processMatchingAtPrice(
+                _params, bestPrice, remaining, orders[oppositeSide][bestPrice], filled
+            );
 
             if (orders[oppositeSide][bestPrice].orderCount == 0) {
                 priceTrees[oppositeSide].remove(bestPrice);
@@ -81,11 +86,12 @@ library OrderMatching {
         return filled;
     }
 
-    function getBestMatchingPrice(RBTree.Tree storage priceTree, Price orderPrice, Side side, bool isMarketOrder)
-        private
-        view
-        returns (Price)
-    {
+    function getBestMatchingPrice(
+        RBTree.Tree storage priceTree,
+        Price orderPrice,
+        Side side,
+        bool isMarketOrder
+    ) private view returns (Price) {
         if (isMarketOrder) {
             return side == Side.BUY ? priceTree.first() : priceTree.last();
         }
@@ -144,11 +150,12 @@ library OrderMatching {
             return (remaining, totalFilled, nextOrderId);
         }
 
-        uint128 matchingRemaining =
-            uint128(Quantity.unwrap(matchingOrder.quantity)) - uint128(Quantity.unwrap(matchingOrder.filled));
+        uint128 matchingRemaining = uint128(Quantity.unwrap(matchingOrder.quantity))
+            - uint128(Quantity.unwrap(matchingOrder.filled));
         uint128 executedQuantity = remaining < matchingRemaining ? remaining : matchingRemaining;
 
-        matchingOrder.filled = Quantity.wrap(uint128(Quantity.unwrap(matchingOrder.filled)) + executedQuantity);
+        matchingOrder.filled =
+            Quantity.wrap(uint128(Quantity.unwrap(matchingOrder.filled)) + executedQuantity);
         remaining -= executedQuantity;
         totalFilled += executedQuantity;
         queue.totalVolume -= executedQuantity;
@@ -163,7 +170,10 @@ library OrderMatching {
             _params.side
         );
 
-        if (uint128(Quantity.unwrap(matchingOrder.filled)) == uint128(Quantity.unwrap(matchingOrder.quantity))) {
+        if (
+            uint128(Quantity.unwrap(matchingOrder.filled))
+                == uint128(Quantity.unwrap(matchingOrder.quantity))
+        ) {
             queue.removeOrder(currentOrderId);
         }
 
@@ -211,7 +221,12 @@ library OrderMatching {
 
         if (matchingOrder.expiry <= block.timestamp) {
             queue.removeOrder(currentOrderId);
-            emit UpdateOrder(OrderId.wrap(currentOrderId), uint48(block.timestamp), Quantity.wrap(0), Status.EXPIRED);
+            emit UpdateOrder(
+                OrderId.wrap(currentOrderId),
+                uint48(block.timestamp),
+                Quantity.wrap(0),
+                Status.EXPIRED
+            );
             return (nextOrderId, 0);
         }
 
@@ -219,11 +234,12 @@ library OrderMatching {
             return (nextOrderId, 0);
         }
 
-        uint128 matchingRemaining =
-            uint128(Quantity.unwrap(matchingOrder.quantity)) - uint128(Quantity.unwrap(matchingOrder.filled));
+        uint128 matchingRemaining = uint128(Quantity.unwrap(matchingOrder.quantity))
+            - uint128(Quantity.unwrap(matchingOrder.filled));
         executedQuantity = remainingQty < matchingRemaining ? remainingQty : matchingRemaining;
 
-        matchingOrder.filled = Quantity.wrap(uint128(Quantity.unwrap(matchingOrder.filled)) + executedQuantity);
+        matchingOrder.filled =
+            Quantity.wrap(uint128(Quantity.unwrap(matchingOrder.filled)) + executedQuantity);
         queue.totalVolume -= executedQuantity;
 
         emit OrderMatched(
@@ -236,7 +252,10 @@ library OrderMatching {
             Quantity.wrap(executedQuantity)
         );
 
-        if (uint128(Quantity.unwrap(matchingOrder.filled)) == uint128(Quantity.unwrap(matchingOrder.quantity))) {
+        if (
+            uint128(Quantity.unwrap(matchingOrder.filled))
+                == uint128(Quantity.unwrap(matchingOrder.quantity))
+        ) {
             queue.removeOrder(currentOrderId);
         }
 

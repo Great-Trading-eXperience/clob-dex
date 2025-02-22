@@ -24,7 +24,8 @@ library OrderPacking {
     function packOrder(Side side, Price price, uint48 orderId) internal pure returns (uint256) {
         if (orderId == 0) revert InvalidPackedData();
 
-        return (uint256(side) << SIDE_SHIFT) | (uint256(Price.unwrap(price)) << PRICE_SHIFT) | uint256(orderId);
+        return (uint256(side) << SIDE_SHIFT) | (uint256(Price.unwrap(price)) << PRICE_SHIFT)
+            | uint256(orderId);
     }
 
     /// @notice Unpacks order data from a single uint256
@@ -32,7 +33,11 @@ library OrderPacking {
     /// @return side The order side
     /// @return price The order price
     /// @return orderId The order ID
-    function unpackOrder(uint256 packed) internal pure returns (Side side, Price price, uint48 orderId) {
+    function unpackOrder(uint256 packed)
+        internal
+        pure
+        returns (Side side, Price price, uint48 orderId)
+    {
         side = Side((packed & SIDE_MASK) >> SIDE_SHIFT);
         price = Price.wrap(uint64((packed & PRICE_MASK) >> PRICE_SHIFT));
         orderId = uint48(packed & ORDER_ID_MASK);

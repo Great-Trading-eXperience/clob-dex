@@ -29,9 +29,9 @@ interface IPoolManager {
 
     function setRouter(address router) external;
 
-    function createPool(PoolKey calldata key, uint256 _lotSize, uint256 _maxOrderAmount) external;
-
     function getPool(PoolKey calldata key) external view returns (Pool memory);
 
     function getPoolId(PoolKey calldata key) external pure returns (PoolId);
+
+    function createPool(PoolKey calldata key, uint256 _lotSize, uint256 _maxOrderAmount) external;
 }

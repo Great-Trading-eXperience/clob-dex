@@ -8,7 +8,11 @@ contract MockBalanceManager {
     event Withdrawal(address indexed user, uint256 indexed id, uint256 amount);
     event OperatorSet(address indexed operator, bool approved);
     event TransferLocked(
-        address indexed operator, address indexed sender, address indexed receiver, uint256 id, uint256 amount
+        address indexed operator,
+        address indexed sender,
+        address indexed receiver,
+        uint256 id,
+        uint256 amount
     );
 
     error InsufficientBalance(address user, uint256 id, uint256 want, uint256 have);
@@ -38,11 +42,19 @@ contract MockBalanceManager {
         emit OperatorSet(operator, approved);
     }
 
-    function lock(address, /* user */ Currency, /* currency */ uint256 /* amount */ ) external pure returns (bool) {
+    function lock(
+        address, /* user */
+        Currency, /* currency */
+        uint256 /* amount */
+    ) external pure returns (bool) {
         return true;
     }
 
-    function unlock(address, /* user */ Currency, /* currency */ uint256 /* amount */ ) external pure returns (bool) {
+    function unlock(
+        address, /* user */
+        Currency, /* currency */
+        uint256 /* amount */
+    ) external pure returns (bool) {
         return true;
     }
 
@@ -55,11 +67,12 @@ contract MockBalanceManager {
         return true;
     }
 
-    function transferFrom(address, /* sender */ address, /* receiver */ Currency, /* currency */ uint256 /* amount */ )
-        external
-        pure
-        returns (bool)
-    {
+    function transferFrom(
+        address, /* sender */
+        address, /* receiver */
+        Currency, /* currency */
+        uint256 /* amount */
+    ) external pure returns (bool) {
         return true;
     }
 }

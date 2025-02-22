@@ -8,7 +8,11 @@ interface IBalanceManager {
     event Withdrawal(address indexed user, uint256 indexed id, uint256 amount);
     event OperatorSet(address indexed operator, bool approved);
     event TransferFrom(
-        address indexed operator, address indexed sender, address indexed receiver, uint256 id, uint256 amount
+        address indexed operator,
+        address indexed sender,
+        address indexed receiver,
+        uint256 id,
+        uint256 amount
     );
 
     error InsufficientBalance(address user, uint256 id, uint256 want, uint256 have);
@@ -30,13 +34,19 @@ interface IBalanceManager {
 
     function unlock(address user, Currency currency, uint256 amount) external returns (bool);
 
-    function transferLockedFrom(address sender, address receiver, Currency currency, uint256 amount)
-        external
-        returns (bool);
+    function transferLockedFrom(
+        address sender,
+        address receiver,
+        Currency currency,
+        uint256 amount
+    ) external returns (bool);
 
-    function transferFrom(address sender, address receiver, Currency currency, uint256 amount)
-        external
-        returns (bool);
+    function transferFrom(
+        address sender,
+        address receiver,
+        Currency currency,
+        uint256 amount
+    ) external returns (bool);
 
     function setAuthorizedOperator(address operator, bool approved) external;
 
