@@ -1,0 +1,37 @@
+{
+	"name": "clob-dex",
+	"version": "1.0.0",
+	"description": "clob dex",
+	"author": "GTX",
+	"main": "index.js",
+	"directories": {
+		"lib": "lib",
+		"test": "test"
+	},
+	"scripts": {
+		"chain": "anvil --config-out localhost.json",
+		"build": "make build",
+		"compile": "make compile",
+		"deploy": "make deploy",
+		"deploy:verify": "make deploy-verify",
+		"fork": "anvil --fork-url ${0:-mainnet} --chain-id 31337 --config-out localhost.json",
+		"lint": "make lint",
+		"test": "make test",
+		"verify": "make verify",
+		"generate:abi": "make generate-abi"
+	},
+	"keywords": [],
+	"license": "MIT",
+	"dependencies": {
+		"dotenv": "~16.3.1",
+		"envfile": "~6.18.0",
+		"ethers": "~5.7.1",
+		"prettier": "~2.8.8",
+		"qrcode": "~1.5.3",
+		"toml": "~3.0.0"
+	},
+	"devDependencies": {
+		"@types/prettier": "2",
+		"@types/qrcode": "1"
+	}
+}

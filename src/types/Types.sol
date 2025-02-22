@@ -9,6 +9,15 @@ type OrderId is uint48;
 /// @dev Represents order quantities using 128 bits
 type Quantity is uint128;
 
+library QuantityLibrary {
+    function decimals(Quantity /* price */ ) internal pure returns (uint8) {
+        // Assuming the Price type is a fixed-point number with 8 decimal places
+        return 18;
+    }
+}
+
+using QuantityLibrary for Quantity global;
+
 /// @notice Enum representing the side of an order
 /// @dev BUY = 0, SELL = 1
 enum Side {
@@ -23,3 +32,11 @@ enum Status {
     CANCELLED,
     EXPIRED
 }
+
+library SideLibrary {
+    function opposite(Side side) internal pure returns (Side) {
+        return side == Side.BUY ? Side.SELL : Side.BUY;
+    }
+}
+
+using SideLibrary for Side global;
