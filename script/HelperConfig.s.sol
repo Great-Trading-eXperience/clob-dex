@@ -5,6 +5,7 @@ import {ERC20Mock} from "@openzeppelin/contracts/mocks/token/ERC20Mock.sol";
 import {MockUSDC} from "../src/mocks/MockUSDC.sol";
 import {MockWETH} from "../src/mocks/MockWETH.sol";
 import {DeployHelpers} from "./DeployHelpers.s.sol";
+import {MockToken} from "../src/mocks/MockToken.sol";
 
 contract HelperConfig is DeployHelpers {
     NetworkConfig public activeNetworkConfig;
@@ -43,9 +44,9 @@ contract HelperConfig is DeployHelpers {
         return NetworkConfig({
             usdc: 0x6AcaCCDacE944619678054Fe0eA03502ed557651,
             weth: 0x80207B9bacc73dadAc1C8A03C6a7128350DF5c9E,
-            wbtc: 0x0000000000000000000000000000000000000000, // Placeholder
-            link: 0x0000000000000000000000000000000000000000, // Placeholder
-            pepe: 0x0000000000000000000000000000000000000000 // Placeholder
+            wbtc: address(0), // Placeholder
+            link: address(0), // Placeholder
+            pepe: address(0) // Placeholder
         });
     }
 
@@ -53,9 +54,9 @@ contract HelperConfig is DeployHelpers {
         return NetworkConfig({
             usdc: 0x4c9EDD5852cd905f086C759E8383e09bff1E68B3,
             weth: 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2,
-            wbtc: 0x0000000000000000000000000000000000000000, // Placeholder
-            link: 0x0000000000000000000000000000000000000000, // Placeholder
-            pepe: 0x0000000000000000000000000000000000000000 // Placeholder
+            wbtc: address(0), // Placeholder
+            link: address(0), // Placeholder
+            pepe: address(0) // Placeholder
         });
     }
 
@@ -64,16 +65,23 @@ contract HelperConfig is DeployHelpers {
         if (activeNetworkConfig.usdc != address(0)) {
             return activeNetworkConfig;
         }
+        uint256 deployerPrivateKey = getDeployerKey();
+        vm.startBroadcast(deployerPrivateKey);
 
-        MockUSDC mockUSDC = new MockUSDC();
-        MockWETH mockWeth = new MockWETH();
+        MockToken usdc = new MockToken("Mock USDC", "USDC", 6);
+        MockToken weth = new MockToken("Mock WETH", "WETH", 18);
+        MockToken wbtc = new MockToken("Mock WBTC", "WBTC", 8);
+        MockToken pepe = new MockToken("Mock PEPE", "PEPE", 18);
+        MockToken chainlink = new MockToken("Mock Chainlink", "LINK", 18);
+
+        vm.stopBroadcast();
 
         return NetworkConfig({
-            usdc: address(mockUSDC),
-            weth: address(mockWeth),
-            wbtc: 0x0000000000000000000000000000000000000000, // Placeholder
-            link: 0x0000000000000000000000000000000000000000, // Placeholder
-            pepe: 0x0000000000000000000000000000000000000000 // Placeholder
+            usdc: address(usdc),
+            weth: address(weth),
+            wbtc: address(wbtc),
+            link: address(chainlink),
+            pepe: address(pepe)
         });
     }
 }

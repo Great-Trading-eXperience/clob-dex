@@ -11,31 +11,37 @@ import "../src/GTXRouter.sol";
 import {HelperConfig} from "./HelperConfig.s.sol";
 
 contract MockOrderBookFromRouter is DeployHelpers {
-    address balanceManager = 0x9B4fD469B6236c27190749bFE3227b85c25462D7;
-    address poolManager = 0x35234957aC7ba5d61257d72443F8F5f0C431fD00;
-    address gtxRouter = 0xed2582315b355ad0FFdF4928Ca353773c9a588e3;
+    address balanceManager;
+    address poolManager;
+    address gtxRouter;
 
     address usdc;
-    address weth;
-    address wbtc;
-    address link;
-    address pepe;
+    address[] tokens;
+
+    constructor(
+        address _balanceManager,
+        address _poolManager,
+        address _gtxRouter,
+        address _usdc,
+        address[] memory _tokens
+    ) {
+        if (block.chainid == 31_337) {
+            balanceManager = _balanceManager;
+            poolManager = _poolManager;
+            gtxRouter = _gtxRouter;
+        } else {
+            balanceManager = vm.envAddress("BALANCEMANAGER_CONTRACT_ADDRESS");
+            poolManager = vm.envAddress("POOLMANAGER_CONTRACT_ADDRESS");
+            gtxRouter = vm.envAddress("GTXROUTER_CONTRACT_ADDRESS");
+        }
+        usdc = _usdc;
+        tokens = _tokens;
+    }
 
     function run() external {
         uint256 deployerPrivateKey = getDeployerKey();
         address owner = vm.addr(deployerPrivateKey);
         vm.startBroadcast(deployerPrivateKey); // Starts broadcasting transactions
-
-        address[] memory tokens = new address[](4);
-        HelperConfig config = new HelperConfig();
-        (usdc, weth, wbtc, link, pepe) = config.activeNetworkConfig();
-
-        console.log("USDC address from config:", usdc);
-
-        tokens[0] = weth;
-        tokens[1] = wbtc;
-        tokens[2] = link;
-        tokens[3] = pepe;
 
         // Mint USDC
         MockToken(usdc).mint(owner, 10_000_000e6);
@@ -44,7 +50,7 @@ contract MockOrderBookFromRouter is DeployHelpers {
         // Loop through tokens to mint, approve, and create pool keys
         for (uint256 i = 0; i < tokens.length; i++) {
             MockToken(tokens[i]).mint(owner, 1000 ether);
-            MockToken(tokens[i]).approve(balanceManager, 100 ether);
+            MockToken(tokens[i]).approve(balanceManager, 1000 ether);
 
             Currency baseCurrency = Currency.wrap(tokens[i]);
             Currency quoteCurrency = Currency.wrap(address(usdc));
@@ -54,8 +60,8 @@ contract MockOrderBookFromRouter is DeployHelpers {
                 PoolKey({baseCurrency: baseCurrency, quoteCurrency: quoteCurrency});
 
             // Place an order
-            Price price = Price.wrap(30_000_000_000); // Example price 8 decimals
-            Quantity quantity = Quantity.wrap(1_000_000_000_000); // Example quantity (1.0 ETH) 18 decimals
+            Price price = Price.wrap(280_000_000_000); // Example price 8 decimals
+            Quantity quantity = Quantity.wrap(1 ether); // Example quantity (1.0 ETH) 18 decimals
             Side side = Side.BUY; // 0 = Buy, 1 = Sell
             OrderId orderId =
                 GTXRouter(gtxRouter).placeOrderWithDeposit(poolKey, price, quantity, side);
