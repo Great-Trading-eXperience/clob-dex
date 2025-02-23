@@ -9,6 +9,7 @@ yarn.lock
 /broadcast/**/dry-run/
 
 /developments
+localhost.json
 
 # Docs
 docs/
