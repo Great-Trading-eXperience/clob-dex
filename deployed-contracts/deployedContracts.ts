@@ -682,6 +682,15 @@ export const deployedContracts: DeployedContracts = {
         },
       ],
       inheritedFunctions: {
+        deposit: "src/interfaces/IBalanceManager.sol",
+        getBalance: "src/interfaces/IBalanceManager.sol",
+        lock: "src/interfaces/IBalanceManager.sol",
+        setAuthorizedOperator: "src/interfaces/IBalanceManager.sol",
+        setFees: "src/interfaces/IBalanceManager.sol",
+        transferFrom: "src/interfaces/IBalanceManager.sol",
+        transferLockedFrom: "src/interfaces/IBalanceManager.sol",
+        unlock: "src/interfaces/IBalanceManager.sol",
+        withdraw: "src/interfaces/IBalanceManager.sol",
         owner: "lib/openzeppelin-contracts/contracts/access/Ownable.sol",
         renounceOwnership:
           "lib/openzeppelin-contracts/contracts/access/Ownable.sol",
