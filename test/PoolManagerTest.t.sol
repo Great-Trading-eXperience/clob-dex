@@ -22,10 +22,10 @@ contract PoolManagerTest is Test {
 
     uint256 private feeMaker = 5; // 0.5%
     uint256 private feeTaker = 1; // 0.1%
-    uint256 constant FEE_UNIT = 1_000;
+    uint256 constant FEE_UNIT = 1000;
 
     uint256 private initialBalance = 1000 ether;
-    uint256 private initialBalanceUSDC = 1000000_000000;
+    uint256 private initialBalanceUSDC = 1_000_000_000_000;
     uint256 private initialBalanceWETH = 1000 ether;
 
     function setUp() public {

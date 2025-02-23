@@ -12,6 +12,9 @@ contract HelperConfig is DeployHelpers {
     struct NetworkConfig {
         address usdc;
         address weth;
+        address wbtc;
+        address link;
+        address pepe;
     }
 
     constructor() {
@@ -28,38 +31,49 @@ contract HelperConfig is DeployHelpers {
 
     function getRiseSepoliaConfig() public pure returns (NetworkConfig memory) {
         return NetworkConfig({
-            usdc: 0x2E6D0aA9ca3348870c7cbbC28BF6ea90A3C1fE36,
-            weth: 0xc4CebF58836707611439e23996f4FA4165Ea6A28
+            usdc: 0x02950119C4CCD1993f7938A55B8Ab8384C3CcE4F, // MockUSDC
+            weth: 0xb2e9Eabb827b78e2aC66bE17327603778D117d18, // MockWETH
+            wbtc: 0xc2CC2835219A55a27c5184EaAcD9b8fCceF00F85, // MockWBTC
+            link: 0x24b1ca69816247Ef9666277714FADA8B1F2D901E, // MockChainlink
+            pepe: 0x7FB2a815Fa88c2096960999EC8371BccDF147874 // MockPEPE
         });
     }
 
     function getArbitrumSepoliaConfig() public pure returns (NetworkConfig memory) {
         return NetworkConfig({
             usdc: 0x6AcaCCDacE944619678054Fe0eA03502ed557651,
-            weth: 0x80207B9bacc73dadAc1C8A03C6a7128350DF5c9E
+            weth: 0x80207B9bacc73dadAc1C8A03C6a7128350DF5c9E,
+            wbtc: 0x0000000000000000000000000000000000000000, // Placeholder
+            link: 0x0000000000000000000000000000000000000000, // Placeholder
+            pepe: 0x0000000000000000000000000000000000000000 // Placeholder
         });
     }
 
     function getEthMainnetConfig() public pure returns (NetworkConfig memory) {
         return NetworkConfig({
             usdc: 0x4c9EDD5852cd905f086C759E8383e09bff1E68B3,
-            weth: 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2
+            weth: 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2,
+            wbtc: 0x0000000000000000000000000000000000000000, // Placeholder
+            link: 0x0000000000000000000000000000000000000000, // Placeholder
+            pepe: 0x0000000000000000000000000000000000000000 // Placeholder
         });
     }
 
     function getOrCreateAnvilConfig() public returns (NetworkConfig memory) {
         // check if there is an existing config
-        if (activeNetworkConfig.weth != address(0)) {
+        if (activeNetworkConfig.usdc != address(0)) {
             return activeNetworkConfig;
         }
-
-        vm.startBroadcast(getDeployerKey());
 
         MockUSDC mockUSDC = new MockUSDC();
         MockWETH mockWeth = new MockWETH();
 
-        vm.stopBroadcast();
-
-        return NetworkConfig({weth: address(mockWeth), usdc: address(mockUSDC)});
+        return NetworkConfig({
+            usdc: address(mockUSDC),
+            weth: address(mockWeth),
+            wbtc: 0x0000000000000000000000000000000000000000, // Placeholder
+            link: 0x0000000000000000000000000000000000000000, // Placeholder
+            pepe: 0x0000000000000000000000000000000000000000 // Placeholder
+        });
     }
 }

@@ -37,21 +37,39 @@ interface IOrderBook {
         Status status
     );
 
-    event OrderCancelled(OrderId indexed orderId, address indexed user, uint48 timestamp, Status status);
+    event OrderCancelled(
+        OrderId indexed orderId, address indexed user, uint48 timestamp, Status status
+    );
 
     function setRouter(address router) external;
 
-    function placeOrder(Price price, Quantity quantity, Side side, address user) external returns (OrderId);
+    function placeOrder(
+        Price price,
+        Quantity quantity,
+        Side side,
+        address user
+    ) external returns (OrderId);
 
-    function placeMarketOrder(Quantity quantity, Side side, address user) external returns (OrderId);
+    function placeMarketOrder(
+        Quantity quantity,
+        Side side,
+        address user
+    ) external returns (OrderId);
 
     function cancelOrder(Side side, Price price, OrderId orderId, address user) external;
 
-    function getOrderQueue(Side side, Price price) external view returns (uint48 orderCount, uint256 totalVolume);
+    function getOrderQueue(
+        Side side,
+        Price price
+    ) external view returns (uint48 orderCount, uint256 totalVolume);
 
     function getUserActiveOrders(address user) external view returns (Order[] memory);
 
     function getBestPrice(Side side) external view returns (PriceVolume memory);
 
-    function getNextBestPrices(Side side, Price price, uint8 count) external view returns (PriceVolume[] memory);
+    function getNextBestPrices(
+        Side side,
+        Price price,
+        uint8 count
+    ) external view returns (PriceVolume[] memory);
 }

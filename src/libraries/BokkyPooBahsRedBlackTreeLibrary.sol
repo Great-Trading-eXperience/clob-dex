@@ -73,7 +73,9 @@ library BokkyPooBahsRedBlackTreeLibrary {
             cursor = treeMinimum(self, self.nodes[target].right);
         } else {
             cursor = self.nodes[target].parent;
-            while (isNotEmpty(cursor) && Price.unwrap(target) == Price.unwrap(self.nodes[cursor].right)) {
+            while (
+                isNotEmpty(cursor) && Price.unwrap(target) == Price.unwrap(self.nodes[cursor].right)
+            ) {
                 target = cursor;
                 cursor = self.nodes[cursor].parent;
             }
@@ -88,7 +90,9 @@ library BokkyPooBahsRedBlackTreeLibrary {
             cursor = treeMaximum(self, self.nodes[target].left);
         } else {
             cursor = self.nodes[target].parent;
-            while (isNotEmpty(cursor) && Price.unwrap(target) == Price.unwrap(self.nodes[cursor].left)) {
+            while (
+                isNotEmpty(cursor) && Price.unwrap(target) == Price.unwrap(self.nodes[cursor].left)
+            ) {
                 target = cursor;
                 cursor = self.nodes[cursor].parent;
             }
@@ -96,7 +100,8 @@ library BokkyPooBahsRedBlackTreeLibrary {
     }
 
     function exists(Tree storage self, Price key) internal view returns (bool) {
-        return isNotEmpty(key) && ((Price.unwrap(key) == Price.unwrap(self.root)) || isNotEmpty(self.nodes[key].parent));
+        return isNotEmpty(key)
+            && ((Price.unwrap(key) == Price.unwrap(self.root)) || isNotEmpty(self.nodes[key].parent));
     }
 
     function isEmpty(Price key) internal pure returns (bool) {
@@ -111,13 +116,18 @@ library BokkyPooBahsRedBlackTreeLibrary {
         return EMPTY;
     }
 
-    function getNode(Tree storage self, Price key)
-        internal
-        view
-        returns (Price returnKey, Price parent, Price left, Price right, uint8 red)
-    {
+    function getNode(
+        Tree storage self,
+        Price key
+    ) internal view returns (Price returnKey, Price parent, Price left, Price right, uint8 red) {
         require(exists(self, key));
-        return (key, self.nodes[key].parent, self.nodes[key].left, self.nodes[key].right, self.nodes[key].red);
+        return (
+            key,
+            self.nodes[key].parent,
+            self.nodes[key].left,
+            self.nodes[key].right,
+            self.nodes[key].red
+        );
     }
 
     function insert(Tree storage self, Price key) internal {
@@ -253,9 +263,15 @@ library BokkyPooBahsRedBlackTreeLibrary {
 
     function insertFixup(Tree storage self, Price key) private {
         Price cursor;
-        while (Price.unwrap(key) != Price.unwrap(self.root) && self.nodes[self.nodes[key].parent].red == RED_TRUE) {
+        while (
+            Price.unwrap(key) != Price.unwrap(self.root)
+                && self.nodes[self.nodes[key].parent].red == RED_TRUE
+        ) {
             Price keyParent = self.nodes[key].parent;
-            if (Price.unwrap(keyParent) == Price.unwrap(self.nodes[self.nodes[keyParent].parent].left)) {
+            if (
+                Price.unwrap(keyParent)
+                    == Price.unwrap(self.nodes[self.nodes[keyParent].parent].left)
+            ) {
                 cursor = self.nodes[self.nodes[keyParent].parent].right;
                 if (self.nodes[cursor].red == RED_TRUE) {
                     self.nodes[keyParent].red = RED_FALSE;

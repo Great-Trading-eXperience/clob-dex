@@ -2,24 +2,29 @@
 pragma solidity ^0.8.26;
 
 import {Script, console} from "forge-std/Script.sol";
-import {MockUSDC} from "../src/mocks/MockUSDC.sol";
-import {MockWETH} from "../src/mocks/MockWETH.sol";
+import {MockToken} from "../src/mocks/MockToken.sol";
 import {DeployHelpers} from "./DeployHelpers.s.sol";
 
 contract DeployMocks is DeployHelpers {
-    MockUSDC public mockUSDC;
-    MockWETH public mockWeth;
-
     function run() public {
         uint256 deployerKey = getDeployerKey();
         console.log("Deployer Key:", deployerKey);
         vm.startBroadcast(deployerKey);
 
-        mockUSDC = new MockUSDC();
-        console.log("MockUSDC deployed at:", address(mockUSDC));
+        MockToken usdc = new MockToken("Mock USDC", "USDC", 6);
+        console.log("MockUSDC deployed at:", address(usdc));
 
-        mockWeth = new MockWETH();
-        console.log("MockWETH deployed at:", address(mockWeth));
+        MockToken weth = new MockToken("Mock WETH", "WETH", 18);
+        console.log("MockWETH deployed at:", address(weth));
+
+        MockToken wbtc = new MockToken("Mock WBTC", "WBTC", 8);
+        console.log("MockWBTC deployed at:", address(wbtc));
+
+        MockToken pepe = new MockToken("Mock PEPE", "PEPE", 18);
+        console.log("MockPEPE deployed at:", address(pepe));
+
+        MockToken chainlink = new MockToken("Mock Chainlink", "LINK", 18);
+        console.log("MockChainlink deployed at:", address(chainlink));
 
         vm.stopBroadcast();
 

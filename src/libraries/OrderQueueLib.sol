@@ -23,7 +23,10 @@ library OrderQueueLib {
     /// @param queue The order queue to add to
     /// @param order The order to add
     /// @return success Whether the operation was successful
-    function addOrder(OrderQueue storage queue, IOrderBook.Order memory order) internal returns (bool) {
+    function addOrder(
+        OrderQueue storage queue,
+        IOrderBook.Order memory order
+    ) internal returns (bool) {
         uint48 orderId = OrderId.unwrap(order.id);
         queue.orders[orderId] = order;
 
@@ -52,7 +55,9 @@ library OrderQueueLib {
         if (queue.orderCount == 0) revert QueueEmpty();
 
         IOrderBook.Order storage order = queue.orders[orderId];
-        if (OrderId.unwrap(order.id) == 0 || Quantity.unwrap(order.quantity) == 0) revert OrderNotFound();
+        if (OrderId.unwrap(order.id) == 0 || Quantity.unwrap(order.quantity) == 0) {
+            revert OrderNotFound();
+        }
 
         uint256 remainingQuantity = Quantity.unwrap(order.quantity) - Quantity.unwrap(order.filled);
 
@@ -76,7 +81,10 @@ library OrderQueueLib {
         return remainingQuantity;
     }
 
-    function getOrder(OrderQueue storage queue, uint48 orderId) internal view returns (IOrderBook.Order memory) {
+    function getOrder(
+        OrderQueue storage queue,
+        uint48 orderId
+    ) internal view returns (IOrderBook.Order memory) {
         return queue.orders[orderId];
     }
 

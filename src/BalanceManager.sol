@@ -4,25 +4,10 @@ pragma solidity ^0.8.26;
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {IBalanceManager} from "./interfaces/IBalanceManager.sol";
 import {Currency} from "./types/Currency.sol";
 
-contract BalanceManager is Ownable, ReentrancyGuard {
-    event Deposit(address indexed user, uint256 indexed id, uint256 amount);
-    event Withdrawal(address indexed user, uint256 indexed id, uint256 amount);
-    event OperatorSet(address indexed operator, bool approved);
-    event TransferFrom(
-        address indexed operator,
-        address indexed sender,
-        address indexed receiver,
-        uint256 id,
-        uint256 amount
-    );
-
-    error InsufficientBalance(address user, uint256 id, uint256 want, uint256 have);
-    error TransferError(address user, Currency currency, uint256 amount);
-    error ZeroAmount();
-    error UnauthorizedOperator(address operator);
-
+contract BalanceManager is IBalanceManager, Ownable, ReentrancyGuard {
     mapping(address owner => mapping(uint256 id => uint256 balance)) public balanceOf;
     mapping(address owner => mapping(address operator => mapping(uint256 id => uint256 amount)))
         public lockedBalanceOf;

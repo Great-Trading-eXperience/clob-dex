@@ -14,50 +14,62 @@ contract DeployContracts is DeployHelpers {
     PoolManager public poolManager;
     GTXRouter public router;
 
+    address usdc;
+    address weth;
+    address wbtc;
+    address link;
+    address pepe;
+
     function setUp() public {}
 
     function run() public {
-        uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
-        address owner = vm.addr(deployerPrivateKey);
+        uint256 deployerPrivateKey = getDeployerKey();
         vm.startBroadcast(deployerPrivateKey);
 
+        address[] memory tokens = new address[](4);
         HelperConfig config = new HelperConfig();
-        (address usdc, address weth) = config.activeNetworkConfig();
-        console.log("USDC address from config:", usdc);
-        console.log("WETH address from config:", weth);
+        (usdc, weth, wbtc, link, pepe) = config.activeNetworkConfig();
 
-        // Deploy BalanceManager
-        uint256 feeMaker = 1; // Example fee maker value
-        uint256 feeTaker = 5; // Example fee taker value
+        console.log("USDC address from config:", usdc);
+
+        tokens[0] = weth;
+        tokens[1] = wbtc;
+        tokens[2] = link;
+        tokens[3] = pepe;
+
+        // uint256 feeMaker = 1; // Example fee maker value
+        // uint256 feeTaker = 5; // Example fee taker value
         uint256 lotSize = 1e18; // Example lot size
         uint256 maxOrderAmount = 5000e18; // Example max order amount
 
-        balanceManager = new BalanceManager(owner, owner, feeMaker, feeTaker);
-        // balanceManager = BalanceManager(0xE1349D2c44422b70C73BF767AFB58ae1C59cd1Fd);
+        // balanceManager = new BalanceManager(owner, owner, feeMaker, feeTaker);
+        balanceManager = BalanceManager(0x9B4fD469B6236c27190749bFE3227b85c25462D7);
         console.log("BalanceManager deployed at:", address(balanceManager));
 
-        poolManager = new PoolManager(owner, address(balanceManager));
-        // poolManager = PoolManager(0x3F401d161e328aECBF3E5786FCC457E6C85f71C6);
+        // poolManager = new PoolManager(owner, address(balanceManager));
+        poolManager = PoolManager(0x35234957aC7ba5d61257d72443F8F5f0C431fD00);
         console.log("PoolManager deployed at:", address(poolManager));
 
-        router = new GTXRouter(address(poolManager), address(balanceManager));
-        // router = GTXRouter(0xbDe5421D508C781c401E2af2101D74A23E39cBd6);
+        // router = new GTXRouter(address(poolManager), address(balanceManager));
+        router = GTXRouter(0xed2582315b355ad0FFdF4928Ca353773c9a588e3);
         console.log("GTXRouter deployed at:", address(router));
 
-        Currency currency0 = Currency.wrap(address(weth));
-        Currency currency1 = Currency.wrap(address(usdc));
+        Currency quoteCurrency = Currency.wrap(address(usdc));
 
         // Define a PoolKey with example values
-        PoolKey memory poolKey = PoolKey({baseCurrency: currency0, quoteCurrency: currency1});
 
-        balanceManager.setAuthorizedOperator(address(poolManager), true);
-        balanceManager.transferOwnership(address(poolManager));
-        poolManager.setRouter(address(router));
-        poolManager.createPool(poolKey, lotSize, maxOrderAmount);
+        // balanceManager.setAuthorizedOperator(address(poolManager), true);
+        // balanceManager.transferOwnership(address(poolManager));
+        // poolManager.setRouter(address(router));
 
-        IPoolManager.Pool memory pool = poolManager.getPool(poolKey);
-        address orderBookAddress = address(pool.orderBook);
-        console.log("OrderBook address:", orderBookAddress);
+        uint256 tokensLength = tokens.length;
+
+        for (uint256 i = 0; i < tokensLength; ++i) {
+            Currency baseCurrency = Currency.wrap(tokens[i]);
+            PoolKey memory poolKey =
+                PoolKey({baseCurrency: baseCurrency, quoteCurrency: quoteCurrency});
+            poolManager.createPool(poolKey, lotSize, maxOrderAmount);
+        }
 
         vm.stopBroadcast();
 
