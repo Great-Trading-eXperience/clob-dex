@@ -60,11 +60,27 @@ library OrderMatching {
             uint128(Quantity.unwrap(order.quantity)) - uint128(Quantity.unwrap(order.filled));
         filled = 0;
 
+        Price orderPrice = order.price;
+        Price latestBestPrice = Price.wrap(0);
+        uint128 previousRemaining = 0;
+
         while (remaining > 0) {
             Price bestPrice =
-                getBestMatchingPrice(priceTrees[oppositeSide], order.price, side, isMarketOrder);
+                getBestMatchingPrice(priceTrees[oppositeSide], orderPrice, side, isMarketOrder);
+
+            if (
+                Price.unwrap(bestPrice) == Price.unwrap(latestBestPrice)
+                    && previousRemaining == remaining
+            ) {
+                bestPrice = side == Side.BUY
+                    ? priceTrees[oppositeSide].next(bestPrice)
+                    : priceTrees[oppositeSide].prev(bestPrice);
+            }
 
             if (RBTree.isEmpty(bestPrice)) break;
+
+            latestBestPrice = bestPrice;
+            previousRemaining = remaining;
 
             (remaining, filled) = processMatchingAtPrice(
                 _params, bestPrice, remaining, orders[oppositeSide][bestPrice], filled
