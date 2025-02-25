@@ -28,7 +28,7 @@ contract DeployContracts is DeployHelpers {
         vm.startBroadcast(deployerPrivateKey);
 
         uint256 feeMaker = 1; // Example fee maker value
-        uint256 feeTaker = 5; // Example fee taker value
+        uint256 feeTaker = 1; // Example fee taker value
         uint256 lotSize = 1e18; // Example lot size
         uint256 maxOrderAmount = 500e18; // Example max order amount
 

@@ -12,7 +12,8 @@ interface IBalanceManager {
         address indexed sender,
         address indexed receiver,
         uint256 id,
-        uint256 amount
+        uint256 amount,
+        uint256 feeAmount
     );
 
     error InsufficientBalance(address user, uint256 id, uint256 want, uint256 have);
