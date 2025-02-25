@@ -152,7 +152,7 @@ contract BalanceManager is IBalanceManager, Ownable, ReentrancyGuard {
         }
 
         // Determine fee based on the role (maker/taker)
-        uint256 feeAmount = amount * feeMaker / FEE_UNIT;
+        uint256 feeAmount = amount * feeTaker / FEE_UNIT;
         require(feeAmount <= amount, "Fee exceeds the transfer amount");
 
         // Deduct fee and update balances
@@ -163,7 +163,7 @@ contract BalanceManager is IBalanceManager, Ownable, ReentrancyGuard {
         // Transfer the fee to the feeReceiver
         balanceOf[feeReceiver][currency.toId()] += feeAmount;
 
-        emit TransferFrom(msg.sender, sender, receiver, currency.toId(), amount);
+        emit TransferFrom(msg.sender, sender, receiver, currency.toId(), amount, feeAmount);
 
         return true;
     }
@@ -184,7 +184,7 @@ contract BalanceManager is IBalanceManager, Ownable, ReentrancyGuard {
         }
 
         // Determine fee based on the role (maker/taker)
-        uint256 feeAmount = amount * feeTaker / FEE_UNIT;
+        uint256 feeAmount = amount * feeMaker / FEE_UNIT;
         require(feeAmount <= amount, "Fee exceeds the transfer amount");
 
         // Deduct fee and update balances
@@ -195,7 +195,7 @@ contract BalanceManager is IBalanceManager, Ownable, ReentrancyGuard {
         // Transfer the fee to the feeReceiver
         balanceOf[feeReceiver][currency.toId()] += feeAmount;
 
-        emit TransferFrom(msg.sender, sender, receiver, currency.toId(), amount);
+        emit TransferFrom(msg.sender, sender, receiver, currency.toId(), amount, feeAmount);
 
         return true;
     }

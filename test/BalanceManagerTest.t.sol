@@ -128,7 +128,7 @@ contract BalanceManagerTest is Test {
         vm.stopPrank();
 
         uint256 receiverBalance = balanceManager.getBalance(receiver, weth);
-        assertEq(receiverBalance, lockAmount * (FEE_UNIT - feeMaker) / FEE_UNIT);
+        assertEq(receiverBalance, lockAmount * (FEE_UNIT - feeTaker) / FEE_UNIT);
     }
 
     function testTransferFrom() public {
@@ -150,6 +150,6 @@ contract BalanceManagerTest is Test {
         vm.stopPrank();
 
         uint256 receiverBalance = balanceManager.getBalance(receiver, weth);
-        assertEq(receiverBalance, transfer * (FEE_UNIT - feeTaker) / FEE_UNIT);
+        assertEq(receiverBalance, transfer * (FEE_UNIT - feeMaker) / FEE_UNIT);
     }
 }

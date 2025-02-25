@@ -25,15 +25,24 @@ contract MockOrderBookFromRouter is DeployHelpers {
         address _usdc,
         address[] memory _tokens
     ) {
-        if (block.chainid == 31_337) {
-            balanceManager = _balanceManager;
-            poolManager = _poolManager;
-            gtxRouter = _gtxRouter;
-        } else {
+        if (_balanceManager == address(0)) {
             balanceManager = vm.envAddress("BALANCEMANAGER_CONTRACT_ADDRESS");
-            poolManager = vm.envAddress("POOLMANAGER_CONTRACT_ADDRESS");
-            gtxRouter = vm.envAddress("GTXROUTER_CONTRACT_ADDRESS");
+        } else {
+            balanceManager = _balanceManager;
         }
+
+        if (_poolManager == address(0)) {
+            poolManager = vm.envAddress("POOLMANAGER_CONTRACT_ADDRESS");
+        } else {
+            poolManager = _poolManager;
+        }
+
+        if (_gtxRouter == address(0)) {
+            gtxRouter = vm.envAddress("GTXROUTER_CONTRACT_ADDRESS");
+        } else {
+            gtxRouter = _gtxRouter;
+        }
+
         usdc = _usdc;
         tokens = _tokens;
     }
@@ -62,7 +71,10 @@ contract MockOrderBookFromRouter is DeployHelpers {
             // Place an order
             Price price = Price.wrap(280_000_000_000); // Example price 8 decimals
             Quantity quantity = Quantity.wrap(1 ether); // Example quantity (1.0 ETH) 18 decimals
-            Side side = Side.BUY; // 0 = Buy, 1 = Sell
+            Side side = Side.SELL; // 0 = Buy, 1 = Sell
+
+            // BalanceManager(balanceManager).deposit(baseCurrency, 1000 ether);
+
             OrderId orderId =
                 GTXRouter(gtxRouter).placeOrderWithDeposit(poolKey, price, quantity, side);
             console.log("Order ID:", OrderId.unwrap(orderId));

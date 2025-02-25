@@ -110,28 +110,46 @@ Here are the deployed contract addresses and their corresponding links on the Ri
 
 - **BalanceManager Contract**
 
-  - **Address:** `0x9B4fD469B6236c27190749bFE3227b85c25462D7`
-  - **Explorer Link:** [View on RiseLabs Testnet Explorer](https://testnet-explorer.riselabs.xyz/address/0x9B4fD469B6236c27190749bFE3227b85c25462D7)
+  - **Address:** `0xf997fBd9747841513d26d895072a7f35e5125cfc`
+  - **Explorer Link:** [View on RiseLabs Testnet Explorer](https://testnet-explorer.riselabs.xyz/address/0xf997fBd9747841513d26d895072a7f35e5125cfc)
 
 - **PoolManager Contract**
 
-  - **Address:** `0x35234957aC7ba5d61257d72443F8F5f0C431fD00`
-  - **Explorer Link:** [View on RiseLabs Testnet Explorer](https://testnet-explorer.riselabs.xyz/address/0x35234957aC7ba5d61257d72443F8F5f0C431fD00)
+  - **Address:** `0x2A61148905eA1cf87f352249DD92215C8eA0fdD5`
+  - **Explorer Link:** [View on RiseLabs Testnet Explorer](https://testnet-explorer.riselabs.xyz/address/0x2A61148905eA1cf87f352249DD92215C8eA0fdD5)
 
 - **GTXRouter Contract**
 
-  - **Address:** `0xed2582315b355ad0FFdF4928Ca353773c9a588e3`
-  - **Explorer Link:** [View on RiseLabs Testnet Explorer](https://testnet-explorer.riselabs.xyz/address/0xed2582315b355ad0FFdF4928Ca353773c9a588e3)
+  - **Address:** `0xe0eCBC144f924bD5bA7C7D9b373795EFA2F3589B`
+  - **Explorer Link:** [View on RiseLabs Testnet Explorer](https://testnet-explorer.riselabs.xyz/address/0xe0eCBC144f924bD5bA7C7D9b373795EFA2F3589B)
 
 The following mock token addresses are used for creating pools in the OrderBook.
 
 - **Mock USDC Contract**
 
-  - **Address:** `0x2E6D0aA9ca3348870c7cbbC28BF6ea90A3C1fE36`
+  - **Address:** `0x02950119C4CCD1993f7938A55B8Ab8384C3CcE4F`
   - **Purpose:** This is a mock USDC token used for testing the OrderBook functionalities.
-  - **Explorer Link:** [View on RiseLabs Testnet Explorer](https://testnet-explorer.riselabs.xyz/address/0x2E6D0aA9ca3348870c7cbbC28BF6ea90A3C1fE36)
+  - **Explorer Link:** [View on RiseLabs Testnet Explorer](https://testnet-explorer.riselabs.xyz/address/0x02950119C4CCD1993f7938A55B8Ab8384C3CcE4F)
 
 - **Mock WETH Contract**
-  - **Address:** `0xc4CebF58836707611439e23996f4FA4165Ea6A28`
+
+  - **Address:** `0xb2e9Eabb827b78e2aC66bE17327603778D117d18`
   - **Purpose:** This is a mock WETH token used for testing the OrderBook functionalities.
-  - **Explorer Link:** [View on RiseLabs Testnet Explorer](https://testnet-explorer.riselabs.xyz/address/0xc4CebF58836707611439e23996f4FA4165Ea6A28)
+  - **Explorer Link:** [View on RiseLabs Testnet Explorer](https://testnet-explorer.riselabs.xyz/address/0xb2e9Eabb827b78e2aC66bE17327603778D117d18)
+
+- **Mock WBTC Contract**
+
+  - **Address:** `0xc2CC2835219A55a27c5184EaAcD9b8fCceF00F85`
+  - **Purpose:** This is a mock WBTC token used for testing the OrderBook functionalities.
+  - **Explorer Link:** [View on RiseLabs Testnet Explorer](https://testnet-explorer.riselabs.xyz/address/0xc2CC2835219A55a27c5184EaAcD9b8fCceF00F85)
+
+- **Mock Chainlink Contract**
+
+  - **Address:** `0x24b1ca69816247Ef9666277714FADA8B1F2D901E`
+  - **Purpose:** This is a mock Chainlink token used for testing the OrderBook functionalities.
+  - **Explorer Link:** [View on RiseLabs Testnet Explorer](https://testnet-explorer.riselabs.xyz/address/0x24b1ca69816247Ef9666277714FADA8B1F2D901E)
+
+- **Mock PEPE Contract**
+  - **Address:** `0x7FB2a815Fa88c2096960999EC8371BccDF147874`
+  - **Purpose:** This is a mock PEPE token used for testing the OrderBook functionalities.
+  - **Explorer Link:** [View on RiseLabs Testnet Explorer](https://testnet-explorer.riselabs.xyz/address/0x7FB2a815Fa88c2096960999EC8371BccDF147874)
