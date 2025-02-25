@@ -83,7 +83,12 @@ library OrderMatching {
             previousRemaining = remaining;
 
             (remaining, filled) = processMatchingAtPrice(
-                _params, bestPrice, remaining, orders[oppositeSide][bestPrice], filled
+                _params,
+                bestPrice,
+                remaining,
+                orders[oppositeSide][bestPrice],
+                filled,
+                isMarketOrder
             );
 
             if (orders[oppositeSide][bestPrice].orderCount == 0) {
@@ -134,13 +139,15 @@ library OrderMatching {
         Price matchPrice,
         uint128 remaining,
         OrderQueueLib.OrderQueue storage queue,
-        uint128 totalFilled
+        uint128 totalFilled,
+        bool isMarketOrder
     ) private returns (uint128 remainingAfter, uint128 filledAmount) {
         uint48 currentOrderId = queue.head;
 
         while (currentOrderId != 0 && remaining > 0) {
-            (remaining, totalFilled, currentOrderId) =
-                handleOrder(_params, matchPrice, remaining, queue, currentOrderId, totalFilled);
+            (remaining, totalFilled, currentOrderId) = handleOrder(
+                _params, matchPrice, remaining, queue, currentOrderId, totalFilled, isMarketOrder
+            );
         }
 
         return (remaining, totalFilled);
@@ -152,7 +159,8 @@ library OrderMatching {
         uint128 remaining,
         OrderQueueLib.OrderQueue storage queue,
         uint48 currentOrderId,
-        uint128 totalFilled
+        uint128 totalFilled,
+        bool isMarketOrder
     ) private returns (uint128 remainingAfter, uint128 newTotalFilled, uint48 nextOrderId) {
         IOrderBook.Order storage matchingOrder = queue.orders[currentOrderId];
         nextOrderId = uint48(OrderId.unwrap(matchingOrder.next));
@@ -183,7 +191,8 @@ library OrderMatching {
             _params.poolKey,
             matchPrice,
             Quantity.wrap(executedQuantity),
-            _params.side
+            _params.side,
+            isMarketOrder
         );
 
         if (
@@ -213,10 +222,15 @@ library OrderMatching {
         PoolKey memory poolKey,
         Price matchPrice,
         Quantity executedQuantity,
-        Side side
+        Side side,
+        bool isMarketOrder
     ) private {
         (Currency currency0, uint256 amount0, Currency currency1, uint256 amount1) =
             poolKey.calculateAmountsAndCurrencies(matchPrice, executedQuantity, side);
+
+        if (!isMarketOrder) {
+            IBalanceManager(balanceManager).unlock(trader, currency0, amount0);
+        }
 
         IBalanceManager(balanceManager).transferFrom(trader, matchingUser, currency0, amount0);
         IBalanceManager(balanceManager).transferLockedFrom(matchingUser, trader, currency1, amount1);

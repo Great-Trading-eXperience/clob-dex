@@ -133,6 +133,66 @@ contract GTXRouterTest is Test {
         vm.stopPrank();
     }
 
+    function testIgnoreMatchOrderSameTrader() public {
+        PoolKey memory key = PoolKey(weth, usdc);
+        Price price = Price.wrap(3000 * 10 ** 8);
+        Quantity quantity = Quantity.wrap(1 * 10 ** 18);
+
+        vm.startPrank(alice);
+        mockWETH.mint(alice, initialBalanceWETH);
+        IERC20(Currency.unwrap(weth)).approve(address(balanceManager), initialBalanceWETH);
+        gtxRouter.placeOrderWithDeposit(
+            key, price, Quantity.wrap(Quantity.unwrap(quantity) / 2), Side.SELL
+        );
+        vm.stopPrank();
+
+        vm.startPrank(alice);
+        mockUSDC.mint(alice, initialBalanceUSDC);
+        IERC20(Currency.unwrap(usdc)).approve(address(balanceManager), initialBalanceUSDC);
+        gtxRouter.placeOrderWithDeposit(
+            key, price, Quantity.wrap(Quantity.unwrap(quantity) / 2), Side.BUY
+        );
+
+        (uint48 orderCount, uint256 totalVolume) = gtxRouter.getOrderQueue(key, Side.SELL, price);
+        vm.assertEq(orderCount, 1);
+        (orderCount, totalVolume) = gtxRouter.getOrderQueue(key, Side.BUY, price);
+        vm.assertEq(orderCount, 1);
+    }
+
+    function testSellMatchPlaceOrder() public {
+        PoolKey memory key = PoolKey(weth, usdc);
+        Price price = Price.wrap(3000 * 10 ** 8);
+        Quantity quantity = Quantity.wrap(1 * 10 ** 18);
+
+        vm.startPrank(alice);
+        mockWETH.mint(alice, initialBalanceWETH);
+        IERC20(Currency.unwrap(weth)).approve(address(balanceManager), initialBalanceWETH);
+        gtxRouter.placeOrderWithDeposit(
+            key, price, Quantity.wrap(Quantity.unwrap(quantity) / 2), Side.SELL
+        );
+        vm.stopPrank();
+
+        vm.startPrank(bob);
+        mockUSDC.mint(bob, initialBalanceUSDC);
+        IERC20(Currency.unwrap(usdc)).approve(address(balanceManager), initialBalanceUSDC);
+        OrderId orderId = gtxRouter.placeOrderWithDeposit(
+            key, price, Quantity.wrap(Quantity.unwrap(quantity) / 2), Side.BUY
+        );
+
+        (uint48 orderCount, uint256 totalVolume) = gtxRouter.getOrderQueue(key, Side.SELL, price);
+        console.log("Order Count:", orderCount);
+        console.log("Total Volume:", totalVolume);
+        console.log("Market order placed with ID:", OrderId.unwrap(orderId));
+
+        uint256 balance = balanceManager.getBalance(user, usdc);
+        uint256 lockedBalance =
+            balanceManager.getLockedBalance(user, address(poolManager.getPool(key).orderBook), usdc);
+
+        console.log("User Balance:", balance);
+        console.log("User Locked Balance:", lockedBalance);
+        vm.stopPrank();
+    }
+
     function testPlaceMarketOrderWithNoOrder() public {
         PoolKey memory key = PoolKey(weth, usdc);
         Price price = Price.wrap(3000 * 10 ** 8);
