@@ -16,9 +16,18 @@ type PoolId is bytes32;
 library PoolIdLibrary {
     /// @notice Returns value equal to keccak256(abi.encode(poolKey))
     function toId(PoolKey memory poolKey) internal pure returns (PoolId poolId) {
-        assembly ("memory-safe") {
-            // 0xa0 represents the total size of the poolKey struct (5 slots of 32 bytes)
-            poolId := keccak256(poolKey, 0xa0)
+        assembly {
+            // Load baseCurrency and quoteCurrency from the struct memory location
+            let base := mload(poolKey) // Load baseCurrency (first slot)
+            let quote := mload(add(poolKey, 0x20)) // Load quoteCurrency (second slot)
+
+            // Get free memory pointer
+            let ptr := mload(0x40)
+            mstore(ptr, base)
+            mstore(add(ptr, 0x20), quote)
+
+            // Compute keccak256 hash of the 64-byte struct
+            poolId := keccak256(ptr, 0x40)
         }
     }
 
