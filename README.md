@@ -11,7 +11,7 @@ Revolutionizing DeFi trading with a high-performance, fully on-chain Central Lim
 
 ## 🏗️ System Architecture
 
-![CLOB DEX Architecture](docs/diagram.png)
+![CLOB DEX Architecture](diagram.png)
 
 The CLOB DEX system consists of four main components:
 - **GTXRouter**: Entry point for all user interactions
