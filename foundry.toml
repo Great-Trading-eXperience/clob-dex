@@ -5,7 +5,7 @@ libs = ["lib"]
 optimizer = true
 via-ir = true
 solc = "0.8.26" # Add your specific compiler version here
-fs_permissions = [{ access = "read-write", path = "./"}]
+fs_permissions = [{ access = "read-write", path = "./" }]
 remappings = [
     "@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/",
     "solidity-bytes-utils/=lib/solidity-bytes-utils/contracts/",
@@ -24,6 +24,7 @@ sepolia = "https://eth-sepolia.g.alchemy.com/v2/${ALCHEMY_API_KEY}"
 arbitrum = "https://arb-mainnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}"
 arbitrumSepolia = "https://arb-sepolia.g.alchemy.com/v2/${ALCHEMY_API_KEY}"
 riseSepolia = "https://testnet.riselabs.xyz"
+monadTestnet = "https://testnet-rpc.monad.xyz"
 
 [etherscan]
 mainnet = { key = "${ETHERSCAN_API_KEY}" }
@@ -31,6 +32,7 @@ sepolia = { key = "${ETHERSCAN_API_KEY}" }
 arbitrum = { key = "${ETHERSCAN_API_KEY}" }
 arbitrumSepolia = { key = "${ETHERSCAN_API_KEY}" }
 riseSepolia = { key = "" }
+monadTestnet = { key = "", url = "https://testnet.monadexplorer.com" }
 
 [fmt]
 bracket_spacing = false
@@ -43,6 +45,6 @@ tab_width = 4
 
 [profile.verification]
 verifier = "blockscout"
-verifier-url = "https://testnet-explorer.riselabs.xyz/api/"
+verifier-url = "https://sourcify-api-monad.blockvision.org"
 
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options

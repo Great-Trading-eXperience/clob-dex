@@ -25,6 +25,8 @@ contract HelperConfig is DeployHelpers {
             activeNetworkConfig = getArbitrumSepoliaConfig();
         } else if (block.chainid == 11_155_931) {
             activeNetworkConfig = getRiseSepoliaConfig();
+        } else if (block.chainid == 10_143) {
+            activeNetworkConfig = getMonadTestnetConfig();
         } else {
             activeNetworkConfig = getOrCreateAnvilConfig();
         }
@@ -37,6 +39,16 @@ contract HelperConfig is DeployHelpers {
             wbtc: 0xc2CC2835219A55a27c5184EaAcD9b8fCceF00F85, // MockWBTC
             link: 0x24b1ca69816247Ef9666277714FADA8B1F2D901E, // MockChainlink
             pepe: 0x7FB2a815Fa88c2096960999EC8371BccDF147874 // MockPEPE
+        });
+    }
+
+    function getMonadTestnetConfig() public pure returns (NetworkConfig memory) {
+        return NetworkConfig({
+            usdc: 0x3F401d161e328aECBF3E5786FCC457E6C85f71C6, // MockUSDC
+            weth: 0xbDe5421D508C781c401E2af2101D74A23E39cBd6, // MockWETH
+            wbtc: 0xdaAa0a7B450198b5111a579864504e083f92b198, // MockWBTC
+            link: 0xeCF3029cae0ED4EC068770338cc262008813BDC0, // MockChainlink
+            pepe: 0xaACee6478D299EbaEF28667A601Bce22eABD5015 // MockPEPE
         });
     }
 
