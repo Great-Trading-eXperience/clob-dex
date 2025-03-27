@@ -71,7 +71,7 @@ contract PoolManagerTest is Test {
 
         vm.expectRevert(abi.encodeWithSignature("InvalidRouter()"));
         vm.startPrank(owner);
-        poolManager.createPool(key, lotSize, maxOrderAmount);
+        poolManager.createPool(key, address(0), address(0), lotSize, maxOrderAmount);
         vm.stopPrank();
     }
 
@@ -82,7 +82,7 @@ contract PoolManagerTest is Test {
 
         vm.startPrank(owner);
         poolManager.setRouter(operator);
-        poolManager.createPool(key, lotSize, maxOrderAmount);
+        poolManager.createPool(key, address(0), address(0), lotSize, maxOrderAmount);
         vm.stopPrank();
 
         IPoolManager.Pool memory pool = poolManager.getPool(key);

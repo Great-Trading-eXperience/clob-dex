@@ -64,6 +64,7 @@ contract BalanceManagerTest is Test {
     function testLock() public {
         uint256 depositAmount = 100 ether;
         uint256 lockAmount = 40 ether;
+        address vault = address(0x123);
 
         vm.startPrank(user);
         IERC20(Currency.unwrap(weth)).approve(address(balanceManager), depositAmount);
@@ -75,7 +76,7 @@ contract BalanceManagerTest is Test {
         vm.stopPrank();
 
         vm.startPrank(operator);
-        balanceManager.lock(user, weth, lockAmount);
+        balanceManager.lock(user, weth, vault, lockAmount);
         vm.stopPrank();
 
         uint256 userBalance = balanceManager.getBalance(user, weth);
@@ -87,6 +88,7 @@ contract BalanceManagerTest is Test {
     function testUnlock() public {
         uint256 depositAmount = 100 ether;
         uint256 lockAmount = 40 ether;
+        address vault = address(0x123);
 
         vm.startPrank(user);
         IERC20(Currency.unwrap(weth)).approve(address(balanceManager), depositAmount);
@@ -98,8 +100,8 @@ contract BalanceManagerTest is Test {
         vm.stopPrank();
 
         vm.startPrank(operator);
-        balanceManager.lock(user, weth, lockAmount);
-        balanceManager.unlock(user, weth, lockAmount);
+        balanceManager.lock(user, weth, vault, lockAmount);
+        balanceManager.unlock(user, weth, vault, lockAmount);
         vm.stopPrank();
 
         uint256 userBalance = balanceManager.getBalance(user, weth);
@@ -112,6 +114,7 @@ contract BalanceManagerTest is Test {
         uint256 depositAmount = 100 ether;
         uint256 lockAmount = 50 ether;
         address receiver = address(0xFED);
+        address vault = address(0x123);
 
         vm.startPrank(user);
         IERC20(Currency.unwrap(weth)).approve(address(balanceManager), depositAmount);
@@ -123,8 +126,8 @@ contract BalanceManagerTest is Test {
         vm.stopPrank();
 
         vm.startPrank(operator);
-        balanceManager.lock(user, weth, lockAmount);
-        balanceManager.transferLockedFrom(user, receiver, weth, lockAmount);
+        balanceManager.lock(user, weth, vault, lockAmount);
+        balanceManager.transferLockedFrom(user, receiver, weth, lockAmount, vault);
         vm.stopPrank();
 
         uint256 receiverBalance = balanceManager.getBalance(receiver, weth);
@@ -135,6 +138,7 @@ contract BalanceManagerTest is Test {
         uint256 depositAmount = 100 ether;
         uint256 transfer = 40 ether;
         address receiver = address(0xFED);
+        address vault = address(0x123);
 
         vm.startPrank(user);
         IERC20(Currency.unwrap(weth)).approve(address(balanceManager), depositAmount);

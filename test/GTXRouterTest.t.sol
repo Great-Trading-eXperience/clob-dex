@@ -57,7 +57,7 @@ contract GTXRouterTest is Test {
         balanceManager.setAuthorizedOperator(address(poolManager), true);
         balanceManager.transferOwnership(address(poolManager));
         poolManager.setRouter(address(gtxRouter));
-        poolManager.createPool(key, lotSize, maxOrderAmount);
+        poolManager.createPool(key, address(0), address(0), lotSize, maxOrderAmount);
         vm.stopPrank();
     }
 

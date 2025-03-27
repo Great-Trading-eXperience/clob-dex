@@ -23,6 +23,13 @@ interface IBalanceManager {
 
     function getBalance(address user, Currency currency) external view returns (uint256);
 
+    function getLockedBalanceOfVault(
+        address user,
+        address operator,
+        Currency currency,
+        address vault
+    ) external view returns (uint256);
+
     function deposit(Currency currency, uint256 amount) external;
 
     function deposit(Currency currency, uint256 amount, address user) external;
@@ -31,15 +38,16 @@ interface IBalanceManager {
 
     function withdraw(Currency currency, uint256 amount, address user) external;
 
-    function lock(address user, Currency currency, uint256 amount) external returns (bool);
+    function lock(address user, Currency currency, address vault, uint256 amount) external returns (bool);
 
-    function unlock(address user, Currency currency, uint256 amount) external returns (bool);
+    function unlock(address user, Currency currency, address vault, uint256 amount) external returns (bool);
 
     function transferLockedFrom(
         address sender,
         address receiver,
         Currency currency,
-        uint256 amount
+        uint256 amount,
+        address vault
     ) external returns (bool);
 
     function transferFrom(

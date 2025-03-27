@@ -22,7 +22,7 @@ import {IBalanceManager} from "./interfaces/IBalanceManager.sol";
 /// @title OrderBook - A Central Limit Order Book implementation
 /// @notice Manages limit and market orders in a decentralized exchange
 /// @dev Implements price-time priority matching with reentrance protection
-contract OrderBook is Ownable, IOrderBook, ReentrancyGuard {
+contract OrderBook is IOrderBook, Ownable, ReentrancyGuard {
     uint256 constant EXPIRY_DAYS = 90 * 24 * 60 * 60; // 90 days in seconds
 
     using RBTree for RBTree.Tree;
@@ -41,24 +41,30 @@ contract OrderBook is Ownable, IOrderBook, ReentrancyGuard {
     mapping(Side => mapping(Price => OrderQueueLib.OrderQueue)) private orderQueues;
     mapping(address => bool) private authorizedOperators; // To allow Routers or other contracts
 
-    uint48 private nextOrderId = 1;
-    address private balanceManager;
-    address private router;
-    uint256 private maxOrderAmount;
-    uint256 private lotSize;
-    PoolKey private poolKey;
+    uint48 public nextOrderId = 1;
+    address public balanceManager;
+    address public router;
+    uint256 public maxOrderAmount;
+    uint256 public lotSize;
+    PoolKey public poolKey;
+    address public baseVault;
+    address public quoteVault;
 
     constructor(
         address _poolManager,
         address _balanceManager,
         uint256 _maxOrderAmount,
         uint256 _lotSize,
-        PoolKey memory _poolKey
+        PoolKey memory _poolKey,
+        address _baseVault,
+        address _quoteVault
     ) Ownable(_poolManager) {
         balanceManager = _balanceManager;
         maxOrderAmount = _maxOrderAmount;
         lotSize = _lotSize;
         poolKey = _poolKey;
+        baseVault = _baseVault;
+        quoteVault = _quoteVault;
     }
 
     // Restrict access to authorized only
@@ -126,14 +132,29 @@ contract OrderBook is Ownable, IOrderBook, ReentrancyGuard {
         // Lock balance
         (Currency currency, uint256 amount) =
             poolKey.calculateAmountAndCurrency(price, quantity, side);
-        IBalanceManager(balanceManager).lock(user, currency, amount);
+        
+        if (side == Side.BUY) {
+            IBalanceManager(balanceManager).lock(user, currency, quoteVault, amount);
+        } else {
+            IBalanceManager(balanceManager).lock(user, currency, baseVault, amount);
+        }
 
         OrderMatching.MatchOrder memory matchOrder = OrderMatching.MatchOrder({
+            executedQuantity: 0,
+            remaining: 0,
+            totalFilled: 0,
+            currentOrderId: 0,
+            nextOrderId: 0,
+            matchPrice: Price.wrap(0),
+            isMarketOrder: false,
+            orderBook: address(this),
             order: newOrder,
             side: side,
             trader: user,
             balanceManager: balanceManager,
-            poolKey: poolKey
+            poolKey: poolKey,
+            baseVault: baseVault,
+            quoteVault: quoteVault
         });
 
         OrderMatching.matchOrder(matchOrder, orderQueues, priceTrees, false);
@@ -184,11 +205,21 @@ contract OrderBook is Ownable, IOrderBook, ReentrancyGuard {
         );
 
         OrderMatching.MatchOrder memory matchOrder = OrderMatching.MatchOrder({
+            executedQuantity: 0,
+            remaining: 0,
+            totalFilled: 0,
+            currentOrderId: 0,
+            nextOrderId: 0,
+            matchPrice: Price.wrap(0),
+            isMarketOrder: true,
+            orderBook: address(this),
             order: marketOrder,
             side: side,
             trader: user,
             balanceManager: balanceManager,
-            poolKey: poolKey
+            poolKey: poolKey,
+            baseVault: baseVault,
+            quoteVault: quoteVault
         });
 
         OrderMatching.matchOrder(matchOrder, orderQueues, priceTrees, true);
@@ -223,7 +254,10 @@ contract OrderBook is Ownable, IOrderBook, ReentrancyGuard {
             Quantity.wrap(Quantity.unwrap(order.quantity) - Quantity.unwrap(order.filled));
         (Currency currency, uint256 amount) =
             poolKey.calculateAmountAndCurrency(price, remainingQuantity, side);
-        IBalanceManager(balanceManager).unlock(user, currency, amount);
+        
+        address vault = side == Side.BUY ? quoteVault : baseVault;
+        
+        IBalanceManager(balanceManager).unlock(user, currency, vault, amount);
 
         // Remove price from price tree if the queue is empty
         if (queue.isEmpty()) {
@@ -309,5 +343,9 @@ contract OrderBook is Ownable, IOrderBook, ReentrancyGuard {
             return side == Side.BUY ? priceTrees[side].last() : priceTrees[side].first();
         }
         return side == Side.BUY ? priceTrees[side].prev(price) : priceTrees[side].next(price);
+    }
+
+    function getPoolKey() public view override returns (PoolKey memory) {
+        return poolKey;
     }
 }

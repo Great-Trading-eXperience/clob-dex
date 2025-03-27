@@ -10,6 +10,7 @@ import {IOrderBook} from "./interfaces/IOrderBook.sol";
 import {IPoolManager} from "./interfaces/IPoolManager.sol";
 import {IBalanceManager} from "./interfaces/IBalanceManager.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/token/ERC20/extensions/ERC4626.sol";
 
 contract PoolManager is Ownable, IPoolManager {
     address private balanceManager;
@@ -37,14 +38,39 @@ contract PoolManager is Ownable, IPoolManager {
         router = _router;
     }
 
-    function createPool(PoolKey calldata key, uint256 _lotSize, uint256 _maxOrderAmount) external {
+    function createPool(
+        PoolKey calldata key,
+        address baseVault,
+        address quoteVault,
+        uint256 _lotSize,
+        uint256 _maxOrderAmount
+    ) external returns (address) {
         if (router == address(0)) {
             revert InvalidRouter();
         }
 
+        if (baseVault != address(0)) {
+            if (ERC4626(baseVault).asset() != Currency.unwrap(key.baseCurrency)) {
+                revert InvalidBaseVault(key, baseVault);
+            }
+        }
+
+        if (quoteVault != address(0)) {
+            if (ERC4626(quoteVault).asset() != Currency.unwrap(key.quoteCurrency)) {
+                revert InvalidQuoteVault(key, quoteVault);
+            }
+        }
+
         PoolId id = key.toId();
-        IOrderBook orderBook =
-            new OrderBook(address(this), balanceManager, _maxOrderAmount, _lotSize, key);
+        OrderBook orderBook = new OrderBook(
+            address(this),
+            balanceManager,
+            _maxOrderAmount,
+            _lotSize,
+            key,
+            baseVault,
+            quoteVault
+        );
 
         // Effects: Update the state before any external interaction
         pools[id] = Pool({
@@ -52,15 +78,29 @@ contract PoolManager is Ownable, IPoolManager {
             baseCurrency: key.baseCurrency,
             quoteCurrency: key.quoteCurrency,
             lotSize: _lotSize,
-            maxOrderAmount: _maxOrderAmount
+            maxOrderAmount: _maxOrderAmount,
+            baseVault: baseVault,
+            quoteVault: quoteVault
         });
 
         // Interactions: External calls after state changes
         orderBook.setRouter(router);
-        IBalanceManager(balanceManager).setAuthorizedOperator(address(orderBook), true);
+        IBalanceManager(balanceManager).setAuthorizedOperator(
+            address(orderBook),
+            true
+        );
 
         emit PoolCreated(
-            id, address(orderBook), key.baseCurrency, key.quoteCurrency, _lotSize, _maxOrderAmount
+            id,
+            address(orderBook),
+            key.baseCurrency,
+            key.quoteCurrency,
+            baseVault,
+            quoteVault,
+            _lotSize,
+            _maxOrderAmount
         );
+
+        return address(orderBook);
     }
 }

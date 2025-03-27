@@ -55,7 +55,7 @@ contract DeployContracts is DeployHelpers {
             Currency baseCurrency = Currency.wrap(tokens[i]);
             PoolKey memory poolKey =
                 PoolKey({baseCurrency: baseCurrency, quoteCurrency: quoteCurrency});
-            poolManager.createPool(poolKey, lotSize, maxOrderAmount);
+            poolManager.createPool(poolKey, address(0), address(0), lotSize, maxOrderAmount);
         }
 
         vm.stopBroadcast();

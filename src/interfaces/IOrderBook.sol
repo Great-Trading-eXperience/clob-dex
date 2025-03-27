@@ -72,4 +72,21 @@ interface IOrderBook {
         Price price,
         uint8 count
     ) external view returns (PriceVolume[] memory);
+
+    /// @notice Get the lot size for orders
+    function lotSize() external view returns (uint256);
+
+    /// @notice Get the balance manager address
+    function balanceManager() external view returns (address);
+
+    /// @notice Get the maximum order amount
+    function maxOrderAmount() external view returns (uint256);
+
+    /// @notice Get the base vault address
+    function baseVault() external view returns (address);
+
+    /// @notice Get the quote vault address
+    function quoteVault() external view returns (address);
+
+    function getPoolKey() external view returns (PoolKey memory);
 }

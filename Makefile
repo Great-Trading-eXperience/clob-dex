@@ -14,14 +14,69 @@ define forge_script
 	forge script script/Deploy.s.sol --rpc-url $(network) --broadcast --legacy $(1)
 endef
 
+# Helper function to run forge script
+define deploy_tokens
+	forge script script/DeployTokens.s.sol --rpc-url $(network) --broadcast --legacy $(1)
+endef
+
+# Helper function to run forge script
+define deploy_vaults
+	forge script script/DeployVaults.s.sol --rpc-url $(network) --broadcast --legacy $(1)
+endef
+
+# Helper function to run forge script
+define deploy_managers
+	forge script script/DeployManagers.s.sol --rpc-url $(network) --broadcast --legacy $(1)
+endef
+
+# Helper function to run forge script
+define deploy_orderbooks
+	forge script script/DeployOrderBooks.s.sol --rpc-url $(network) --broadcast --legacy $(1)
+endef
+
+# Helper function to run forge script
+define place_orders
+	forge script script/PlaceOrders.s.sol --rpc-url $(network) --broadcast -vvv --legacy
+endef
+
+# Helper function to run forge script
+define place_orders_full
+	forge script script/PlaceOrdersFull.s.sol --rpc-url $(network) --broadcast -vvv --legacy
+endef
+
 # Define a target to deploy using the specified network
 deploy: build
 	$(call forge_script,)
 	$(MAKE) generate-abi
 
-# Define a target to verify deployment using the specified network
-deploy-verify: build
-	$(call forge_script,--verify)
+# Define a target to deploy using the specified network
+deploy-tokens: build
+	$(call deploy_tokens,)
+	$(MAKE) generate-abi
+
+# Define a target to deploy using the specified network
+deploy-vaults: build
+	$(call deploy_vaults,)
+	$(MAKE) generate-abi
+
+# Define a target to deploy using the specified network
+deploy-managers: build
+	$(call deploy_managers,)
+	$(MAKE) generate-abi
+
+# Define a target to deploy using the specified network
+deploy-orderbooks: build
+	$(call deploy_orderbooks,)
+	$(MAKE) generate-abi
+
+# Define a target to deploy using the specified network
+place-orders: build
+	$(call place_orders,)
+	$(MAKE) generate-abi
+
+# Define a target to deploy using the specified network
+place-orders-full: build
+	$(call place_orders_full,)
 	$(MAKE) generate-abi
 
 # Define a target to verify contracts using the specified network
@@ -42,7 +97,6 @@ lint:
 
 # Define a target to generate ABI files
 generate-abi:
-	node script/generateTsAbis.js
 
 # Define a target to build the project
 build:

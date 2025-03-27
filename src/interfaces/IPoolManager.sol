@@ -9,12 +9,16 @@ import {OrderId, Quantity, Side} from "../types/Types.sol";
 
 interface IPoolManager {
     error InvalidRouter();
+    error InvalidBaseVault(PoolKey key, address baseVault);
+    error InvalidQuoteVault(PoolKey key, address quoteVault);
 
     struct Pool {
         uint256 maxOrderAmount;
         uint256 lotSize;
         Currency baseCurrency;
         Currency quoteCurrency;
+        address baseVault;
+        address quoteVault;
         IOrderBook orderBook;
     }
 
@@ -23,6 +27,8 @@ interface IPoolManager {
         address indexed orderBook,
         Currency baseCurrency,
         Currency quoteCurrency,
+        address baseVault,
+        address quoteVault,
         uint256 lotSize,
         uint256 maxOrderAmount
     );
@@ -33,5 +39,11 @@ interface IPoolManager {
 
     function getPoolId(PoolKey calldata key) external pure returns (PoolId);
 
-    function createPool(PoolKey calldata key, uint256 _lotSize, uint256 _maxOrderAmount) external;
+    function createPool(
+        PoolKey calldata key,
+        address baseVault,
+        address quoteVault,
+        uint256 _lotSize,
+        uint256 _maxOrderAmount
+    ) external returns (address);
 }

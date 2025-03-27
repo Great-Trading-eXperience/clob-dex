@@ -53,7 +53,8 @@ contract MockBalanceManager {
     function unlock(
         address, /* user */
         Currency, /* currency */
-        uint256 /* amount */
+        uint256 /* amount */,
+        address /* vault */
     ) external pure returns (bool) {
         return true;
     }

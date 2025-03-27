@@ -35,7 +35,7 @@ contract OrderBookTest is Test {
         });
 
         MockBalanceManager mockBalanceManager = new MockBalanceManager(alice);
-        orderBook = new OrderBook(poolManager, address(mockBalanceManager), 100_000, 100, poolKey);
+        orderBook = new OrderBook(poolManager, address(mockBalanceManager), 100_000, 100, poolKey, address(0), address(0));
     }
 
     function testBasicOrderPlacement() public {
