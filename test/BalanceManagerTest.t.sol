@@ -23,6 +23,7 @@ contract BalanceManagerTest is Test {
 
     function setUp() public {
         balanceManager = new BalanceManager(owner, feeReceiver, feeMaker, feeTaker);
+        // balanceManager = new BalanceManager();
 
         MockUSDC mockUSDC = new MockUSDC();
         MockWETH mockWETH = new MockWETH();
@@ -40,7 +41,7 @@ contract BalanceManagerTest is Test {
         uint256 depositAmount = 100 ether;
         vm.startPrank(user);
         IERC20(Currency.unwrap(weth)).approve(address(balanceManager), depositAmount);
-        balanceManager.deposit(weth, depositAmount);
+        balanceManager.deposit(weth, depositAmount, user, user);
         vm.stopPrank();
 
         uint256 userBalance = balanceManager.getBalance(user, weth);
@@ -53,7 +54,7 @@ contract BalanceManagerTest is Test {
 
         vm.startPrank(user);
         IERC20(Currency.unwrap(weth)).approve(address(balanceManager), depositAmount);
-        balanceManager.deposit(weth, depositAmount);
+        balanceManager.deposit(weth, depositAmount, user, user);
         balanceManager.withdraw(weth, withdrawAmount);
         vm.stopPrank();
 
@@ -67,11 +68,11 @@ contract BalanceManagerTest is Test {
 
         vm.startPrank(user);
         IERC20(Currency.unwrap(weth)).approve(address(balanceManager), depositAmount);
-        balanceManager.deposit(weth, depositAmount);
+        balanceManager.deposit(weth, depositAmount, user, user);
         vm.stopPrank();
 
         vm.startPrank(owner);
-        balanceManager.setAuthorizedOperator(operator, true);
+        // balanceManager.setAuthorizedOperator(operator, true);
         vm.stopPrank();
 
         vm.startPrank(operator);
@@ -90,11 +91,11 @@ contract BalanceManagerTest is Test {
 
         vm.startPrank(user);
         IERC20(Currency.unwrap(weth)).approve(address(balanceManager), depositAmount);
-        balanceManager.deposit(weth, depositAmount);
+        balanceManager.deposit(weth, depositAmount, user, user);
         vm.stopPrank();
 
         vm.startPrank(owner);
-        balanceManager.setAuthorizedOperator(operator, true);
+        // balanceManager.setAuthorizedOperator(operator, true);
         vm.stopPrank();
 
         vm.startPrank(operator);
@@ -115,11 +116,11 @@ contract BalanceManagerTest is Test {
 
         vm.startPrank(user);
         IERC20(Currency.unwrap(weth)).approve(address(balanceManager), depositAmount);
-        balanceManager.deposit(weth, depositAmount);
+        balanceManager.deposit(weth, depositAmount, user, user);
         vm.stopPrank();
 
         vm.startPrank(owner);
-        balanceManager.setAuthorizedOperator(operator, true);
+        // balanceManager.setAuthorizedOperator(operator, true);
         vm.stopPrank();
 
         vm.startPrank(operator);
@@ -138,11 +139,11 @@ contract BalanceManagerTest is Test {
 
         vm.startPrank(user);
         IERC20(Currency.unwrap(weth)).approve(address(balanceManager), depositAmount);
-        balanceManager.deposit(weth, depositAmount);
+        balanceManager.deposit(weth, depositAmount, user, user);
         vm.stopPrank();
 
         vm.startPrank(owner);
-        balanceManager.setAuthorizedOperator(operator, true);
+        // balanceManager.setAuthorizedOperator(operator, true);
         vm.stopPrank();
 
         vm.startPrank(operator);

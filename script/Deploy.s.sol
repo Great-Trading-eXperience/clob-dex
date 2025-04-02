@@ -9,33 +9,28 @@ import "../src/mocks/MockWETH.sol";
 import "../src/mocks/MockUSDC.sol";
 import {DeployMocks} from "./DeployMocks.s.sol";
 import {DeployContracts} from "./DeployContracts.s.sol";
+import {Swap} from "./Swap.s.sol";
 import {MockOrderBookFromRouter} from "./MockOrderBookFromRouter.s.sol";
 import {HelperConfig} from "./HelperConfig.s.sol";
 import {console} from "forge-std/Script.sol";
-import "forge-std/Vm.sol";
 
-contract Deploy {
+contract Deploy is Script {
     DeployMocks public deployMocks;
     DeployContracts public deployContracts;
-
-    address usdc;
-    address weth;
-    address wbtc;
-    address link;
-    address pepe;
-
+    
     function run() public {
-        address[] memory tokens = new address[](4);
-        HelperConfig config = new HelperConfig();
-        (usdc, weth, wbtc, link, pepe) = config.activeNetworkConfig();
+        string memory chainId = vm.envString("CHAIN_ID");
 
-        console.log("USDC address from deployed contracts:", usdc);
+        address[] memory tokens = new address[](5);
 
-        tokens[0] = weth;
-        tokens[1] = wbtc;
-        tokens[2] = link;
-        tokens[3] = pepe;
+        usdc = vm.envAddress(string.concat("USDC_", chainId, "_ADDRESS"));
 
+        tokens[0] = vm.envAddress(string.concat("WETH_", chainId, "_ADDRESS"));
+        tokens[1] = vm.envAddress(string.concat("WBTC_", chainId, "_ADDRESS"));
+        tokens[2] = vm.envAddress(string.concat("LINK_", chainId, "_ADDRESS"));
+        tokens[3] = vm.envAddress(string.concat("TRUMP_", chainId, "_ADDRESS"));
+        tokens[4] = vm.envAddress(string.concat("DOGE_", chainId, "_ADDRESS"));
+        
         // If running on a local chain, no need to uncomment this code
         // Mock tokens, add addresses to the helperConfig,
         // deployMocks = new DeployMocks();
@@ -43,18 +38,35 @@ contract Deploy {
         // deployMocks.run();
 
         // Deploy contracts
-        // deployContracts = new DeployContracts(usdc, tokens);
-        // // console.log("DeployedContracts deployed at:", address(deployContracts));
-        // (address balanceManager, address poolManager, address router) = deployContracts.run();
+        deployContracts = new DeployContracts(usdc, tokens);
 
-        // // Test deposit
-        // MockOrderBookFromRouter runFromRouter =
-        //     new MockOrderBookFromRouter(balanceManager, poolManager, router, usdc, tokens);
-        // runFromRouter.run();
+        (
+            address balanceManager,
+            address poolManager,
+            address router
+        ) = deployContracts.run();
+
+        // Test deposit
+        MockOrderBookFromRouter runFromRouter = new MockOrderBookFromRouter(
+            balanceManager,
+            poolManager,
+            router,
+            usdc,
+            tokens
+        );
+        runFromRouter.run();
+
+        // Execute swap script to test engine functionality in advance, including place order, place market order, swap, and match order
+        Swap swap = new Swap(
+            balanceManager,
+            poolManager,
+            router
+        );
+        swap.run();
 
         //if its called from testnet / mainnet
-        MockOrderBookFromRouter runFromRouter =
-            new MockOrderBookFromRouter(address(0), address(0), address(0), usdc, tokens);
-        runFromRouter.run();
+        // MockOrderBookFromRouter runFromRouter =
+        //     new MockOrderBookFromRouter(address(0), address(0), address(0), usdc, tokens);
+        // runFromRouter.run();
     }
 }

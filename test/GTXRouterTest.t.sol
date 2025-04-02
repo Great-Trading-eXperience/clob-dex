@@ -35,6 +35,7 @@ contract GTXRouterTest is Test {
 
     function setUp() public {
         balanceManager = new BalanceManager(owner, feeReceiver, feeMaker, feeTaker);
+        // balanceManager = new BalanceManager();
         poolManager = new PoolManager(owner, address(balanceManager));
         gtxRouter = new GTXRouter(address(poolManager), address(balanceManager));
 
@@ -46,7 +47,6 @@ contract GTXRouterTest is Test {
         usdc = Currency.wrap(address(mockUSDC));
         weth = Currency.wrap(address(mockWETH));
 
-        PoolKey memory key = PoolKey(weth, usdc);
         uint256 lotSize = 1 ether;
         uint256 maxOrderAmount = 100 ether;
 
@@ -57,7 +57,7 @@ contract GTXRouterTest is Test {
         balanceManager.setAuthorizedOperator(address(poolManager), true);
         balanceManager.transferOwnership(address(poolManager));
         poolManager.setRouter(address(gtxRouter));
-        poolManager.createPool(key, lotSize, maxOrderAmount);
+        poolManager.createPool(weth, usdc, lotSize, maxOrderAmount);
         vm.stopPrank();
     }
 
@@ -66,7 +66,7 @@ contract GTXRouterTest is Test {
         uint256 depositAmount = 10 ether;
         vm.startPrank(user);
         IERC20(Currency.unwrap(weth)).approve(address(balanceManager), depositAmount);
-        balanceManager.deposit(weth, depositAmount);
+        balanceManager.deposit(weth, depositAmount, user, user);
 
         PoolKey memory key = PoolKey(weth, usdc);
         IPoolManager.Pool memory pool = poolManager.getPool(key);
@@ -80,8 +80,8 @@ contract GTXRouterTest is Test {
         Side side = Side.SELL;
         console.log("Setting side to SELL");
 
-        OrderId orderId = gtxRouter.placeOrder(key, price, quantity, side);
-        (uint48 orderCount, uint256 totalVolume) = gtxRouter.getOrderQueue(key, side, price);
+        OrderId orderId = gtxRouter.placeOrder(weth, usdc, price, quantity, side, alice);
+        (uint48 orderCount, uint256 totalVolume) = gtxRouter.getOrderQueue(weth, usdc, side, price);
 
         console.log("Order Count:", orderCount);
         console.log("Total Volume:", totalVolume);
@@ -113,10 +113,10 @@ contract GTXRouterTest is Test {
         Side side = Side.SELL;
         console.log("Setting side to SELL");
 
-        OrderId orderId = gtxRouter.placeOrderWithDeposit(key, price, quantity, side);
+        OrderId orderId = gtxRouter.placeOrderWithDeposit(weth, usdc, price, quantity, side, alice);
         console.log("Order with deposit placed with ID:", OrderId.unwrap(orderId));
 
-        (uint48 orderCount, uint256 totalVolume) = gtxRouter.getOrderQueue(key, side, price);
+        (uint48 orderCount, uint256 totalVolume) = gtxRouter.getOrderQueue(weth, usdc, side, price);
 
         console.log("Order Count:", orderCount);
         console.log("Total Volume:", totalVolume);
@@ -142,7 +142,7 @@ contract GTXRouterTest is Test {
         mockWETH.mint(alice, initialBalanceWETH);
         IERC20(Currency.unwrap(weth)).approve(address(balanceManager), initialBalanceWETH);
         gtxRouter.placeOrderWithDeposit(
-            key, price, Quantity.wrap(Quantity.unwrap(quantity) / 2), Side.SELL
+            weth, usdc, price, Quantity.wrap(Quantity.unwrap(quantity) / 2), Side.SELL, alice
         );
         vm.stopPrank();
 
@@ -150,12 +150,12 @@ contract GTXRouterTest is Test {
         mockUSDC.mint(alice, initialBalanceUSDC);
         IERC20(Currency.unwrap(usdc)).approve(address(balanceManager), initialBalanceUSDC);
         gtxRouter.placeOrderWithDeposit(
-            key, price, Quantity.wrap(Quantity.unwrap(quantity) / 2), Side.BUY
+            weth, usdc, price, Quantity.wrap(Quantity.unwrap(quantity) / 2), Side.BUY, alice
         );
 
-        (uint48 orderCount, uint256 totalVolume) = gtxRouter.getOrderQueue(key, Side.SELL, price);
+        (uint48 orderCount, uint256 totalVolume) = gtxRouter.getOrderQueue(weth, usdc, Side.SELL, price);
         vm.assertEq(orderCount, 1);
-        (orderCount, totalVolume) = gtxRouter.getOrderQueue(key, Side.BUY, price);
+        (orderCount, totalVolume) = gtxRouter.getOrderQueue(weth, usdc, Side.BUY, price);
         vm.assertEq(orderCount, 1);
     }
 
@@ -168,7 +168,7 @@ contract GTXRouterTest is Test {
         mockWETH.mint(alice, initialBalanceWETH);
         IERC20(Currency.unwrap(weth)).approve(address(balanceManager), initialBalanceWETH);
         gtxRouter.placeOrderWithDeposit(
-            key, price, Quantity.wrap(Quantity.unwrap(quantity) / 2), Side.SELL
+            weth, usdc, price, Quantity.wrap(Quantity.unwrap(quantity) / 2), Side.SELL, alice
         );
         vm.stopPrank();
 
@@ -176,10 +176,10 @@ contract GTXRouterTest is Test {
         mockUSDC.mint(bob, initialBalanceUSDC);
         IERC20(Currency.unwrap(usdc)).approve(address(balanceManager), initialBalanceUSDC);
         OrderId orderId = gtxRouter.placeOrderWithDeposit(
-            key, price, Quantity.wrap(Quantity.unwrap(quantity) / 2), Side.BUY
+            weth, usdc, price, Quantity.wrap(Quantity.unwrap(quantity) / 2), Side.BUY, alice
         );
 
-        (uint48 orderCount, uint256 totalVolume) = gtxRouter.getOrderQueue(key, Side.SELL, price);
+        (uint48 orderCount, uint256 totalVolume) = gtxRouter.getOrderQueue(weth, usdc, Side.SELL, price);
         console.log("Order Count:", orderCount);
         console.log("Total Volume:", totalVolume);
         console.log("Market order placed with ID:", OrderId.unwrap(orderId));
@@ -199,10 +199,10 @@ contract GTXRouterTest is Test {
         Quantity quantity = Quantity.wrap(1 * 10 ** 18);
 
         vm.startPrank(user);
-        OrderId orderId = gtxRouter.placeMarketOrder(key, quantity, Side.BUY);
+        OrderId orderId = gtxRouter.placeMarketOrder(weth, usdc, quantity, Side.BUY, alice);
         console.log("Market order placed with ID:", OrderId.unwrap(orderId));
 
-        (uint48 orderCount, uint256 totalVolume) = gtxRouter.getOrderQueue(key, Side.BUY, price);
+        (uint48 orderCount, uint256 totalVolume) = gtxRouter.getOrderQueue(weth, usdc, Side.BUY, price);
         console.log("Order Count:", orderCount);
         console.log("Total Volume:", totalVolume);
         assertEq(orderCount, 0);
@@ -226,24 +226,24 @@ contract GTXRouterTest is Test {
         vm.startPrank(alice);
         mockWETH.mint(alice, initialBalanceWETH);
         IERC20(Currency.unwrap(weth)).approve(address(balanceManager), initialBalanceWETH);
-        balanceManager.deposit(weth, initialBalanceWETH);
-        gtxRouter.placeOrder(key, price, Quantity.wrap(Quantity.unwrap(quantity) / 2), Side.SELL);
+        balanceManager.deposit(weth, initialBalanceWETH, user, user);
+        gtxRouter.placeOrder(weth, usdc, price, Quantity.wrap(Quantity.unwrap(quantity) / 2), Side.SELL, alice);
         vm.stopPrank();
 
         vm.startPrank(bob);
         mockWETH.mint(bob, initialBalanceWETH);
         IERC20(Currency.unwrap(weth)).approve(address(balanceManager), initialBalanceWETH);
-        balanceManager.deposit(weth, initialBalanceWETH);
-        gtxRouter.placeOrder(key, price2, Quantity.wrap(2 * Quantity.unwrap(quantity)), Side.SELL);
+        balanceManager.deposit(weth, initialBalanceWETH, user, user);
+        gtxRouter.placeOrder(weth, usdc, price2, Quantity.wrap(2 * Quantity.unwrap(quantity)), Side.SELL, alice);
         vm.stopPrank();
 
         vm.startPrank(user);
         mockWETH.mint(user, initialBalanceUSDC);
         IERC20(Currency.unwrap(usdc)).approve(address(balanceManager), initialBalanceUSDC);
-        balanceManager.deposit(usdc, initialBalanceUSDC);
-        OrderId orderId = gtxRouter.placeMarketOrder(key, quantity, Side.BUY);
+        balanceManager.deposit(usdc, initialBalanceUSDC, user, user);
+        OrderId orderId = gtxRouter.placeMarketOrder(weth, usdc, quantity, Side.BUY, alice);
 
-        (uint48 orderCount, uint256 totalVolume) = gtxRouter.getOrderQueue(key, Side.SELL, price);
+        (uint48 orderCount, uint256 totalVolume) = gtxRouter.getOrderQueue(weth, usdc, Side.SELL, price);
         console.log("Order Count:", orderCount);
         console.log("Total Volume:", totalVolume);
         console.log("Market order placed with ID:", OrderId.unwrap(orderId));
@@ -272,7 +272,7 @@ contract GTXRouterTest is Test {
         IERC20(Currency.unwrap(weth)).approve(address(balanceManager), initialBalanceWETH);
         // balanceManager.deposit(weth, initialBalanceWETH);
         gtxRouter.placeOrderWithDeposit(
-            key, price, Quantity.wrap(Quantity.unwrap(quantity) / 2), Side.SELL
+            weth, usdc, price, Quantity.wrap(Quantity.unwrap(quantity) / 2), Side.SELL, alice
         );
         vm.stopPrank();
 
@@ -281,7 +281,7 @@ contract GTXRouterTest is Test {
         IERC20(Currency.unwrap(weth)).approve(address(balanceManager), initialBalanceWETH);
         // balanceManager.deposit(weth, initialBalanceWETH);
         gtxRouter.placeOrderWithDeposit(
-            key, price2, Quantity.wrap(2 * Quantity.unwrap(quantity)), Side.SELL
+            weth, usdc, price2, Quantity.wrap(2 * Quantity.unwrap(quantity)), Side.SELL, alice
         );
         vm.stopPrank();
 
@@ -290,10 +290,10 @@ contract GTXRouterTest is Test {
         IERC20(Currency.unwrap(usdc)).approve(address(balanceManager), initialBalanceUSDC);
         // balanceManager.deposit(usdc, initialBalanceUSDC);
         OrderId orderId = gtxRouter.placeMarketOrderWithDeposit(
-            key, price, Quantity.wrap(Quantity.unwrap(quantity) / 2), Side.BUY
+            weth, usdc, price, Quantity.wrap(Quantity.unwrap(quantity) / 2), Side.BUY, alice
         );
 
-        (uint48 orderCount, uint256 totalVolume) = gtxRouter.getOrderQueue(key, Side.SELL, price);
+        (uint48 orderCount, uint256 totalVolume) = gtxRouter.getOrderQueue(weth, usdc, Side.SELL, price);
         console.log("Order Count:", orderCount);
         console.log("Total Volume:", totalVolume);
         console.log("Market order placed with ID:", OrderId.unwrap(orderId));
@@ -317,7 +317,7 @@ contract GTXRouterTest is Test {
         Side side = Side.BUY;
 
         vm.expectRevert(abi.encodeWithSignature("UnauthorizedCancellation()")); // Expect the UnauthorizedCancellation error
-        gtxRouter.cancelOrder(key, side, price, orderId);
+        gtxRouter.cancelOrder(weth, usdc, side, price, orderId);
         console.log(
             "Order cancellation expected to revert with UnauthorizedCancellation for ID:",
             OrderId.unwrap(orderId)
@@ -334,12 +334,12 @@ contract GTXRouterTest is Test {
         // Place an order first
         vm.startPrank(user);
         IERC20(Currency.unwrap(usdc)).approve(address(balanceManager), amount);
-        balanceManager.deposit(usdc, amount);
-        OrderId orderId = gtxRouter.placeOrder(key, price, quantity, side);
-        gtxRouter.cancelOrder(key, side, price, orderId);
+        balanceManager.deposit(usdc, amount, user, user);
+        OrderId orderId = gtxRouter.placeOrder(weth, usdc, price, quantity, side, alice);
+        gtxRouter.cancelOrder(weth, usdc, side, price, orderId);
         vm.stopPrank();
 
-        (uint48 orderCount, uint256 totalVolume) = gtxRouter.getOrderQueue(key, side, price);
+        (uint48 orderCount, uint256 totalVolume) = gtxRouter.getOrderQueue(weth, usdc, side, price);
         console.log("Order Count:", orderCount);
         console.log("Total Volume:", totalVolume);
 

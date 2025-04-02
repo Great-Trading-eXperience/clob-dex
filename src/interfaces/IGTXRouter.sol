@@ -11,27 +11,31 @@ interface IGTXRouter {
         PoolKey calldata key,
         Price price,
         Quantity quantity,
-        Side side
+        Side side,
+        address user
     ) external returns (OrderId orderId);
 
     function placeOrderWithDeposit(
         PoolKey calldata key,
         Price price,
         Quantity quantity,
-        Side side
+        Side side,
+        address user
     ) external returns (OrderId orderId);
 
     function placeMarketOrder(
         PoolKey calldata key,
         Quantity quantity,
-        Side side
+        Side side,
+        address user
     ) external returns (OrderId orderId);
 
     function placeMarketOrderWithDeposit(
         PoolKey calldata key,
         Price price,
         Quantity quantity,
-        Side side
+        Side side,
+        address user
     ) external returns (OrderId orderId);
 
     function cancelOrder(PoolKey calldata key, Side side, Price price, OrderId orderId) external;

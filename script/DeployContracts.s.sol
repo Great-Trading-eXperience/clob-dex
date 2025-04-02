@@ -6,10 +6,8 @@ import "../src/PoolManager.sol";
 import "../src/GTXRouter.sol";
 import {HelperConfig} from "./HelperConfig.s.sol";
 import {Script, console} from "forge-std/Script.sol";
-import {DeployHelpers} from "./DeployHelpers.s.sol";
-import "forge-std/Vm.sol";
 
-contract DeployContracts is DeployHelpers {
+contract DeployContracts is Script {
     BalanceManager public balanceManager;
     PoolManager public poolManager;
     GTXRouter public router;
@@ -23,7 +21,7 @@ contract DeployContracts is DeployHelpers {
     }
 
     function run() public returns (address, address, address) {
-        uint256 deployerPrivateKey = getDeployerKey();
+        uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         address owner = vm.addr(deployerPrivateKey);
         vm.startBroadcast(deployerPrivateKey);
 
@@ -33,13 +31,11 @@ contract DeployContracts is DeployHelpers {
         uint256 maxOrderAmount = 500e18; // Example max order amount
 
         balanceManager = new BalanceManager(owner, owner, feeMaker, feeTaker);
-        console.log("BalanceManager deployed at:", address(balanceManager));
-
+        // balanceManager = new BalanceManager();
         poolManager = new PoolManager(owner, address(balanceManager));
-        console.log("PoolManager deployed at:", address(poolManager));
-
         router = new GTXRouter(address(poolManager), address(balanceManager));
-        console.log("GTXRouter deployed at:", address(router));
+
+        poolManager.addCommonIntermediary(Currency.wrap(address(usdc)));
 
         Currency quoteCurrency = Currency.wrap(address(usdc));
 
@@ -53,14 +49,12 @@ contract DeployContracts is DeployHelpers {
 
         for (uint256 i = 0; i < tokensLength; ++i) {
             Currency baseCurrency = Currency.wrap(tokens[i]);
-            PoolKey memory poolKey =
-                PoolKey({baseCurrency: baseCurrency, quoteCurrency: quoteCurrency});
-            poolManager.createPool(poolKey, lotSize, maxOrderAmount);
+            poolManager.createPool(baseCurrency, quoteCurrency, lotSize, maxOrderAmount);
         }
 
         vm.stopBroadcast();
 
-        exportDeployments();
+        // exportDeployments();
 
         return (address(balanceManager), address(poolManager), address(router));
     }
