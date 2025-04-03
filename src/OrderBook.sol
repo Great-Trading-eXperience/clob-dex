@@ -19,6 +19,8 @@ import {Currency} from "./types/Currency.sol";
 // import {IPoolManager} from "../interfaces/IPoolManager.sol";
 import {IBalanceManager} from "./interfaces/IBalanceManager.sol";
 
+// import "forge-std/console.sol";
+
 /// @title OrderBook - A Central Limit Order Book implementation
 /// @notice Manages limit and market orders in a decentralized exchange
 /// @dev Implements price-time priority matching with reentrance protection
@@ -123,10 +125,7 @@ contract OrderBook is Ownable, IOrderBook, ReentrancyGuard {
             Status.OPEN
         );
 
-        // Lock balance
-        (Currency currency, uint256 amount) =
-            poolKey.calculateAmountAndCurrency(price, quantity, side);
-        IBalanceManager(balanceManager).lock(user, currency, amount);
+        IBalanceManager(balanceManager).lock(user, side == Side.BUY ? poolKey.quoteCurrency : poolKey.baseCurrency, Quantity.unwrap(quantity));
 
         OrderMatching.MatchOrder memory matchOrder = OrderMatching.MatchOrder({
             order: newOrder,
@@ -136,7 +135,9 @@ contract OrderBook is Ownable, IOrderBook, ReentrancyGuard {
             poolKey: poolKey
         });
 
-        OrderMatching.matchOrder(matchOrder, orderQueues, priceTrees, false);
+        uint128 filled = OrderMatching.matchOrder(matchOrder, orderQueues, priceTrees, false);
+
+        uint256 remainingQuantity = Quantity.unwrap(newOrder.quantity) - filled;
 
         unchecked {
             nextOrderId++;
@@ -221,9 +222,7 @@ contract OrderBook is Ownable, IOrderBook, ReentrancyGuard {
 
         Quantity remainingQuantity =
             Quantity.wrap(Quantity.unwrap(order.quantity) - Quantity.unwrap(order.filled));
-        (Currency currency, uint256 amount) =
-            poolKey.calculateAmountAndCurrency(price, remainingQuantity, side);
-        IBalanceManager(balanceManager).unlock(user, currency, amount);
+        IBalanceManager(balanceManager).unlock(user, side == Side.BUY ? poolKey.quoteCurrency : poolKey.baseCurrency, Quantity.unwrap(remainingQuantity));
 
         // Remove price from price tree if the queue is empty
         if (queue.isEmpty()) {

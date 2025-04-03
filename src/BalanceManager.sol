@@ -40,8 +40,8 @@ contract BalanceManager is IBalanceManager, Ownable, ReentrancyGuard {
         feeMaker = _feeMaker;
         feeTaker = _feeTaker;
     }
-    // Allow anyone to check  balanceOf
 
+    // Allow anyone to check  balanceOf
     function getBalance(address user, Currency currency) external view returns (uint256) {
         return balanceOf[user][currency.toId()];
     }
@@ -54,11 +54,7 @@ contract BalanceManager is IBalanceManager, Ownable, ReentrancyGuard {
         return lockedBalanceOf[user][operator][currency.toId()];
     }
 
-    function deposit(Currency currency, uint256 amount) external {
-        deposit(currency, amount, msg.sender);
-    }
-
-    function deposit(Currency currency, uint256 amount, address user) public nonReentrant {
+    function deposit(Currency currency, uint256 amount, address sender, address user) public nonReentrant {
         if (amount == 0) {
             revert ZeroAmount();
         }
@@ -69,7 +65,7 @@ contract BalanceManager is IBalanceManager, Ownable, ReentrancyGuard {
         }
 
         // Transfer tokens directly from the user to this contract
-        currency.transferFrom(user, address(this), amount);
+        currency.transferFrom(sender, address(this), amount);
 
         // Credit the balance to the specified user
         balanceOf[user][currency.toId()] += amount;
@@ -102,7 +98,7 @@ contract BalanceManager is IBalanceManager, Ownable, ReentrancyGuard {
         emit Withdrawal(user, currency.toId(), amount);
     }
 
-    function lock(address user, Currency currency, uint256 amount) external returns (bool) {
+    function lock(address user, Currency currency, uint256 amount) external {
         if (!authorizedOperators[msg.sender]) {
             revert UnauthorizedOperator(msg.sender);
         }
@@ -113,11 +109,9 @@ contract BalanceManager is IBalanceManager, Ownable, ReentrancyGuard {
         }
         balanceOf[user][currency.toId()] -= amount;
         lockedBalanceOf[user][msg.sender][currency.toId()] += amount;
-
-        return true;
     }
 
-    function unlock(address user, Currency currency, uint256 amount) external returns (bool) {
+    function unlock(address user, Currency currency, uint256 amount) external  {
         if (!authorizedOperators[msg.sender]) {
             revert UnauthorizedOperator(msg.sender);
         }
@@ -129,8 +123,24 @@ contract BalanceManager is IBalanceManager, Ownable, ReentrancyGuard {
 
         lockedBalanceOf[user][msg.sender][currency.toId()] -= amount;
         balanceOf[user][currency.toId()] += amount;
+    }
 
-        return true;
+    function transferOut(
+        address sender,
+        address receiver,
+        Currency currency,
+        uint256 amount
+    ) external {
+        if (!authorizedOperators[msg.sender]) {
+            revert UnauthorizedOperator(msg.sender);
+        }
+        if (balanceOf[sender][currency.toId()] < amount) {
+            revert InsufficientBalance(sender, currency.toId(), amount, balanceOf[sender][currency.toId()]);
+        }
+
+        IERC20(Currency.unwrap(currency)).transfer(receiver, amount);
+
+        balanceOf[sender][currency.toId()] -= amount;
     }
 
     function transferLockedFrom(
@@ -138,7 +148,7 @@ contract BalanceManager is IBalanceManager, Ownable, ReentrancyGuard {
         address receiver,
         Currency currency,
         uint256 amount
-    ) external returns (bool) {
+    ) external {
         if (!authorizedOperators[msg.sender]) {
             revert UnauthorizedOperator(msg.sender);
         }
@@ -164,8 +174,6 @@ contract BalanceManager is IBalanceManager, Ownable, ReentrancyGuard {
         balanceOf[feeReceiver][currency.toId()] += feeAmount;
 
         emit TransferFrom(msg.sender, sender, receiver, currency.toId(), amount, feeAmount);
-
-        return true;
     }
 
     function transferFrom(
@@ -173,7 +181,7 @@ contract BalanceManager is IBalanceManager, Ownable, ReentrancyGuard {
         address receiver,
         Currency currency,
         uint256 amount
-    ) external returns (bool) {
+    ) external {
         if (!authorizedOperators[msg.sender]) {
             revert UnauthorizedOperator(msg.sender);
         }
@@ -196,7 +204,5 @@ contract BalanceManager is IBalanceManager, Ownable, ReentrancyGuard {
         balanceOf[feeReceiver][currency.toId()] += feeAmount;
 
         emit TransferFrom(msg.sender, sender, receiver, currency.toId(), amount, feeAmount);
-
-        return true;
     }
 }

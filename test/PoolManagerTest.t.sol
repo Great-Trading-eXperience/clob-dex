@@ -30,6 +30,7 @@ contract PoolManagerTest is Test {
 
     function setUp() public {
         balanceManager = new BalanceManager(owner, feeReceiver, feeMaker, feeTaker);
+        // balanceManager = new BalanceManager();
         poolManager = new PoolManager(owner, address(balanceManager));
 
         mockUSDC = new MockUSDC();
@@ -71,7 +72,7 @@ contract PoolManagerTest is Test {
 
         vm.expectRevert(abi.encodeWithSignature("InvalidRouter()"));
         vm.startPrank(owner);
-        poolManager.createPool(key, lotSize, maxOrderAmount);
+        poolManager.createPool(weth, usdc, lotSize, maxOrderAmount);
         vm.stopPrank();
     }
 
@@ -82,7 +83,7 @@ contract PoolManagerTest is Test {
 
         vm.startPrank(owner);
         poolManager.setRouter(operator);
-        poolManager.createPool(key, lotSize, maxOrderAmount);
+        poolManager.createPool(weth, usdc, lotSize, maxOrderAmount);
         vm.stopPrank();
 
         IPoolManager.Pool memory pool = poolManager.getPool(key);
