@@ -5,68 +5,146 @@ import "forge-std/Script.sol";
 import "../src/BalanceManager.sol";
 import "../src/PoolManager.sol";
 import "../src/GTXRouter.sol";
-import "../src/mocks/MockWETH.sol";
-import "../src/mocks/MockUSDC.sol";
-import {DeployMocks} from "./DeployMocks.s.sol";
-import {DeployContracts} from "./DeployContracts.s.sol";
 import {Swap} from "./Swap.s.sol";
-import {MockOrderBookFromRouter} from "./MockOrderBookFromRouter.s.sol";
-import {HelperConfig} from "./HelperConfig.s.sol";
-import {console} from "forge-std/Script.sol";
+import {IOrderBook} from "../src/interfaces/IOrderBook.sol";
+import {MockToken} from "../src/mocks/MockToken.sol";
+import {CreateMockPools} from "./CreateMockPools.s.sol";
 
 contract Deploy is Script {
-    DeployMocks public deployMocks;
-    DeployContracts public deployContracts;
-    
+    // Contract instances
+    BalanceManager public balanceManager;
+    PoolManager public poolManager;
+    GTXRouter public router;
+
+    // Deployment parameters
+    address public owner;
+    string public chainId;
+    uint256 private deployerPrivateKey;
+
+    // Environment flags
+    bool public shouldCreatePools;
+    bool public shouldRunSwap;
+
     function run() public {
-        string memory chainId = vm.envString("CHAIN_ID");
+        // Setup common parameters
+        chainId = vm.envString("CHAIN_ID");
+        deployerPrivateKey = vm.envUint("PRIVATE_KEY");
+        owner = vm.addr(deployerPrivateKey);
 
-        address[] memory tokens = new address[](5);
+        // Read environment flags
+        shouldCreatePools = vm.envOr("CREATE_POOLS", false);
+        shouldRunSwap = vm.envOr("RUN_SWAP", false);
 
-        usdc = vm.envAddress(string.concat("USDC_", chainId, "_ADDRESS"));
+        // Deploy is always executed
+        deployContracts();
 
-        tokens[0] = vm.envAddress(string.concat("WETH_", chainId, "_ADDRESS"));
-        tokens[1] = vm.envAddress(string.concat("WBTC_", chainId, "_ADDRESS"));
-        tokens[2] = vm.envAddress(string.concat("LINK_", chainId, "_ADDRESS"));
-        tokens[3] = vm.envAddress(string.concat("TRUMP_", chainId, "_ADDRESS"));
-        tokens[4] = vm.envAddress(string.concat("DOGE_", chainId, "_ADDRESS"));
-        
-        // If running on a local chain, no need to uncomment this code
-        // Mock tokens, add addresses to the helperConfig,
-        // deployMocks = new DeployMocks();
-        // console.log("DeployMocks contract deployed at:", address(deployMocks));
-        // deployMocks.run();
+        //NOTE: Remove existing .env for create new tokens
 
-        // Deploy contracts
-        deployContracts = new DeployContracts(usdc, tokens);
+        if (shouldCreatePools) {
+            runCreatePools();
+        }
 
-        (
-            address balanceManager,
-            address poolManager,
-            address router
-        ) = deployContracts.run();
+        if (shouldRunSwap) {
+            runSwapTest();
+        }
+    }
 
-        // Test deposit
-        MockOrderBookFromRouter runFromRouter = new MockOrderBookFromRouter(
-            balanceManager,
-            poolManager,
-            router,
-            usdc,
-            tokens
+    function runCreatePools() public {
+        vm.setEnv("POOL_MANAGER_ADDRESS", vm.toString(address(poolManager)));
+        CreateMockPools poolCreator = new CreateMockPools();
+        poolCreator.run();
+    }
+
+    function deployContracts() public {
+        console.log("Deploying core contracts...");
+
+        // Begin deployment
+        vm.startBroadcast(deployerPrivateKey);
+
+        // Contract deployment parameters
+        uint256 feeMaker = 1; // Example fee maker value
+        uint256 feeTaker = 3; // Example fee taker value
+
+        // Deploy core contracts
+        balanceManager = new BalanceManager(owner, owner, feeMaker, feeTaker);
+        console.log("BalanceManager deployed at:", address(balanceManager));
+
+        poolManager = new PoolManager(owner, address(balanceManager));
+        console.log("PoolManager deployed at:", address(poolManager));
+
+        router = new GTXRouter(address(poolManager), address(balanceManager));
+        console.log("GTXRouter deployed at:", address(router));
+
+        // Configure contracts
+        balanceManager.setAuthorizedOperator(address(poolManager), true);
+        balanceManager.transferOwnership(address(poolManager));
+        poolManager.setRouter(address(router));
+
+        vm.stopBroadcast();
+        console.log("Core contracts deployed and configured successfully");
+
+        // Set environment variables for core contracts
+        string memory envPrefix = string.concat(chainId, "_");
+        vm.setEnv(string.concat(envPrefix, "BALANCE_MANAGER"), vm.toString(address(balanceManager)));
+        vm.setEnv(string.concat(envPrefix, "POOL_MANAGER"), vm.toString(address(poolManager)));
+        vm.setEnv(string.concat(envPrefix, "ROUTER"), vm.toString(address(router)));
+
+        updateEnvFile();
+    }
+
+    function updateEnvFile() internal {
+        string memory envPath = ".env";
+
+        // Check if .env file exists and read its content
+        string memory existingEnv = "";
+        if (vm.exists(envPath)) {
+            existingEnv = vm.readFile(envPath);
+            // Check if the file ends with a newline
+            bytes memory existingEnvBytes = bytes(existingEnv);
+            if (
+                existingEnvBytes.length > 0 && existingEnvBytes[existingEnvBytes.length - 1] != 0x0A
+            ) {
+                existingEnv = string.concat(existingEnv, "\n");
+            }
+        }
+
+        // Create a comment for the added variables
+        string memory comment = string.concat(
+            "\n# Core contract addresses for chain ",
+            chainId,
+            " - Added on ",
+            vm.toString(block.timestamp),
+            "\n"
         );
-        runFromRouter.run();
 
-        // Execute swap script to test engine functionality in advance, including place order, place market order, swap, and match order
-        Swap swap = new Swap(
-            balanceManager,
-            poolManager,
-            router
+        // Prepare contract address variables
+        string memory envUpdates = string.concat(
+            chainId,
+            "_BALANCE_MANAGER=",
+            vm.toString(address(balanceManager)),
+            "\n",
+            chainId,
+            "_POOL_MANAGER=",
+            vm.toString(address(poolManager)),
+            "\n",
+            chainId,
+            "_ROUTER=",
+            vm.toString(address(router)),
+            "\n"
         );
+
+        // Write back the updated content
+        vm.writeFile(envPath, string.concat(existingEnv, comment, envUpdates));
+        console.log("Updated .env file with core contract addresses");
+    }
+
+    function runSwapTest() public {
+        console.log("Running swap test...");
+
+        // Execute swap script to test engine functionality
+        Swap swap = new Swap(address(balanceManager), address(poolManager), address(router));
         swap.run();
 
-        //if its called from testnet / mainnet
-        // MockOrderBookFromRouter runFromRouter =
-        //     new MockOrderBookFromRouter(address(0), address(0), address(0), usdc, tokens);
-        // runFromRouter.run();
+        console.log("Swap test completed");
     }
 }

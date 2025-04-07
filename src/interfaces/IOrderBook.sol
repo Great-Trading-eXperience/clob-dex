@@ -2,22 +2,32 @@
 pragma solidity ^0.8.26;
 
 import {Price} from "../libraries/BokkyPooBahsRedBlackTreeLibrary.sol";
-import {OrderId, Quantity, Side, Status} from "../types/Types.sol";
+import {OrderId, Quantity, Side, Status, OrderType, TimeInForce} from "../types/Types.sol";
 import {PoolKey} from "../types/Pool.sol";
 import {Currency} from "../types/Currency.sol";
 
 interface IOrderBook {
     struct Order {
-        OrderId id;
         address user;
+        OrderId id;
         OrderId next;
         OrderId prev;
         uint48 timestamp;
         uint48 expiry;
-        Price price;
-        Status status;
         Quantity quantity;
         Quantity filled;
+        Price price;
+        Status status;
+        OrderType orderType;
+        Side side;
+    }
+
+    struct TradingRules {
+        Quantity minTradeAmount;
+        Quantity minAmountMovement;
+        Quantity minPriceMovement;
+        Quantity minOrderSize;
+        uint8 slippageTreshold;
     }
 
     struct PriceVolume {
@@ -47,7 +57,8 @@ interface IOrderBook {
         Price price,
         Quantity quantity,
         Side side,
-        address user
+        address user,
+        TimeInForce timeInForce
     ) external returns (OrderId);
 
     function placeMarketOrder(
@@ -72,4 +83,10 @@ interface IOrderBook {
         Price price,
         uint8 count
     ) external view returns (PriceVolume[] memory);
+
+    function setTradingRules(
+        TradingRules calldata tradingRules
+    ) external;
+
+    function getTradingRules() external view returns (TradingRules memory);
 }

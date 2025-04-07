@@ -47,9 +47,17 @@ contract DeployContracts is Script {
 
         uint256 tokensLength = tokens.length;
 
+        IOrderBook.TradingRules memory defaultTradingRules = IOrderBook.TradingRules({
+            minTradeAmount: Quantity.wrap(uint128(1e14)), // 0.0001 ETH,
+            minAmountMovement: Quantity.wrap(uint128(1e14)), // 0.0001 ETH
+            minOrderSize: Quantity.wrap(uint128(1e4)), // 0.01 USDC
+            minPriceMovement: Quantity.wrap(uint128(1e4)), // 0.01 USDC with 6 decimals
+            slippageTreshold: 20 // 20%
+        });
+
         for (uint256 i = 0; i < tokensLength; ++i) {
             Currency baseCurrency = Currency.wrap(tokens[i]);
-            poolManager.createPool(baseCurrency, quoteCurrency, lotSize, maxOrderAmount);
+            poolManager.createPool(baseCurrency, quoteCurrency, defaultTradingRules);
         }
 
         vm.stopBroadcast();

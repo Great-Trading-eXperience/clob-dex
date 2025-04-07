@@ -10,7 +10,9 @@ type OrderId is uint48;
 type Quantity is uint128;
 
 library QuantityLibrary {
-    function decimals(Quantity /* price */ ) internal pure returns (uint8) {
+    function decimals(
+        Quantity /* price */
+    ) internal pure returns (uint8) {
         // Assuming the Price type is a fixed-point number with 8 decimal places
         return 18;
     }
@@ -30,11 +32,26 @@ enum Status {
     PARTIALLY_FILLED,
     FILLED,
     CANCELLED,
+    REJECTED,
     EXPIRED
 }
 
+enum OrderType {
+    LIMIT,
+    MARKET
+}
+
+enum TimeInForce {
+    GTC,
+    IOC,
+    FOK,
+    PO
+}
+
 library SideLibrary {
-    function opposite(Side side) internal pure returns (Side) {
+    function opposite(
+        Side side
+    ) internal pure returns (Side) {
         return side == Side.BUY ? Side.SELL : Side.BUY;
     }
 }

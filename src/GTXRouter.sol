@@ -6,18 +6,35 @@ import {IOrderBook} from "./interfaces/IOrderBook.sol";
 import {IBalanceManager} from "./interfaces/IBalanceManager.sol";
 import {IPoolManager} from "./interfaces/IPoolManager.sol";
 import {IOrderBook} from "./interfaces/IOrderBook.sol";
-import {OrderId, Quantity, Side} from "./types/Types.sol";
+import {OrderId, Quantity, Side, TimeInForce} from "./types/Types.sol";
 import {Currency} from "./types/Currency.sol";
-import {PoolKey} from "./types/Pool.sol";
+import {PoolKey, PoolIdLibrary} from "./types/Pool.sol";
 import {Price} from "./libraries/BokkyPooBahsRedBlackTreeLibrary.sol";
+import "forge-std/console.sol";
 
 /// @title GTXRouter - A router for interacting with the OrderBook
 /// @notice Provides functions to place and cancel orders
 contract GTXRouter {
+    using PoolIdLibrary for PoolKey;
+
     IPoolManager public poolManager;
     IBalanceManager public balanceManager;
 
     error SlippageTooHigh(uint256 received, uint256 minReceived);
+    error FillOrKillNotFulfilled(uint128 filledAmount, uint128 requestedAmount);
+    error InvalidOrderType();
+    error InvalidPrice(uint256 price);
+    error InvalidPriceIncrement();
+    error InvalidQuantity();
+    error InvalidQuantityIncrement();
+    error OrderHasNoLiquidity();
+    error OrderTooLarge(uint256 amount, uint256 maxAmount);
+    error OrderTooSmall(uint256 amount, uint256 minAmount);
+    error PostOnlyWouldTake();
+    error SlippageExceeded(uint256 requestedPrice, uint256 limitPrice);
+    error TradingPaused();
+    error UnauthorizedCancellation();
+    error UnauthorizedRouter(address reouter);
 
     constructor(address _poolManager, address _balanceManager) {
         poolManager = IPoolManager(_poolManager);
@@ -32,12 +49,10 @@ contract GTXRouter {
         Side side,
         address user
     ) public returns (OrderId orderId) {
-        PoolKey memory key = poolManager.createPoolKey(
-            _baseCurrency,
-            _quoteCurrency
-        );
+        PoolKey memory key = poolManager.createPoolKey(_baseCurrency, _quoteCurrency);
         IPoolManager.Pool memory pool = poolManager.getPool(key);
-        orderId = pool.orderBook.placeOrder(price, quantity, side, user);
+        //TODO: allow TimeInForce from router params
+        orderId = pool.orderBook.placeOrder(price, quantity, side, user, TimeInForce.GTC);
     }
 
     function placeOrderWithDeposit(
@@ -48,24 +63,24 @@ contract GTXRouter {
         Side side,
         address user
     ) external returns (OrderId orderId) {
-        PoolKey memory key = poolManager.createPoolKey(
-            _baseCurrency,
-            _quoteCurrency
-        );
-        IBalanceManager(balanceManager).deposit(
-            side == Side.BUY ? _quoteCurrency : _baseCurrency,
-            Quantity.unwrap(quantity),
-            msg.sender,
-            user
-        );
-        orderId = placeOrder(
-            _baseCurrency,
-            _quoteCurrency,
-            price,
-            quantity,
-            side,
-            user
-        );
+        uint256 depositAmount;
+        Currency depositCurrency;
+
+        if (side == Side.BUY) {
+            depositAmount = PoolIdLibrary.baseToQuote(
+                Quantity.unwrap(quantity), Price.unwrap(price), _baseCurrency.decimals()
+            );
+            depositCurrency = _quoteCurrency;
+        } else {
+            depositAmount = Quantity.unwrap(quantity);
+            depositCurrency = _baseCurrency;
+        }
+
+        IBalanceManager(balanceManager).deposit(depositCurrency, depositAmount, msg.sender, user);
+
+        console.log(Quantity.unwrap(quantity));
+
+        orderId = placeOrder(_baseCurrency, _quoteCurrency, price, quantity, side, user);
     }
 
     function placeMarketOrder(
@@ -75,10 +90,7 @@ contract GTXRouter {
         Side side,
         address user
     ) public returns (OrderId orderId) {
-        PoolKey memory key = poolManager.createPoolKey(
-            _baseCurrency,
-            _quoteCurrency
-        );
+        PoolKey memory key = poolManager.createPoolKey(_baseCurrency, _quoteCurrency);
         return _placeMarketOrder(key, quantity, side, user);
     }
 
@@ -92,24 +104,80 @@ contract GTXRouter {
         orderId = pool.orderBook.placeMarketOrder(quantity, side, user);
     }
 
+    /**
+     * @notice Place a market order specifically for swap operations, ensuring quantity is in base asset
+     * @param key The pool key
+     * @param amount The amount in source currency (base for SELL, quote for BUY)
+     * @param side The side of the order
+     * @param user The user address
+     * @return orderId The ID of the placed order
+     */
+    function _placeMarketOrderForSwap(
+        PoolKey memory key,
+        uint256 amount,
+        Side side,
+        address user
+    ) internal returns (OrderId orderId) {
+        IPoolManager.Pool memory pool = poolManager.getPool(key);
+        Quantity quantity;
+
+        if (side == Side.SELL) {
+            quantity = Quantity.wrap(uint128(amount));
+        } else {
+            IOrderBook.PriceVolume memory bestPrice = pool.orderBook.getBestPrice(Side.SELL);
+            if (Price.unwrap(bestPrice.price) == 0) {
+                revert("No liquidity available");
+            }
+
+            uint256 baseAmount = PoolIdLibrary.quoteToBase(
+                amount, Price.unwrap(bestPrice.price), pool.baseCurrency.decimals()
+            );
+            quantity = Quantity.wrap(uint128(baseAmount));
+        }
+
+        if (Quantity.unwrap(quantity) == uint128(0)) {
+            revert("Amount too small for market order");
+        }
+
+        return pool.orderBook.placeMarketOrder(quantity, side, user);
+    }
+
     function placeMarketOrderWithDeposit(
         Currency _baseCurrency,
         Currency _quoteCurrency,
-        Price price,
         Quantity quantity,
         Side side,
         address user
     ) external returns (OrderId orderId) {
-        PoolKey memory key = poolManager.createPoolKey(
-            _baseCurrency,
-            _quoteCurrency
-        );
-        IBalanceManager(balanceManager).deposit(
-            side == Side.BUY ? _quoteCurrency : _baseCurrency,
-            Quantity.unwrap(quantity),
-            msg.sender,
-            user
-        );
+        PoolKey memory key = poolManager.createPoolKey(_baseCurrency, _quoteCurrency);
+
+        Currency depositCurrency;
+        uint256 depositAmount;
+
+        if (side == Side.BUY) {
+            // For market BUY orders, user must deposit quote currency (e.g., USDC)
+            depositCurrency = _quoteCurrency;
+
+            // Get the best price from the sell side of the order book
+            IPoolManager.Pool memory pool = poolManager.getPool(key);
+            IOrderBook.PriceVolume memory bestPrice = pool.orderBook.getBestPrice(Side.SELL);
+
+            if (Price.unwrap(bestPrice.price) == 0) {
+                revert OrderHasNoLiquidity();
+            }
+
+            // Calculate required USDC based on ETH quantity and price
+            depositAmount = PoolIdLibrary.baseToQuote(
+                Quantity.unwrap(quantity), Price.unwrap(bestPrice.price), _baseCurrency.decimals()
+            );
+        } else {
+            // For market SELL orders, user must deposit base currency (e.g., ETH)
+            depositCurrency = _baseCurrency;
+            depositAmount = Quantity.unwrap(quantity);
+        }
+
+        IBalanceManager(balanceManager).deposit(depositCurrency, depositAmount, msg.sender, user);
+
         return _placeMarketOrder(key, quantity, side, user);
     }
 
@@ -308,39 +376,13 @@ contract GTXRouter {
             side = Side.BUY; // Buying base currency with quote currency
         }
 
-        IPoolManager.Pool memory pool = poolManager.getPool(key);
-
-        // Calculate the quantity
-        Quantity quantity;
-
-        if (side == Side.SELL) {
-            quantity = Quantity.wrap(uint128(srcAmount));
-            if (srcAmount == 0) {
-                revert("Amount too small");
-            }
-        } else {
-            // When buying base, we need to estimate the quantity
-            IOrderBook.PriceVolume memory bestPrice = pool
-                .orderBook
-                .getBestPrice(Side.SELL);
-            if (Price.unwrap(bestPrice.price) == 0) {
-                revert("No liquidity available");
-            }
-
-            quantity = Quantity.wrap(uint128(srcAmount));
-            if (Quantity.unwrap(quantity) == uint128(0)) {
-                revert("Amount too small");
-            }
-        }
-
         // Deposit the source currency to the protocol
         balanceManager.deposit(srcCurrency, srcAmount, msg.sender, user);
 
         // Record balance before swap to calculate actual received amount
         uint256 balanceBefore = balanceManager.getBalance(user, dstCurrency);
 
-        // Execute the market order
-        OrderId orderId = _placeMarketOrder(key, quantity, side, user);
+        _placeMarketOrderForSwap(key, srcAmount, side, user);
 
         // Calculate the amount received
         uint256 balanceAfter = balanceManager.getBalance(user, dstCurrency);
@@ -440,25 +482,12 @@ contract GTXRouter {
         address user,
         Side side
     ) internal returns (uint256 receivedAmount) {
-        // Calculate the quantity
-        Quantity quantity;
-
-        quantity = Quantity.wrap(uint128(srcAmount));
-        if (srcAmount == 0) {
-            revert("Amount too small for swap step");
-        }
-
-        // Determine the pool key and side
-        PoolKey memory key = poolManager.createPoolKey(
-            baseCurrency,
-            quoteCurrency
-        );
+        PoolKey memory key = poolManager.createPoolKey(baseCurrency, quoteCurrency);
 
         // Record balance before swap to calculate actual received amount
         uint256 balanceBefore = balanceManager.getBalance(user, dstCurrency);
 
-        // Execute the market order
-        OrderId orderId = _placeMarketOrder(key, quantity, side, user);
+        _placeMarketOrderForSwap(key, srcAmount, side, user);
 
         // Calculate the amount received
         uint256 balanceAfter = balanceManager.getBalance(user, dstCurrency);
@@ -515,30 +544,7 @@ contract GTXRouter {
         // Record balance before swap
         uint256 balanceBefore = balanceManager.getBalance(user, dstCurrency);
 
-        // Calculate quantity for the reverse swap
-        IPoolManager.Pool memory pool = poolManager.getPool(reverseKey);
-        IOrderBook.PriceVolume memory bestPrice = pool.orderBook.getBestPrice(
-            Side.BUY
-        );
-        if (Price.unwrap(bestPrice.price) == 0) {
-            revert("No liquidity available for reverse swap");
-        }
-
-        Quantity quantity = Quantity.wrap(
-            uint128(intermediateAmount / (Price.unwrap(bestPrice.price) / 1e18))
-        );
-
-        if (Quantity.unwrap(quantity) == uint128(0)) {
-            revert("Amount too small for reverse swap");
-        }
-
-        // Execute the market order (buying dstCurrency with intermediary)
-        OrderId orderId = _placeMarketOrder(
-            reverseKey,
-            quantity,
-            Side.BUY,
-            user
-        );
+         _placeMarketOrderForSwap(reverseKey, intermediateAmount, Side.BUY, user);
 
         // Calculate received amount
         uint256 balanceAfter = balanceManager.getBalance(user, dstCurrency);
