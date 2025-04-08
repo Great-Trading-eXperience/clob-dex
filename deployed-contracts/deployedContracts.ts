@@ -19,7 +19,7 @@ export const deployedContracts: DeployedContracts = {
   10143: {},
   31337: {
     BalanceManager: {
-      address: "0x51a1ceb83b83f1985a81c295d1ff28afef186e02",
+      address: "0xa51c1fc2f0d1a1b8494ed1fe312d7c3a78ed91c0",
       abi: [
         {
           type: "constructor",
@@ -698,7 +698,7 @@ export const deployedContracts: DeployedContracts = {
       },
     },
     PoolManager: {
-      address: "0x36b58f5c1969b7b6591d752ea6f5486d069010ab",
+      address: "0x0dcd1bf9a1b36ce34237eeafef220932846bcd82",
       abi: [
         {
           type: "constructor",
@@ -1326,7 +1326,7 @@ export const deployedContracts: DeployedContracts = {
       inheritedFunctions: {},
     },
     GTXRouter: {
-      address: "0x8198f5d8f8cffe8f9c413d98a0a55aeb8ab9fbb7",
+      address: "0x9a676e781a523b5d0c0e43731313a708cb607508",
       abi: [
         {
           type: "constructor",
@@ -1370,16 +1370,6 @@ export const deployedContracts: DeployedContracts = {
               name: "_quoteCurrency",
               type: "address",
               internalType: "Currency",
-            },
-            {
-              name: "side",
-              type: "uint8",
-              internalType: "enum Side",
-            },
-            {
-              name: "price",
-              type: "uint256",
-              internalType: "Price",
             },
             {
               name: "orderId",
@@ -1981,7 +1971,7 @@ export const deployedContracts: DeployedContracts = {
       inheritedFunctions: {},
     },
     MockToken: {
-      address: "0x4c2f7092c2ae51d986befee378e50bd4db99c901",
+      address: "0xc5a5c42992decbae36851359345fe25997f5c42d",
       abi: [
         {
           type: "constructor",
