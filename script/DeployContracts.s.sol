@@ -23,6 +23,7 @@ contract DeployContracts is Script {
     function run() public returns (address, address, address) {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         address owner = vm.addr(deployerPrivateKey);
+        
         vm.startBroadcast(deployerPrivateKey);
 
         uint256 feeMaker = 1; // Example fee maker value
