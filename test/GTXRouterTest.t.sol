@@ -9,6 +9,7 @@ import "../src/mocks/MockUSDC.sol";
 import "../src/mocks/MockWETH.sol";
 import "../src/mocks/MockToken.sol";
 import "../src/OrderBook.sol";
+import {IOrderBookErrors} from "../src/interfaces/IOrderBookErrors.sol";
 
 contract GTXRouterTest is Test {
     GTXRouter private gtxRouter;
@@ -1124,7 +1125,7 @@ contract GTXRouterTest is Test {
         Quantity tooSmallAmount = Quantity.wrap(1e13); // Smaller than min trade amount (1e14)
         vm.expectRevert(
             abi.encodeWithSelector(
-                OrderBook.OrderTooSmall.selector,
+                IOrderBookErrors.OrderTooSmall.selector,
                 Quantity.unwrap(tooSmallAmount),
                 Quantity.unwrap(rules.minTradeAmount)
             )
@@ -1143,7 +1144,7 @@ contract GTXRouterTest is Test {
 
         vm.expectRevert(
             abi.encodeWithSelector(
-                OrderBook.OrderTooSmall.selector,
+                IOrderBookErrors.OrderTooSmall.selector,
                 Quantity.unwrap(tooSmallBuyAmount),
                 Quantity.unwrap(rules.minTradeAmount)
             )
@@ -1167,7 +1168,7 @@ contract GTXRouterTest is Test {
 
         // Invalid price movement (BUY)
         // minPriceMovement is 1e4, so price of 1000.005e6 is not a valid increment
-        vm.expectRevert(OrderBook.InvalidPriceIncrement.selector);
+        vm.expectRevert(IOrderBookErrors.InvalidPriceIncrement.selector);
         gtxRouter.placeOrderWithDeposit(
             weth,
             usdc,

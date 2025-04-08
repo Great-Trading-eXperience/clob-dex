@@ -2,6 +2,7 @@
 pragma solidity ^0.8.26;
 
 import {IOrderBook} from "./interfaces/IOrderBook.sol";
+import {IOrderBookErrors} from "./interfaces/IOrderBookErrors.sol";
 import {OrderId, Quantity, Side, Status, OrderType, TimeInForce} from "./types/Types.sol";
 import {BokkyPooBahsRedBlackTreeLibrary as RBTree, Price} from "./libraries/BokkyPooBahsRedBlackTreeLibrary.sol";
 import {OrderQueueLib} from "./libraries/OrderQueueLib.sol";
@@ -18,28 +19,12 @@ import {PoolIdLibrary} from "./types/Pool.sol";
 /// @title OrderBook - A Central Limit Order Book implementation
 /// @notice Manages limit and market orders in a decentralized exchange
 /// @dev Implements price-time priority matching with reentrance protection
-contract OrderBook is Ownable, IOrderBook, ReentrancyGuard {
+contract OrderBook is Ownable, IOrderBook, ReentrancyGuard, IOrderBookErrors {
     using RBTree for RBTree.Tree;
     using OrderQueueLib for OrderQueueLib.OrderQueue;
     using OrderMatching for *;
     using EnumerableSet for EnumerableSet.UintSet;
     using OrderPacking for *;
-
-    error FillOrKillNotFulfilled(uint128 filledAmount, uint128 requestedAmount);
-    error InvalidOrderType();
-    error InvalidPrice(uint256 price);
-    error InvalidPriceIncrement();
-    error InvalidQuantity();
-    error InvalidQuantityIncrement();
-    error OrderHasNoLiquidity();
-    error OrderTooLarge(uint256 amount, uint256 maxAmount);
-    error OrderTooSmall(uint256 amount, uint256 minAmount);
-    error PostOnlyWouldTake();
-    error SlippageExceeded(uint256 requestedPrice, uint256 limitPrice);
-    error TradingPaused();
-    error UnauthorizedCancellation();
-    error UnauthorizedRouter(address reouter);
-    error OrderNotFound();
 
     mapping(address => EnumerableSet.UintSet) private activeUserOrders;
     mapping(uint48 => OrderDetails) private orderDetailsMap;
@@ -384,7 +369,7 @@ contract OrderBook is Ownable, IOrderBook, ReentrancyGuard {
             timeInForce == TimeInForce.FOK &&
             filled < uint128(Quantity.unwrap(quantity))
         ) {
-            revert OrderBook.FillOrKillNotFulfilled(
+            revert FillOrKillNotFulfilled(
                 filled,
                 uint128(Quantity.unwrap(quantity))
             );

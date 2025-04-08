@@ -5,7 +5,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IOrderBook} from "./interfaces/IOrderBook.sol";
 import {IBalanceManager} from "./interfaces/IBalanceManager.sol";
 import {IPoolManager} from "./interfaces/IPoolManager.sol";
-import {IOrderBook} from "./interfaces/IOrderBook.sol";
+import {IOrderBookErrors} from "./interfaces/IOrderBookErrors.sol";
 import {OrderId, Quantity, Side, TimeInForce} from "./types/Types.sol";
 import {Currency} from "./types/Currency.sol";
 import {PoolKey, PoolIdLibrary} from "./types/Pool.sol";
@@ -13,27 +13,11 @@ import {Price} from "./libraries/BokkyPooBahsRedBlackTreeLibrary.sol";
 
 /// @title GTXRouter - A router for interacting with the OrderBook
 /// @notice Provides functions to place and cancel orders
-contract GTXRouter {
+contract GTXRouter is IOrderBookErrors {
     using PoolIdLibrary for PoolKey;
 
     IPoolManager public poolManager;
     IBalanceManager public balanceManager;
-
-    error SlippageTooHigh(uint256 received, uint256 minReceived);
-    error FillOrKillNotFulfilled(uint128 filledAmount, uint128 requestedAmount);
-    error InvalidOrderType();
-    error InvalidPrice(uint256 price);
-    error InvalidPriceIncrement();
-    error InvalidQuantity();
-    error InvalidQuantityIncrement();
-    error OrderHasNoLiquidity();
-    error OrderTooLarge(uint256 amount, uint256 maxAmount);
-    error OrderTooSmall(uint256 amount, uint256 minAmount);
-    error PostOnlyWouldTake();
-    error SlippageExceeded(uint256 requestedPrice, uint256 limitPrice);
-    error TradingPaused();
-    error UnauthorizedCancellation();
-    error UnauthorizedRouter(address reouter);
 
     constructor(address _poolManager, address _balanceManager) {
         poolManager = IPoolManager(_poolManager);
@@ -151,7 +135,7 @@ contract GTXRouter {
                 .orderBook
                 .getBestPrice(Side.SELL);
             if (Price.unwrap(bestPrice.price) == 0) {
-                revert("No liquidity available");
+                revert OrderHasNoLiquidity();
             }
 
             uint256 baseAmount = PoolIdLibrary.quoteToBase(
@@ -163,7 +147,7 @@ contract GTXRouter {
         }
 
         if (Quantity.unwrap(quantity) == uint128(0)) {
-            revert("Amount too small for market order");
+            revert InvalidQuantity();
         }
 
         return pool.orderBook.placeMarketOrder(quantity, side, user);
