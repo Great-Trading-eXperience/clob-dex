@@ -494,8 +494,17 @@ contract BalanceAndFeeTest is Test, PoolHelper {
         logBalance("David", david);
         logBalance("Fee Collector", feeCollector);
 
+        PoolKey memory key = poolManager.createPoolKey(
+            baseCurrency,
+            quoteCurrency
+        );
         // VERIFY BALANCES AFTER MATCHING
 
+        IPoolManager.Pool memory pool = poolManager.getPool(key);
+        
+        // Calculate locked amounts
+        uint256 aliceExpectedLockedAmount = (Price.unwrap(buyPrice) * Quantity.unwrap(buyQuantity)) / 1e8;
+        uint256 aliceActualLockedAmount = balanceManager.getLockedBalance(alice, address(pool.orderBook), quoteCurrency); // false = locked
         // Calculate expected values for filled amounts
         uint256 alicePriceUnwrapped = alicePrice;
         uint256 bobQuantityUnwrapped = bobQuantity;
