@@ -2,11 +2,9 @@
 pragma solidity ^0.8.26;
 
 import {IOrderBook} from "./interfaces/IOrderBook.sol";
+import {IOrderBookErrors} from "./interfaces/IOrderBookErrors.sol";
 import {OrderId, Quantity, Side, Status, OrderType, TimeInForce} from "./types/Types.sol";
-import {
-    BokkyPooBahsRedBlackTreeLibrary as RBTree,
-    Price
-} from "./libraries/BokkyPooBahsRedBlackTreeLibrary.sol";
+import {BokkyPooBahsRedBlackTreeLibrary as RBTree, Price} from "./libraries/BokkyPooBahsRedBlackTreeLibrary.sol";
 import {OrderQueueLib} from "./libraries/OrderQueueLib.sol";
 import {OrderMatching} from "./libraries/OrderMatching.sol";
 import {OrderPacking} from "./libraries/OrderPacking.sol";
@@ -16,36 +14,23 @@ import {PoolKey} from "./types/Pool.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Currency} from "./types/Currency.sol";
 import {IBalanceManager} from "./interfaces/IBalanceManager.sol";
-import {console} from "forge-std/Test.sol";
 import {PoolIdLibrary} from "./types/Pool.sol";
+
 /// @title OrderBook - A Central Limit Order Book implementation
 /// @notice Manages limit and market orders in a decentralized exchange
 /// @dev Implements price-time priority matching with reentrance protection
-contract OrderBook is Ownable, IOrderBook, ReentrancyGuard {
+contract OrderBook is Ownable, IOrderBook, ReentrancyGuard, IOrderBookErrors {
     using RBTree for RBTree.Tree;
     using OrderQueueLib for OrderQueueLib.OrderQueue;
     using OrderMatching for *;
     using EnumerableSet for EnumerableSet.UintSet;
     using OrderPacking for *;
 
-    error FillOrKillNotFulfilled(uint128 filledAmount, uint128 requestedAmount);
-    error InvalidOrderType();
-    error InvalidPrice(uint256 price);
-    error InvalidPriceIncrement();
-    error InvalidQuantity();
-    error InvalidQuantityIncrement();
-    error OrderHasNoLiquidity();
-    error OrderTooLarge(uint256 amount, uint256 maxAmount);
-    error OrderTooSmall(uint256 amount, uint256 minAmount);
-    error PostOnlyWouldTake();
-    error SlippageExceeded(uint256 requestedPrice, uint256 limitPrice);
-    error TradingPaused();
-    error UnauthorizedCancellation();
-    error UnauthorizedRouter(address reouter);
-
     mapping(address => EnumerableSet.UintSet) private activeUserOrders;
+    mapping(uint48 => OrderDetails) private orderDetailsMap;
     mapping(Side => RBTree.Tree) private priceTrees;
-    mapping(Side => mapping(Price => OrderQueueLib.OrderQueue)) private orderQueues;
+    mapping(Side => mapping(Price => OrderQueueLib.OrderQueue))
+        private orderQueues;
     mapping(address => bool) private authorizedOperators; // To allow Routers or other contracts
 
     uint48 private constant EXPIRY_DAYS = 90 * 24 * 60 * 60; // 90 days in seconds
@@ -70,7 +55,11 @@ contract OrderBook is Ownable, IOrderBook, ReentrancyGuard {
 
     // Restrict access to authorized only
     modifier onlyRouter() {
-        if (msg.sender != router && msg.sender != owner() && msg.sender != address(this)) {
+        if (
+            msg.sender != router &&
+            msg.sender != owner() &&
+            msg.sender != address(this)
+        ) {
             revert UnauthorizedRouter(msg.sender);
         }
         _;
@@ -80,9 +69,7 @@ contract OrderBook is Ownable, IOrderBook, ReentrancyGuard {
         return tradingRules;
     }
 
-    function setRouter(
-        address _router
-    ) external onlyOwner {
+    function setRouter(address _router) external onlyOwner {
         router = _router;
     }
 
@@ -118,8 +105,12 @@ contract OrderBook is Ownable, IOrderBook, ReentrancyGuard {
 
         validateBasicOrderParameters(price, quantity, orderType);
 
-        (uint256 orderAmount, uint256 quoteAmount) =
-            calculateOrderAmounts(price, quantity, side, orderType);
+        (uint256 orderAmount, uint256 quoteAmount) = calculateOrderAmounts(
+            price,
+            quantity,
+            side,
+            orderType
+        );
 
         validateMinimumSizes(orderAmount, quoteAmount);
 
@@ -133,9 +124,10 @@ contract OrderBook is Ownable, IOrderBook, ReentrancyGuard {
 
         //TODO: Slippage check for market orders
 
-        return orderType == OrderType.MARKET
-            ? validateMarketOrder(side)
-            : validateLimitOrder(price, side, timeInForce);
+        return
+            orderType == OrderType.MARKET
+                ? validateMarketOrder(side)
+                : validateLimitOrder(price, side, timeInForce);
     }
 
     function validateBasicOrderParameters(
@@ -162,13 +154,13 @@ contract OrderBook is Ownable, IOrderBook, ReentrancyGuard {
 
         if (orderType == OrderType.LIMIT) {
             quoteAmount = PoolIdLibrary.baseToQuote(
-                orderAmount, 
-                Price.unwrap(price), 
+                orderAmount,
+                Price.unwrap(price),
                 poolKey.baseCurrency.decimals()
             );
         } else {
-            Price bestOppositePrice = side == Side.SELL 
-                ? priceTrees[Side.BUY].last()    // For SELL, get highest buy price
+            Price bestOppositePrice = side == Side.SELL
+                ? priceTrees[Side.BUY].last() // For SELL, get highest buy price
                 : priceTrees[Side.SELL].first(); // For BUY, get lowest sell price
 
             if (RBTree.isEmpty(bestOppositePrice)) {
@@ -185,18 +177,19 @@ contract OrderBook is Ownable, IOrderBook, ReentrancyGuard {
         return (orderAmount, quoteAmount);
     }
 
-    function validateMinimumSizes(uint256 orderAmount, uint256 quoteAmount) private view {
+    function validateMinimumSizes(
+        uint256 orderAmount,
+        uint256 quoteAmount
+    ) private view {
         // Validate minimum order size (quote currency)
         uint256 minSize = Quantity.unwrap(tradingRules.minOrderSize);
         if (quoteAmount < minSize) {
-            console.log("quoteAmount: %s, minSize: %s", quoteAmount, minSize);
             revert OrderTooSmall(quoteAmount, minSize);
         }
 
         // Validate minimum trade amount (base currency)
         uint256 minAmount = Quantity.unwrap(tradingRules.minTradeAmount);
         if (orderAmount < minAmount) {
-            console.log("orderAmount: %s, minAmount: %s", orderAmount, minAmount);
             revert OrderTooSmall(orderAmount, minAmount);
         }
     }
@@ -208,26 +201,21 @@ contract OrderBook is Ownable, IOrderBook, ReentrancyGuard {
     //     Price price
     // ) private view {
     //     // TODO: Check base currency amount increments (quantity)
-    //     // uint256 minAmountMove = Quantity.unwrap(tradingRules.minAmountMovement);
-    //     // if (orderAmount % minAmountMove != 0) {
-    //     //     console.log("orderAmount: %s, minAmountMove: %s", orderAmount, minAmountMove);
-    //     //     revert InvalidQuantityIncrement();
-    //     // }
-
-
+    //     uint256 minAmountMove = Quantity.unwrap(tradingRules.minAmountMovement);
+    //     if (orderAmount % minAmountMove != 0) {
+    //         revert InvalidQuantityIncrement();
+    //     }
 
     //     // TODO: Additional check for quote amount increments
-    //     // if (quoteAmount % minPriceMove != 0) {
-    //     //     console.log("quoteAmount: %s, minPriceMove: %s", quoteAmount, minPriceMove);
-    //     //     revert InvalidQuantityIncrement();
-    //     // }
+    //     if (quoteAmount % minPriceMove != 0) {
+    //         revert InvalidQuantityIncrement();
+    //     }
     // }
 
-    function validateMarketOrder(
-        Side side
-    ) private view returns (Price) {
-        Price bestOppositePrice =
-            side == Side.BUY ? priceTrees[Side.SELL].first() : priceTrees[Side.BUY].last();
+    function validateMarketOrder(Side side) private view returns (Price) {
+        Price bestOppositePrice = side == Side.BUY
+            ? priceTrees[Side.SELL].first()
+            : priceTrees[Side.BUY].last();
 
         if (RBTree.isEmpty(bestOppositePrice)) {
             revert OrderHasNoLiquidity();
@@ -236,11 +224,15 @@ contract OrderBook is Ownable, IOrderBook, ReentrancyGuard {
         // Calculate adjusted price with slippage
         Price adjustedPrice;
         if (side == Side.BUY) {
-            adjustedPrice =
-                Price.wrap((Price.unwrap(bestOppositePrice) * (100 + tradingRules.slippageTreshold)) / 100);
+            adjustedPrice = Price.wrap(
+                (Price.unwrap(bestOppositePrice) *
+                    (100 + tradingRules.slippageTreshold)) / 100
+            );
         } else {
-            adjustedPrice =
-                Price.wrap((Price.unwrap(bestOppositePrice) * (100 - tradingRules.slippageTreshold)) / 100);
+            adjustedPrice = Price.wrap(
+                (Price.unwrap(bestOppositePrice) *
+                    (100 - tradingRules.slippageTreshold)) / 100
+            );
         }
 
         return adjustedPrice;
@@ -253,8 +245,9 @@ contract OrderBook is Ownable, IOrderBook, ReentrancyGuard {
     ) private view returns (Price) {
         // Check Post-Only (PO) condition
         if (timeInForce == TimeInForce.PO) {
-            Price bestOppositePrice =
-                side == Side.BUY ? priceTrees[Side.SELL].first() : priceTrees[Side.BUY].last();
+            Price bestOppositePrice = side == Side.BUY
+                ? priceTrees[Side.SELL].first()
+                : priceTrees[Side.BUY].last();
 
             if (!RBTree.isEmpty(bestOppositePrice)) {
                 bool wouldTake = side == Side.BUY
@@ -309,7 +302,15 @@ contract OrderBook is Ownable, IOrderBook, ReentrancyGuard {
             priceTrees[side].insert(price);
         }
 
-        activeUserOrders[user].add(OrderPacking.packOrder(side, price, OrderId.unwrap(orderId)));
+        activeUserOrders[user].add(OrderId.unwrap(orderId));
+
+        // Store order details for direct lookup
+        orderDetailsMap[OrderId.unwrap(orderId)] = OrderDetails({
+            side: side,
+            price: price,
+            user: user,
+            exists: true
+        });
 
         emit OrderPlaced(
             orderId,
@@ -328,7 +329,9 @@ contract OrderBook is Ownable, IOrderBook, ReentrancyGuard {
 
         if (side == Side.BUY) {
             amountToLock = PoolIdLibrary.baseToQuote(
-                Quantity.unwrap(quantity), Price.unwrap(price), poolKey.baseCurrency.decimals()
+                Quantity.unwrap(quantity),
+                Price.unwrap(price),
+                poolKey.baseCurrency.decimals()
             );
             currencyToLock = poolKey.quoteCurrency;
         } else {
@@ -336,28 +339,52 @@ contract OrderBook is Ownable, IOrderBook, ReentrancyGuard {
             currencyToLock = poolKey.baseCurrency;
         }
 
-        IBalanceManager(balanceManager).lock(user, currencyToLock, amountToLock);
+        IBalanceManager(balanceManager).lock(
+            user,
+            currencyToLock,
+            amountToLock
+        );
 
         uint128 filled = 0;
         if (timeInForce != TimeInForce.PO) {
-            OrderMatching.MatchOrder memory matchOrder = OrderMatching.MatchOrder({
-                order: newOrder,
-                side: side,
-                trader: user,
-                balanceManager: balanceManager,
-                poolKey: poolKey,
-                orderBook: this
-            });
+            OrderMatching.MatchOrder memory matchOrder = OrderMatching
+                .MatchOrder({
+                    order: newOrder,
+                    side: side,
+                    trader: user,
+                    balanceManager: balanceManager,
+                    poolKey: poolKey,
+                    orderBook: this
+                });
 
-            filled = OrderMatching.matchOrder(matchOrder, orderQueues, priceTrees, false);
+            filled = OrderMatching.matchOrder(
+                matchOrder,
+                orderQueues,
+                priceTrees,
+                false
+            );
         }
 
-        if (timeInForce == TimeInForce.FOK && filled < uint128(Quantity.unwrap(quantity))) {
-            revert OrderBook.FillOrKillNotFulfilled(filled, uint128(Quantity.unwrap(quantity)));
-        } else if (timeInForce == TimeInForce.IOC && filled < uint128(Quantity.unwrap(quantity))) {
-            Order storage orderToCancel = orderQueues[side][price].orders[OrderId.unwrap(orderId)];
+        if (
+            timeInForce == TimeInForce.FOK &&
+            filled < uint128(Quantity.unwrap(quantity))
+        ) {
+            revert FillOrKillNotFulfilled(
+                filled,
+                uint128(Quantity.unwrap(quantity))
+            );
+        } else if (
+            timeInForce == TimeInForce.IOC &&
+            filled < uint128(Quantity.unwrap(quantity))
+        ) {
+            Order storage orderToCancel = orderQueues[side][price].orders[
+                OrderId.unwrap(orderId)
+            ];
 
-            if (Quantity.unwrap(orderToCancel.quantity) > Quantity.unwrap(orderToCancel.filled)) {
+            if (
+                Quantity.unwrap(orderToCancel.quantity) >
+                Quantity.unwrap(orderToCancel.filled)
+            ) {
                 _cancelOrder(side, price, orderId, user);
             }
         }
@@ -379,8 +406,13 @@ contract OrderBook is Ownable, IOrderBook, ReentrancyGuard {
         Side side,
         address user
     ) external override onlyRouter nonReentrant returns (OrderId) {
-        Price validatedPrice =
-            validateOrder(Price.wrap(0), quantity, side, OrderType.MARKET, TimeInForce.GTC);
+        Price validatedPrice = validateOrder(
+            Price.wrap(0),
+            quantity,
+            side,
+            OrderType.MARKET,
+            TimeInForce.GTC
+        );
 
         OrderId orderId = OrderId.wrap(nextOrderId++);
 
@@ -426,36 +458,69 @@ contract OrderBook is Ownable, IOrderBook, ReentrancyGuard {
     }
 
     function cancelOrder(
+        OrderId orderId,
+        address user
+    ) external override onlyRouter {
+        uint48 orderIdRaw = OrderId.unwrap(orderId);
+        OrderDetails memory orderDetails = orderDetailsMap[orderIdRaw];
+
+        if (!orderDetails.exists) {
+            revert OrderNotFound();
+        }
+
+        _cancelOrder(orderDetails.side, orderDetails.price, orderId, user);
+    }
+
+    function _cancelOrder(
         Side side,
         Price price,
         OrderId orderId,
         address user
-    ) external override onlyRouter {
-        _cancelOrder(side, price, orderId, user);
-    }
-
-    function _cancelOrder(Side side, Price price, OrderId orderId, address user) internal {
+    ) internal {
         OrderQueueLib.OrderQueue storage queue = orderQueues[side][price];
         Order storage order = queue.orders[OrderId.unwrap(orderId)];
 
         if (order.user != user) revert UnauthorizedCancellation();
 
-        Quantity remainingQuantity =
-            Quantity.wrap(Quantity.unwrap(order.quantity) - Quantity.unwrap(order.filled));
+        Quantity remainingQuantity = Quantity.wrap(
+            Quantity.unwrap(order.quantity) - Quantity.unwrap(order.filled)
+        );
 
         queue.removeOrder(OrderId.unwrap(orderId));
 
         emit OrderMatching.UpdateOrder(
-            orderId, uint48(block.timestamp), order.filled, Status.CANCELLED
+            orderId,
+            uint48(block.timestamp),
+            order.filled,
+            Status.CANCELLED
         );
-        emit OrderCancelled(orderId, user, uint48(block.timestamp), Status.CANCELLED);
+        emit OrderCancelled(
+            orderId,
+            user,
+            uint48(block.timestamp),
+            Status.CANCELLED
+        );
 
-        activeUserOrders[user].remove(OrderPacking.packOrder(side, price, OrderId.unwrap(orderId)));
+        activeUserOrders[user].remove(OrderId.unwrap(orderId));
+
+        // Remove order details from the map
+        delete orderDetailsMap[OrderId.unwrap(orderId)];
+
+        uint256 amountToUnlock;
+        if (side == Side.BUY) {
+            amountToUnlock = PoolIdLibrary.baseToQuote(
+                Quantity.unwrap(remainingQuantity),
+                Price.unwrap(price),
+                poolKey.baseCurrency.decimals()
+            );
+        } else {
+            amountToUnlock = Quantity.unwrap(remainingQuantity);
+        }
 
         IBalanceManager(balanceManager).unlock(
             user,
             side == Side.BUY ? poolKey.quoteCurrency : poolKey.baseCurrency,
-            Quantity.unwrap(remainingQuantity)
+            amountToUnlock
         );
 
         if (queue.isEmpty()) {
@@ -466,9 +531,15 @@ contract OrderBook is Ownable, IOrderBook, ReentrancyGuard {
     function getBestPrice(
         Side side
     ) external view override returns (PriceVolume memory) {
-        Price price = side == Side.BUY ? priceTrees[side].last() : priceTrees[side].first();
+        Price price = side == Side.BUY
+            ? priceTrees[side].last()
+            : priceTrees[side].first();
 
-        return PriceVolume({price: price, volume: orderQueues[side][price].totalVolume});
+        return
+            PriceVolume({
+                price: price,
+                volume: orderQueues[side][price].totalVolume
+            });
     }
 
     function getOrderQueue(
@@ -484,8 +555,9 @@ contract OrderBook is Ownable, IOrderBook, ReentrancyGuard {
             Order storage order = queue.orders[currentOrderId];
             if (order.expiry > block.timestamp) {
                 validOrderCount++;
-                validVolume += uint128(Quantity.unwrap(order.quantity))
-                    - uint128(Quantity.unwrap(order.filled));
+                validVolume +=
+                    uint128(Quantity.unwrap(order.quantity)) -
+                    uint128(Quantity.unwrap(order.filled));
             }
             currentOrderId = uint48(OrderId.unwrap(order.next));
         }
@@ -501,8 +573,16 @@ contract OrderBook is Ownable, IOrderBook, ReentrancyGuard {
         uint48 validOrderCount = 0;
 
         for (uint48 i = 0; i < userOrders.length(); i++) {
-            (Side side, Price price, uint48 orderId) = OrderPacking.unpackOrder(userOrders.at(i));
-            Order memory order = orderQueues[side][price].getOrder(orderId);
+            uint48 orderId = uint48(userOrders.at(i));
+            OrderDetails memory orderDetails = orderDetailsMap[orderId];
+
+            if (!orderDetails.exists) {
+                continue;
+            }
+
+            Order memory order = orderQueues[orderDetails.side][
+                orderDetails.price
+            ].getOrder(orderId);
 
             if (order.expiry <= block.timestamp) {
                 continue;
@@ -540,10 +620,19 @@ contract OrderBook is Ownable, IOrderBook, ReentrancyGuard {
         return levels;
     }
 
-    function _getNextBestPrice(Side side, Price price) private view returns (Price) {
+    function _getNextBestPrice(
+        Side side,
+        Price price
+    ) private view returns (Price) {
         if (RBTree.isEmpty(price)) {
-            return side == Side.BUY ? priceTrees[side].last() : priceTrees[side].first();
+            return
+                side == Side.BUY
+                    ? priceTrees[side].last()
+                    : priceTrees[side].first();
         }
-        return side == Side.BUY ? priceTrees[side].prev(price) : priceTrees[side].next(price);
+        return
+            side == Side.BUY
+                ? priceTrees[side].prev(price)
+                : priceTrees[side].next(price);
     }
 }

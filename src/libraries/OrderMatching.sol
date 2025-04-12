@@ -3,9 +3,7 @@
 pragma solidity ^0.8.26;
 
 import "./OrderQueueLib.sol";
-import {
-    BokkyPooBahsRedBlackTreeLibrary as RBTree, Price
-} from "./BokkyPooBahsRedBlackTreeLibrary.sol";
+import {BokkyPooBahsRedBlackTreeLibrary as RBTree, Price} from "./BokkyPooBahsRedBlackTreeLibrary.sol";
 import {Status} from "../types/Types.sol";
 import {IBalanceManager} from "../interfaces/IBalanceManager.sol";
 import {Currency} from "../types/Currency.sol";
@@ -41,7 +39,12 @@ library OrderMatching {
         IOrderBook orderBook;
     }
 
-    event UpdateOrder(OrderId indexed orderId, uint48 timestamp, Quantity filled, Status status);
+    event UpdateOrder(
+        OrderId indexed orderId,
+        uint48 timestamp,
+        Quantity filled,
+        Status status
+    );
 
     /// @notice Matches an order against the opposite side of the order book
     /// @param _params The parameters for matching the order, including order details, pool, side, and trader
@@ -51,7 +54,8 @@ library OrderMatching {
     /// @return filled The total quantity that was filled
     function matchOrder(
         MatchOrder memory _params,
-        mapping(Side => mapping(Price => OrderQueueLib.OrderQueue)) storage orders,
+        mapping(Side => mapping(Price => OrderQueueLib.OrderQueue))
+            storage orders,
         mapping(Side => RBTree.Tree) storage priceTrees,
         bool isMarketOrder
     ) internal returns (uint128 filled) {
@@ -60,8 +64,8 @@ library OrderMatching {
 
         Side oppositeSide = side.opposite();
 
-        uint128 remaining =
-            uint128(Quantity.unwrap(order.quantity)) - uint128(Quantity.unwrap(order.filled));
+        uint128 remaining = uint128(Quantity.unwrap(order.quantity)) -
+            uint128(Quantity.unwrap(order.filled));
 
         filled = 0;
 
@@ -70,12 +74,16 @@ library OrderMatching {
         uint128 previousRemaining = 0;
 
         while (remaining > 0) {
-            Price bestPrice =
-                getBestMatchingPrice(priceTrees[oppositeSide], orderPrice, side, isMarketOrder);
+            Price bestPrice = getBestMatchingPrice(
+                priceTrees[oppositeSide],
+                orderPrice,
+                side,
+                isMarketOrder
+            );
 
             if (
-                Price.unwrap(bestPrice) == Price.unwrap(latestBestPrice)
-                    && previousRemaining == remaining
+                Price.unwrap(bestPrice) == Price.unwrap(latestBestPrice) &&
+                previousRemaining == remaining
             ) {
                 bestPrice = side == Side.BUY
                     ? priceTrees[oppositeSide].next(bestPrice)
@@ -101,8 +109,8 @@ library OrderMatching {
             }
 
             if (
-                orders[oppositeSide][bestPrice].orderCount == 0
-                    && priceTrees[oppositeSide].exists(bestPrice)
+                orders[oppositeSide][bestPrice].orderCount == 0 &&
+                priceTrees[oppositeSide].exists(bestPrice)
             ) {
                 priceTrees[oppositeSide].remove(bestPrice);
             }
@@ -114,7 +122,10 @@ library OrderMatching {
         if (remaining == 0 && !isMarketOrder) {
             orders[side][order.price].removeOrder(OrderId.unwrap(order.id));
 
-            if (orders[side][order.price].orderCount == 0 && priceTrees[side].exists(order.price)) {
+            if (
+                orders[side][order.price].orderCount == 0 &&
+                priceTrees[side].exists(order.price)
+            ) {
                 priceTrees[side].remove(order.price);
             }
         }
@@ -132,7 +143,9 @@ library OrderMatching {
             return side == Side.BUY ? priceTree.first() : priceTree.last();
         }
 
-        Price bestPrice = side == Side.BUY ? priceTree.first() : priceTree.last();
+        Price bestPrice = side == Side.BUY
+            ? priceTree.first()
+            : priceTree.last();
         if (RBTree.isEmpty(bestPrice)) return Price.wrap(0);
 
         bool priceIsValid = side == Side.BUY
@@ -150,7 +163,14 @@ library OrderMatching {
         uint48 currentOrderId,
         uint128 totalFilled,
         bool isMarketOrder
-    ) private returns (uint128 remainingAfter, uint128 newTotalFilled, uint48 nextOrderId) {
+    )
+        private
+        returns (
+            uint128 remainingAfter,
+            uint128 newTotalFilled,
+            uint48 nextOrderId
+        )
+    {
         IOrderBook.Order storage matchingOrder = queue.orders[currentOrderId];
         nextOrderId = uint48(OrderId.unwrap(matchingOrder.next));
 
@@ -167,24 +187,33 @@ library OrderMatching {
 
         if (matchingOrder.user == _params.trader) {
             if (address(_params.orderBook) != address(0)) {
-                Side oppositeSide = _params.side.opposite();
                 _params.orderBook.cancelOrder(
-                    oppositeSide, matchPrice, OrderId.wrap(currentOrderId), matchingOrder.user
+                    OrderId.wrap(currentOrderId),
+                    _params.trader
                 );
             }
 
             return (remaining, totalFilled, nextOrderId);
         }
 
-        uint128 matchingOrderOriginalQuantity = uint128(Quantity.unwrap(matchingOrder.quantity));
-        uint128 matchingOrderOriginalFilled = uint128(Quantity.unwrap(matchingOrder.filled));
-        uint128 matchingRemaining = matchingOrderOriginalQuantity - matchingOrderOriginalFilled;
-        uint128 executedQuantity = remaining < matchingRemaining ? remaining : matchingRemaining;
+        uint128 matchingOrderOriginalQuantity = uint128(
+            Quantity.unwrap(matchingOrder.quantity)
+        );
+        uint128 matchingOrderOriginalFilled = uint128(
+            Quantity.unwrap(matchingOrder.filled)
+        );
+        uint128 matchingRemaining = matchingOrderOriginalQuantity -
+            matchingOrderOriginalFilled;
+        uint128 executedQuantity = remaining < matchingRemaining
+            ? remaining
+            : matchingRemaining;
 
         remaining -= executedQuantity;
         totalFilled += executedQuantity;
 
-        matchingOrder.filled = Quantity.wrap(matchingOrderOriginalFilled + executedQuantity);
+        matchingOrder.filled = Quantity.wrap(
+            matchingOrderOriginalFilled + executedQuantity
+        );
         queue.totalVolume -= executedQuantity;
 
         console.log("executed quantity", executedQuantity);
@@ -202,14 +231,21 @@ library OrderMatching {
             isMarketOrder
         );
 
-        if (matchingOrderOriginalFilled + executedQuantity == matchingOrderOriginalQuantity) {
+        if (
+            matchingOrderOriginalFilled + executedQuantity ==
+            matchingOrderOriginalQuantity
+        ) {
             queue.removeOrder(currentOrderId);
         }
 
         emit OrderMatched(
             _params.trader,
-            _params.side == Side.BUY ? _params.order.id : OrderId.wrap(currentOrderId),
-            _params.side == Side.SELL ? _params.order.id : OrderId.wrap(currentOrderId),
+            _params.side == Side.BUY
+                ? _params.order.id
+                : OrderId.wrap(currentOrderId),
+            _params.side == Side.SELL
+                ? _params.order.id
+                : OrderId.wrap(currentOrderId),
             _params.side,
             uint48(block.timestamp),
             matchPrice,
@@ -232,7 +268,9 @@ library OrderMatching {
         uint256 baseAmount = Quantity.unwrap(executedQuantity);
 
         uint256 quoteAmount = PoolIdLibrary.baseToQuote(
-            baseAmount, Price.unwrap(matchPrice), poolKey.baseCurrency.decimals()
+            baseAmount,
+            Price.unwrap(matchPrice),
+            poolKey.baseCurrency.decimals()
         );
 
         console.log("\nTransfer balances:");
@@ -243,25 +281,45 @@ library OrderMatching {
 
         if (side == Side.SELL) {
             if (!isMarketOrder) {
-                IBalanceManager(balanceManager).unlock(trader, poolKey.baseCurrency, baseAmount);
+                IBalanceManager(balanceManager).unlock(
+                    trader,
+                    poolKey.baseCurrency,
+                    baseAmount
+                );
             }
 
             IBalanceManager(balanceManager).transferFrom(
-                trader, matchingUser, poolKey.baseCurrency, baseAmount
+                trader,
+                matchingUser,
+                poolKey.baseCurrency,
+                baseAmount
             );
 
             IBalanceManager(balanceManager).transferLockedFrom(
-                matchingUser, trader, poolKey.quoteCurrency, quoteAmount
+                matchingUser,
+                trader,
+                poolKey.quoteCurrency,
+                quoteAmount
             );
         } else {
             if (!isMarketOrder) {
-                IBalanceManager(balanceManager).unlock(trader, poolKey.quoteCurrency, quoteAmount);
+                IBalanceManager(balanceManager).unlock(
+                    trader,
+                    poolKey.quoteCurrency,
+                    quoteAmount
+                );
             }
             IBalanceManager(balanceManager).transferFrom(
-                trader, matchingUser, poolKey.quoteCurrency, quoteAmount
+                trader,
+                matchingUser,
+                poolKey.quoteCurrency,
+                quoteAmount
             );
             IBalanceManager(balanceManager).transferLockedFrom(
-                matchingUser, trader, poolKey.baseCurrency, baseAmount
+                matchingUser,
+                trader,
+                poolKey.baseCurrency,
+                baseAmount
             );
         }
     }

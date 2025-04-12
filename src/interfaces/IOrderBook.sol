@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.26;
 
+import {OrderId, Quantity, Side, Status, TimeInForce, OrderType} from "../types/Types.sol";
 import {Price} from "../libraries/BokkyPooBahsRedBlackTreeLibrary.sol";
-import {OrderId, Quantity, Side, Status, OrderType, TimeInForce} from "../types/Types.sol";
 import {PoolKey} from "../types/Pool.sol";
 import {Currency} from "../types/Currency.sol";
 
@@ -20,6 +20,13 @@ interface IOrderBook {
         Status status;
         OrderType orderType;
         Side side;
+    }
+
+    struct OrderDetails {
+        Side side;
+        Price price;
+        address user;
+        bool exists;
     }
 
     struct TradingRules {
@@ -48,7 +55,10 @@ interface IOrderBook {
     );
 
     event OrderCancelled(
-        OrderId indexed orderId, address indexed user, uint48 timestamp, Status status
+        OrderId indexed orderId,
+        address indexed user,
+        uint48 timestamp,
+        Status status
     );
 
     function setRouter(address router) external;
@@ -67,16 +77,18 @@ interface IOrderBook {
         address user
     ) external returns (OrderId);
 
-    function cancelOrder(Side side, Price price, OrderId orderId, address user) external;
+    function cancelOrder(OrderId orderId, address user) external;
 
     function getOrderQueue(
         Side side,
         Price price
     ) external view returns (uint48 orderCount, uint256 totalVolume);
 
-    function getUserActiveOrders(address user) external view returns (Order[] memory);
-
     function getBestPrice(Side side) external view returns (PriceVolume memory);
+
+    function getUserActiveOrders(
+        address user
+    ) external view returns (Order[] memory);
 
     function getNextBestPrices(
         Side side,
@@ -84,9 +96,7 @@ interface IOrderBook {
         uint8 count
     ) external view returns (PriceVolume[] memory);
 
-    function setTradingRules(
-        TradingRules calldata tradingRules
-    ) external;
+    function setTradingRules(TradingRules calldata tradingRules) external;
 
     function getTradingRules() external view returns (TradingRules memory);
 }
