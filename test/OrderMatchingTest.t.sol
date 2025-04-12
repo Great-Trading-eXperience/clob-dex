@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.26;
 
-import {Test, console} from "forge-std/Test.sol";
 import {OrderBook} from "../src/OrderBook.sol";
 import {PoolManager} from "../src/PoolManager.sol";
 import {IPoolManager} from "../src/interfaces/IPoolManager.sol";
@@ -127,10 +126,6 @@ contract OrderMatchingTest is Test {
         (uint48 orderCount, uint256 totalVolume) =
             orderBook.getOrderQueue(side, price);
 
-        console.log("\nTest basic order placement");
-        console.log("Order Count:", orderCount);
-        console.log("Total Volume:", totalVolume);
-
         assertEq(orderCount, 1);
         assertEq(totalVolume, Quantity.unwrap(quantity));
 
@@ -149,17 +144,11 @@ contract OrderMatchingTest is Test {
          
         (uint48 orderCount, uint256 totalVolume) =
             orderBook.getOrderQueue(side, price);
-        
-        console.log("\nTest marker order");
-        console.log("Order Count:", orderCount);
-        console.log("Total Volume:", totalVolume);
 
         assertEq(totalVolume, 0);
         assertEq(orderCount, 0);
 
         (orderCount, totalVolume) = orderBook.getOrderQueue(side, price);
-        console.log("Order Count:", orderCount);
-        console.log("Total Volume:", totalVolume);
 
         assertEq(totalVolume, Quantity.unwrap(quantity));
         assertEq(orderCount, 1);
