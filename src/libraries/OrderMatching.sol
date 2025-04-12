@@ -108,6 +108,9 @@ library OrderMatching {
             }
         }
 
+        console.log("isMarketOrder", isMarketOrder);
+        console.log("remaining", remaining);
+
         if (remaining == 0 && !isMarketOrder) {
             orders[side][order.price].removeOrder(OrderId.unwrap(order.id));
 
@@ -184,6 +187,10 @@ library OrderMatching {
         matchingOrder.filled = Quantity.wrap(matchingOrderOriginalFilled + executedQuantity);
         queue.totalVolume -= executedQuantity;
 
+        console.log("executed quantity", executedQuantity);
+        console.log("price", Price.unwrap(matchPrice));
+        console.log("side", _params.side == Side.BUY ? "BUY" : "SELL");
+
         transferBalances(
             _params.balanceManager,
             _params.trader,
@@ -227,6 +234,12 @@ library OrderMatching {
         uint256 quoteAmount = PoolIdLibrary.baseToQuote(
             baseAmount, Price.unwrap(matchPrice), poolKey.baseCurrency.decimals()
         );
+
+        console.log("\nTransfer balances:");
+        console.log("price:", Price.unwrap(matchPrice));
+        console.log("executed quantity:", Quantity.unwrap(executedQuantity));
+        console.log("quote amount:", quoteAmount);
+        console.log("base amount:", baseAmount);
 
         if (side == Side.SELL) {
             if (!isMarketOrder) {

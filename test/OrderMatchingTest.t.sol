@@ -5,6 +5,7 @@ import {Test, console} from "forge-std/Test.sol";
 import {OrderBook} from "../src/OrderBook.sol";
 import {PoolManager} from "../src/PoolManager.sol";
 import {IPoolManager} from "../src/interfaces/IPoolManager.sol";
+import {IOrderBook} from "../src/interfaces/IOrderBook.sol";
 import {OrderId, Quantity, Side} from "../src/types/Types.sol";
 import {Currency} from "../src/types/Currency.sol";
 import {PoolKey} from "../src/types/Pool.sol";
@@ -18,6 +19,8 @@ import {BalanceManager} from "../src/BalanceManager.sol";
 
 contract OrderMatchingTest is Test {
     OrderBook public orderBook;
+
+    IOrderBook.TradingRules rules;
     
     address alice = address(0x1);
     address bob = address(0x2);
@@ -44,6 +47,14 @@ contract OrderMatchingTest is Test {
     function setUp() public {
         baseTokenAddress = address(new MockToken("WETH", "WETH", 18));
         quoteTokenAddress = address(new MockToken("USDC", "USDC", 6));
+
+        rules = IOrderBook.TradingRules({
+            minTradeAmount: Quantity.wrap(uint128(1e14)), // 0.0001 ETH (18 decimals)
+            minAmountMovement: Quantity.wrap(uint128(1e13)), // 0.00001 ETH (18 decimals)
+            minOrderSize: Quantity.wrap(uint128(1e4)), // 0.01 USDC (6 decimals)
+            minPriceMovement: Quantity.wrap(uint128(1e4)), // 0.01 USDC (6 decimals)
+            slippageTreshold: 20 // 20%
+        });
 
         MockToken(baseTokenAddress).mint(alice, 1_000_000_000e18);
         MockToken(baseTokenAddress).mint(bob, 1_000_000_000e18);
@@ -92,7 +103,7 @@ contract OrderMatchingTest is Test {
         MockToken(quoteTokenAddress).approve(address(balanceManager), type(uint256).max);
         vm.stopPrank();
         
-        poolManager.createPool(baseCurrency, quoteCurrency, lotSize, maxOrderAmount);
+        poolManager.createPool(baseCurrency, quoteCurrency, rules);
 
         PoolKey memory key = poolManager.createPoolKey(
             baseCurrency,
@@ -134,7 +145,7 @@ contract OrderMatchingTest is Test {
         Side side = Side.SELL;
         address user = alice;
 
-        router.placeMarketOrderWithDeposit(baseCurrency, quoteCurrency, price, quantity, side, user);
+        router.placeMarketOrderWithDeposit(baseCurrency, quoteCurrency, quantity, side, user);
          
         (uint48 orderCount, uint256 totalVolume) =
             orderBook.getOrderQueue(side, price);
