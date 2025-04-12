@@ -6,6 +6,7 @@ import "../src/PoolManager.sol";
 import "../src/BalanceManager.sol";
 import "../src/mocks/MockUSDC.sol";
 import "../src/mocks/MockWETH.sol";
+import "../src/OrderBook.sol";
 
 contract PoolManagerTest is Test {
     PoolManager private poolManager;
@@ -28,6 +29,9 @@ contract PoolManagerTest is Test {
     uint256 private initialBalanceUSDC = 1_000_000_000_000;
     uint256 private initialBalanceWETH = 1000 ether;
 
+    // Default trading rules
+    IOrderBook.TradingRules private defaultTradingRules;
+
     function setUp() public {
         balanceManager = new BalanceManager(owner, feeReceiver, feeMaker, feeTaker);
         // balanceManager = new BalanceManager();
@@ -42,6 +46,15 @@ contract PoolManagerTest is Test {
         weth = Currency.wrap(address(mockWETH));
 
         vm.deal(user, initialBalance);
+
+        // Initialize default trading rules
+        defaultTradingRules = IOrderBook.TradingRules({
+            minTradeAmount: Quantity.wrap(uint128(1e14)), // 0.0001 ETH,
+            minAmountMovement: Quantity.wrap(uint128(1e14)), // 0.0001 ETH
+            minOrderSize: Quantity.wrap(uint128(5e6)), // 5 USDC
+            minPriceMovement: Quantity.wrap(uint128(1e4)), // 0.01 USDC with 6 decimals
+            slippageTreshold: 20 // 20%
+        });
 
         // Transfer ownership of BalanceManager to PoolManager
         vm.startPrank(owner);
@@ -67,30 +80,24 @@ contract PoolManagerTest is Test {
 
     function testInitializePoolRevertsIfRouterNotSet() public {
         PoolKey memory key = PoolKey(weth, usdc);
-        uint256 lotSize = 1 ether;
-        uint256 maxOrderAmount = 100 ether;
 
         vm.expectRevert(abi.encodeWithSignature("InvalidRouter()"));
         vm.startPrank(owner);
-        poolManager.createPool(weth, usdc, lotSize, maxOrderAmount);
+        poolManager.createPool(weth, usdc, defaultTradingRules);
         vm.stopPrank();
     }
 
     function testInitializePool() public {
         PoolKey memory key = PoolKey(weth, usdc);
-        uint256 lotSize = 1 ether;
-        uint256 maxOrderAmount = 100 ether;
 
         vm.startPrank(owner);
         poolManager.setRouter(operator);
-        poolManager.createPool(weth, usdc, lotSize, maxOrderAmount);
+        poolManager.createPool(weth, usdc, defaultTradingRules);
         vm.stopPrank();
 
         IPoolManager.Pool memory pool = poolManager.getPool(key);
         assertEq(Currency.unwrap(pool.baseCurrency), Currency.unwrap(weth));
         assertEq(Currency.unwrap(pool.quoteCurrency), Currency.unwrap(usdc));
-        assertEq(pool.lotSize, lotSize);
-        assertEq(pool.maxOrderAmount, maxOrderAmount);
     }
 
     function testGetPoolId() public view {
@@ -107,42 +114,3 @@ contract PoolManagerTest is Test {
         assertEq(uint256(PoolId.unwrap(expectedId)), uint256(PoolId.unwrap(actualId)));
     }
 }
-
-// function testPlaceOrder() public {
-//     PoolKey memory key = PoolKey(weth, usdc);
-//     uint256 lotSize = 1 ether;
-//     uint256 maxOrderAmount = 100 ether;
-
-//     vm.startPrank(owner);
-//     poolManager.createPool(key, lotSize, maxOrderAmount);
-//     vm.stopPrank();
-
-//     Price price = Price.wrap(3000e8);
-//     Quantity quantity = Quantity.wrap(10 ether);
-//     Side side = Side.BUY;
-
-//     console.log("Price:", Price.unwrap(price));
-//     console.log("Quantity:", Quantity.unwrap(quantity));
-//     console.log("Side:", side == Side.BUY ? "BUY" : "SELL");
-
-//     (Currency currency, uint256 amount) = key.calculateAmountAndCurrency(price, quantity, side);
-
-//     console.log("Currency:", Currency.unwrap(currency));
-//     console.log("Amount:", amount);
-
-//     if (Currency.unwrap(currency) == Currency.unwrap(weth)) {
-//         mockWETH.mint(user, amount);
-//         console.log("Minted Asset: WETH");
-//     } else if (Currency.unwrap(currency) == Currency.unwrap(usdc)) {
-//         mockUSDC.mint(user, amount);
-//         console.log("Minted Asset: USDC");
-//     }
-
-//     console.log("Minted Balance for User:", IERC20(Currency.unwrap(currency)).balanceOf(user));
-
-//     vm.startPrank(user);
-//     IERC20(Currency.unwrap(currency)).approve(address(balanceManager), amount);
-//     balanceManager.deposit(currency, amount);
-//     OrderId orderId = poolManager.placeOrder(key, price, quantity, side);
-//     vm.stopPrank();
-// }

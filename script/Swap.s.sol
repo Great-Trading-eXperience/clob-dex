@@ -21,11 +21,7 @@ contract Swap is Script {
     address wbtc;
     address usdc;
 
-    constructor(
-        address _balanceManager,
-        address _poolManager,
-        address _gtxRouter
-    ) {
+    constructor(address _balanceManager, address _poolManager, address _gtxRouter) {
         balanceManager = _balanceManager;
         poolManager = _poolManager;
         gtxRouter = _gtxRouter;
@@ -77,26 +73,30 @@ contract Swap is Script {
 
         console.log("\nInitial balances:");
         console.log("%s owner:", MockToken(source).symbol(), MockToken(source).balanceOf(owner));
-        console.log("%s owner:", MockToken(destination).symbol(), MockToken(destination).balanceOf(owner));
+        console.log(
+            "%s owner:", MockToken(destination).symbol(), MockToken(destination).balanceOf(owner)
+        );
         console.log("%s owner2:", MockToken(source).symbol(), MockToken(source).balanceOf(owner2));
-        console.log("%s owner2:", MockToken(destination).symbol(), MockToken(destination).balanceOf(owner2));
+        console.log(
+            "%s owner2:", MockToken(destination).symbol(), MockToken(destination).balanceOf(owner2)
+        );
 
         // Provide liquidity
-        
+
         // Add liquidity to test WETH/WBTC where the exist pairs are WETH/USDC and WBTC/USDC
-        GTXRouter(gtxRouter).placeOrderWithDeposit{gas: 1000000}(
+        GTXRouter(gtxRouter).placeOrderWithDeposit{gas: 1_000_000}(
             Currency.wrap(weth),
             Currency.wrap(usdc),
-            Price.wrap(2000e8),
-            Quantity.wrap(3_000_000_000e6),
+            Price.wrap(2000e6),
+            Quantity.wrap(1e18),
             Side.BUY,
             owner
         );
-        GTXRouter(gtxRouter).placeOrderWithDeposit{gas: 1000000}(
+        GTXRouter(gtxRouter).placeOrderWithDeposit{gas: 1_000_000}(
             Currency.wrap(wbtc),
             Currency.wrap(usdc),
-            Price.wrap(30000e8),
-            Quantity.wrap(1_000_000_000e8),
+            Price.wrap(30_000e6),
+            Quantity.wrap(1e8),
             Side.SELL,
             owner
         );
@@ -132,35 +132,34 @@ contract Swap is Script {
         }
 
         // Swap WETH -> WBTC
-        uint256 amountToSwap = 1 * (10 ** MockToken(source).decimals()); 
+        uint256 amountToSwap = 1 * (10 ** MockToken(source).decimals());
         uint256 minReceived = (6 * (10 ** MockToken(destination).decimals())) / 100;
 
         // Swap WETH -> USDC
-        // uint256 amountToSwap = 1 * (10 ** MockToken(source).decimals()); 
+        // uint256 amountToSwap = 1 * (10 ** MockToken(source).decimals());
         // uint256 minReceived = 1800 * (10 ** MockToken(destination).decimals());
 
         // Swap USDC -> WETH
-        // uint256 amountToSwap = 3000 * (10 ** MockToken(source).decimals()); 
+        // uint256 amountToSwap = 3000 * (10 ** MockToken(source).decimals());
         // uint256 minReceived = 1 * (10 ** MockToken(destination).decimals());
 
-        uint256 received = GTXRouter(gtxRouter).swap{gas: 10000000}(
-            Currency.wrap(source),
-            Currency.wrap(destination),
-            amountToSwap,
-            minReceived,
-            2,
-            owner2
+        uint256 received = GTXRouter(gtxRouter).swap{gas: 10_000_000}(
+            Currency.wrap(source), Currency.wrap(destination), amountToSwap, minReceived, 2, owner2
         );
 
         console.log("\nSwap complete!");
         console.log("%s spent:", MockToken(source).symbol(), amountToSwap);
         console.log("%s received:", MockToken(destination).symbol(), received);
-        
+
         console.log("\nFinal balances:");
         console.log("%s owner:", MockToken(source).symbol(), MockToken(source).balanceOf(owner));
-        console.log("%s owner:", MockToken(destination).symbol(), MockToken(destination).balanceOf(owner));
+        console.log(
+            "%s owner:", MockToken(destination).symbol(), MockToken(destination).balanceOf(owner)
+        );
         console.log("%s owner2:", MockToken(source).symbol(), MockToken(source).balanceOf(owner2));
-        console.log("%s owner2:", MockToken(destination).symbol(), MockToken(destination).balanceOf(owner2));
+        console.log(
+            "%s owner2:", MockToken(destination).symbol(), MockToken(destination).balanceOf(owner2)
+        );
 
         vm.stopBroadcast();
     }

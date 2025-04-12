@@ -14,8 +14,8 @@ contract BalanceManagerTest is Test {
     address private operator = address(0xABC);
     Currency private weth;
     Currency private usdc;
-    uint256 private feeMaker = 5; // 0.5%
-    uint256 private feeTaker = 1; // 0.1%
+    uint256 private feeMaker = 1; // 0.1%
+    uint256 private feeTaker = 5; // 0.5%
     uint256 private initialBalance = 1000 ether;
     uint256 private initialBalanceUSDC = 1_000_000_000_000;
     uint256 private initialBalanceWETH = 1000 ether;
@@ -72,7 +72,7 @@ contract BalanceManagerTest is Test {
         vm.stopPrank();
 
         vm.startPrank(owner);
-        // balanceManager.setAuthorizedOperator(operator, true);
+        balanceManager.setAuthorizedOperator(operator, true);
         vm.stopPrank();
 
         vm.startPrank(operator);
@@ -95,7 +95,7 @@ contract BalanceManagerTest is Test {
         vm.stopPrank();
 
         vm.startPrank(owner);
-        // balanceManager.setAuthorizedOperator(operator, true);
+        balanceManager.setAuthorizedOperator(operator, true);
         vm.stopPrank();
 
         vm.startPrank(operator);
@@ -120,7 +120,7 @@ contract BalanceManagerTest is Test {
         vm.stopPrank();
 
         vm.startPrank(owner);
-        // balanceManager.setAuthorizedOperator(operator, true);
+        balanceManager.setAuthorizedOperator(operator, true);
         vm.stopPrank();
 
         vm.startPrank(operator);
@@ -143,7 +143,7 @@ contract BalanceManagerTest is Test {
         vm.stopPrank();
 
         vm.startPrank(owner);
-        // balanceManager.setAuthorizedOperator(operator, true);
+        balanceManager.setAuthorizedOperator(operator, true);
         vm.stopPrank();
 
         vm.startPrank(operator);

@@ -18,18 +18,18 @@ contract PoolManager is Ownable, IPoolManager {
     address private router;
 
     mapping(PoolId => Pool) public pools;
-    
+
     // Track all currencies that have at least one pool
     mapping(Currency => bool) public registeredCurrencies;
     Currency[] public allCurrencies;
-    
+
     // Common intermediaries (prioritized for routing)
     Currency[] public commonIntermediaries;
     mapping(Currency => bool) public isCommonIntermediary;
-    
+
     // Liquidity ranking for path finding (higher is better)
     mapping(PoolId => uint256) public poolLiquidity;
-    
+
     event CurrencyAdded(Currency currency);
     event IntermediaryAdded(Currency currency);
     event IntermediaryRemoved(Currency currency);
@@ -39,15 +39,21 @@ contract PoolManager is Ownable, IPoolManager {
         balanceManager = _balanceManager;
     }
 
-    function getPool(PoolKey calldata key) external view returns (Pool memory) {
+    function getPool(
+        PoolKey calldata key
+    ) external view returns (Pool memory) {
         return pools[key.toId()];
     }
 
-    function getPoolId(PoolKey calldata key) external pure returns (PoolId) {
+    function getPoolId(
+        PoolKey calldata key
+    ) external pure returns (PoolId) {
         return key.toId();
     }
 
-    function setRouter(address _router) external onlyOwner {
+    function setRouter(
+        address _router
+    ) external onlyOwner {
         if (_router == address(0)) {
             revert InvalidRouter();
         }
@@ -55,23 +61,24 @@ contract PoolManager is Ownable, IPoolManager {
         router = _router;
     }
 
-    function createPool(Currency _baseCurrency, Currency _quoteCurrency, uint256 _lotSize, uint256 _maxOrderAmount) external {
+    function createPool(
+        Currency _baseCurrency,
+        Currency _quoteCurrency,
+        IOrderBook.TradingRules memory _tradingRules
+    ) external returns (PoolId) {
         if (router == address(0)) {
             revert InvalidRouter();
         }
 
         PoolKey memory key = createPoolKey(_baseCurrency, _quoteCurrency);
         PoolId id = key.toId();
-        IOrderBook orderBook =
-            new OrderBook(address(this), balanceManager, _maxOrderAmount, _lotSize, key);
+        IOrderBook orderBook = new OrderBook(address(this), balanceManager, _tradingRules, key);
 
         // Effects: Update the state before any external interaction
         pools[id] = Pool({
             orderBook: orderBook,
             baseCurrency: key.baseCurrency,
-            quoteCurrency: key.quoteCurrency,
-            lotSize: _lotSize,
-            maxOrderAmount: _maxOrderAmount
+            quoteCurrency: key.quoteCurrency
         });
 
         // Register currencies if they're new
@@ -80,7 +87,7 @@ contract PoolManager is Ownable, IPoolManager {
             allCurrencies.push(key.baseCurrency);
             emit CurrencyAdded(key.baseCurrency);
         }
-        
+
         if (!registeredCurrencies[key.quoteCurrency]) {
             registeredCurrencies[key.quoteCurrency] = true;
             allCurrencies.push(key.quoteCurrency);
@@ -89,36 +96,40 @@ contract PoolManager is Ownable, IPoolManager {
 
         // Set initial pool liquidity to 1 (minimum value)
         poolLiquidity[id] = 1;
-        
+
         // Interactions: External calls after state changes
         orderBook.setRouter(router);
         IBalanceManager(balanceManager).setAuthorizedOperator(address(orderBook), true);
 
-        emit PoolCreated(
-            id, address(orderBook), key.baseCurrency, key.quoteCurrency, _lotSize, _maxOrderAmount
-        );
+        emit PoolCreated(id, address(orderBook), key.baseCurrency, key.quoteCurrency);
+
+        return id;
     }
-    
+
     /**
      * @notice Adds a currency to the list of common intermediaries (preferred for routing)
      * @param currency The currency to add
      */
-    function addCommonIntermediary(Currency currency) external onlyOwner {
+    function addCommonIntermediary(
+        Currency currency
+    ) external onlyOwner {
         require(!isCommonIntermediary[currency], "Already a common intermediary");
-        
+
         commonIntermediaries.push(currency);
         isCommonIntermediary[currency] = true;
-        
+
         emit IntermediaryAdded(currency);
     }
-    
+
     /**
      * @notice Removes a currency from the list of common intermediaries
      * @param currency The currency to remove
      */
-    function removeCommonIntermediary(Currency currency) external onlyOwner {
+    function removeCommonIntermediary(
+        Currency currency
+    ) external onlyOwner {
         require(isCommonIntermediary[currency], "Not a common intermediary");
-        
+
         // Find and remove from the array
         uint256 length = commonIntermediaries.length;
         for (uint256 i = 0; i < length; i++) {
@@ -129,12 +140,12 @@ contract PoolManager is Ownable, IPoolManager {
                 break;
             }
         }
-        
+
         isCommonIntermediary[currency] = false;
-        
+
         emit IntermediaryRemoved(currency);
     }
-    
+
     /**
      * @notice Updates the liquidity score for a pool (affects routing priority)
      * @param key The pool key
@@ -144,15 +155,15 @@ contract PoolManager is Ownable, IPoolManager {
         // In a production system, this would be restricted to authorized updaters
         // or calculated automatically based on volume/depth
         require(msg.sender == owner() || msg.sender == router, "Not authorized");
-        
+
         PoolId id = key.toId();
         require(address(pools[id].orderBook) != address(0), "Pool does not exist");
-        
+
         poolLiquidity[id] = liquidityScore;
-        
+
         emit PoolLiquidityUpdated(id, liquidityScore);
     }
-    
+
     /**
      * @notice Get all registered currencies that have at least one pool
      * @return currencies Array of all currencies in the system
@@ -160,7 +171,7 @@ contract PoolManager is Ownable, IPoolManager {
     function getAllCurrencies() external view returns (Currency[] memory) {
         return allCurrencies;
     }
-    
+
     /**
      * @notice Get common intermediary currencies (preferred for routing)
      * @return intermediaries Array of common intermediary currencies
@@ -168,7 +179,7 @@ contract PoolManager is Ownable, IPoolManager {
     function getCommonIntermediaries() external view returns (Currency[] memory) {
         return commonIntermediaries;
     }
-    
+
     /**
      * @notice Check if a pool exists between two currencies
      * @param currency1 First currency
@@ -179,25 +190,28 @@ contract PoolManager is Ownable, IPoolManager {
         PoolKey memory key = createPoolKey(currency1, currency2);
         return address(pools[key.toId()].orderBook) != address(0);
     }
-    
+
     /**
      * @notice Get the liquidity score for a pool
      * @param currency1 First currency
      * @param currency2 Second currency
      * @return score The liquidity score (0 if pool doesn't exist)
      */
-    function getPoolLiquidityScore(Currency currency1, Currency currency2) external view returns (uint256) {
+    function getPoolLiquidityScore(
+        Currency currency1,
+        Currency currency2
+    ) external view returns (uint256) {
         PoolKey memory key = createPoolKey(currency1, currency2);
         return poolLiquidity[key.toId()];
     }
-    
+
     /**
      * @notice Create a pool key with the correct order of currencies
      */
-    function createPoolKey(Currency currency1, Currency currency2) public pure returns (PoolKey memory) {
-        return PoolKey({
-            baseCurrency: currency1,
-            quoteCurrency: currency2
-        });
+    function createPoolKey(
+        Currency currency1,
+        Currency currency2
+    ) public pure returns (PoolKey memory) {
+        return PoolKey({baseCurrency: currency1, quoteCurrency: currency2});
     }
 }
