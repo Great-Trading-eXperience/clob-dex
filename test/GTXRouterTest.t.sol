@@ -193,7 +193,7 @@ contract GTXRouterTest is Test {
         // This should fail due to insufficient balance
         vm.expectRevert(
             abi.encodeWithSelector(
-                GTXRouter.InsufficientBalance.selector,
+                IOrderBookErrors.InsufficientBalance.selector,
                 (Quantity.unwrap(buyQty) * Price.unwrap(sellPrice)) / 10 ** 18,
                 100 * 10 ** 6
             )
@@ -287,7 +287,7 @@ contract GTXRouterTest is Test {
         // This should fail due to insufficient balance
         vm.expectRevert(
             abi.encodeWithSelector(
-                GTXRouter.InsufficientBalance.selector,
+                IOrderBookErrors.InsufficientBalance.selector,
                 5 * 10 ** 17,
                 1 * 10 ** 17
             )
@@ -396,7 +396,7 @@ contract GTXRouterTest is Test {
 
         vm.expectRevert(
             abi.encodeWithSelector(
-                GTXRouter.InsufficientBalance.selector,
+                IOrderBookErrors.InsufficientBalance.selector,
                 5 * 10 ** 17,
                 1 * 10 ** 17
             )
@@ -639,7 +639,7 @@ contract GTXRouterTest is Test {
         console.log("Price:", Price.unwrap(bestSellPrice.price));
         vm.expectRevert(
             abi.encodeWithSelector(
-                GTXRouter.InsufficientBalance.selector,
+                IOrderBookErrors.InsufficientBalance.selector,
                 expectedUsdcCost,
                 poorBuyerUsdcAmount
             )
@@ -671,7 +671,7 @@ contract GTXRouterTest is Test {
         // Attempt to market sell 0.5 ETH with immediate deposit - should fail
         vm.expectRevert(
             abi.encodeWithSelector(
-                GTXRouter.InsufficientBalance.selector,
+                IOrderBookErrors.InsufficientBalance.selector,
                 Quantity.unwrap(sellMarketQty),
                 poorSellerEthAmount
             )
