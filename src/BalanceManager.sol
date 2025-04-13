@@ -17,7 +17,7 @@ contract BalanceManager is IBalanceManager, Ownable, ReentrancyGuard {
 
     uint256 public feeMaker; // e.g., 1 for 0.1%
     uint256 public feeTaker; // e.g., 5 for 0.5%
-    uint256 constant FEE_UNIT = 1000;
+    uint256 public constant FEE_UNIT = 1000;
 
     constructor(
         address _owner,

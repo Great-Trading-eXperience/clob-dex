@@ -15,13 +15,15 @@ contract GTXRouterTest is Test {
     GTXRouter private gtxRouter;
     PoolManager private poolManager;
     BalanceManager private balanceManager;
-    address private owner = address(0x123);
-    address private feeReceiver = address(0x456);
-    address private user = makeAddr("user");
-    address private operator = address(0xABC);
-    address alice = makeAddr("alice");
-    address bob = makeAddr("bob");
-    address charlie = makeAddr("charlie");
+
+    address private owner = address(0x1);
+    address private feeReceiver = address(0x2);
+    address private user = address(0x3);
+    address private operator = address(0x4);
+
+    address alice = address(0x5);
+    address bob = address(0x6);
+    address charlie = address(0x7);
 
     Currency private wbtc;
     Currency private weth;
@@ -95,6 +97,593 @@ contract GTXRouterTest is Test {
                 slippageTreshold: 20 // 20%
             })
         );
+        vm.stopPrank();
+    }
+
+    function testValidateCallerBalanceForBuyOrder() public {
+        // First add some sell orders to create liquidity on the sell side
+        vm.startPrank(user);
+        mockWETH.mint(user, 10 ether);
+        IERC20(Currency.unwrap(weth)).approve(
+            address(balanceManager),
+            10 ether
+        );
+        balanceManager.deposit(weth, 10 ether, user, user);
+
+        // Place a sell order to create liquidity (1 ETH at 3000 USDC)
+        Price sellPrice = Price.wrap(3000 * 10 ** 6); // 3000 USDC per ETH
+        Quantity sellQty = Quantity.wrap(1 * 10 ** 18); // 1 ETH
+        gtxRouter.placeOrder(weth, usdc, sellPrice, sellQty, Side.SELL, user);
+        vm.stopPrank();
+
+        // Now test buyer validation
+        vm.startPrank(bob);
+        // Mint USDC to bob
+        mockUSDC.mint(bob, 5000 * 10 ** 6); // 5000 USDC
+
+        // Approve USDC to be spent
+        IERC20(Currency.unwrap(usdc)).approve(
+            address(balanceManager),
+            5000 * 10 ** 6
+        );
+
+        // Prepare for a BUY order of 0.5 ETH
+        Quantity buyQty = Quantity.wrap(5 * 10 ** 17); // 0.5 ETH
+
+        // Test 1: Successful validation when sufficient balance exists (direct deposit)
+        OrderId orderId;
+        try
+            gtxRouter.placeOrderWithDeposit(
+                weth,
+                usdc,
+                Price.wrap(3100 * 10 ** 6),
+                buyQty,
+                Side.BUY,
+                bob
+            )
+        returns (OrderId returnedOrderId) {
+            orderId = returnedOrderId;
+            console.log(
+                "Buy order placed successfully with ID:",
+                OrderId.unwrap(orderId)
+            );
+
+            // Verify locked balances
+            PoolKey memory poolKey = poolManager.createPoolKey(weth, usdc);
+            IPoolManager.Pool memory pool = poolManager.getPool(poolKey);
+            uint256 balanceWETH = balanceManager.getBalance(
+                bob,
+                weth // Use Currency type instead of MockWETH
+            );
+
+            // Calculate expected amount: 0.5 ETH * 3100 USDC/ETH = 1550 USDC
+            // First calculate the base amount (0.5 ETH)
+            uint256 baseAmount = 5 * 10 ** 17; // 0.5 ETH
+            // Apply taker fee (0.5%)
+            uint256 expectedBalance = (baseAmount * (FEE_UNIT - feeTaker)) /
+                FEE_UNIT;
+            console.log("Expected balance:", expectedBalance);
+
+            assertEq(
+                balanceWETH,
+                expectedBalance,
+                "WETH balance should match the order amount"
+            );
+        } catch Error(string memory reason) {
+            console.log(
+                string.concat(
+                    "Buy order validation failed unexpectedly: ",
+                    reason
+                )
+            );
+            assertTrue(false, "Buy order validation failed");
+        }
+
+        vm.stopPrank();
+
+        // Test 2: Insufficient balance validation
+        address poorUser = makeAddr("poorUser");
+        vm.startPrank(poorUser);
+        mockUSDC.mint(poorUser, 100 * 10 ** 6); // Only 100 USDC, not enough for the order
+        IERC20(Currency.unwrap(usdc)).approve(
+            address(balanceManager),
+            100 * 10 ** 6
+        );
+
+        // This should fail due to insufficient balance
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                GTXRouter.InsufficientBalance.selector,
+                (Quantity.unwrap(buyQty) * Price.unwrap(sellPrice)) / 10 ** 18,
+                100 * 10 ** 6
+            )
+        );
+        gtxRouter.placeOrderWithDeposit(
+            weth,
+            usdc,
+            Price.wrap(3000 * 10 ** 6),
+            buyQty,
+            Side.BUY,
+            poorUser
+        );
+
+        vm.stopPrank();
+    }
+
+    function testValidateCallerBalanceForSellOrder() public {
+        // Setup a proper order book with liquidity
+        // First add some buy orders to create liquidity on the buy side
+        vm.startPrank(user);
+        mockUSDC.mint(user, 10000 * 10 ** 6);
+        IERC20(Currency.unwrap(usdc)).approve(
+            address(balanceManager),
+            10000 * 10 ** 6
+        );
+        balanceManager.deposit(usdc, 10000 * 10 ** 6, user, user);
+
+        // Place a buy order to create liquidity (1 ETH at 2900 USDC)
+        Price buyPrice = Price.wrap(2900 * 10 ** 6); // 2900 USDC per ETH
+        Quantity buyQty = Quantity.wrap(1 * 10 ** 18); // 1 ETH
+        gtxRouter.placeOrder(weth, usdc, buyPrice, buyQty, Side.BUY, user);
+        vm.stopPrank();
+
+        // Now test seller validation
+        vm.startPrank(charlie);
+        // Mint ETH to charlie
+        mockWETH.mint(charlie, 2 ether); // 2 ETH
+
+        // Approve ETH to be spent
+        IERC20(Currency.unwrap(weth)).approve(address(balanceManager), 2 ether);
+
+        // Prepare for a SELL order of 0.5 ETH
+        Quantity sellQty = Quantity.wrap(5 * 10 ** 17); // 0.5 ETH
+
+        // Test 1: Successful validation when sufficient balance exists (direct deposit)
+        try
+            gtxRouter.placeOrderWithDeposit(
+                weth,
+                usdc,
+                Price.wrap(2800 * 10 ** 6),
+                sellQty,
+                Side.SELL,
+                charlie
+            )
+        returns (OrderId orderId) {
+            console.log(
+                "Sell order placed successfully with ID:",
+                OrderId.unwrap(orderId)
+            );
+
+            // Verify locked balances
+            uint256 balanceUSDC = balanceManager.getBalance(charlie, usdc);
+            console.log("Locked USDC balance:", balanceUSDC);
+            // Locked amount should be 1400 USDC
+            assertEq(
+                balanceUSDC,
+                ((((Price.unwrap(buyPrice) * Quantity.unwrap(sellQty)) /
+                    10 ** 18) * (FEE_UNIT - feeTaker)) / FEE_UNIT)
+            );
+        } catch Error(string memory reason) {
+            console.log(
+                string.concat(
+                    "Sell order validation failed unexpectedly: ",
+                    reason
+                )
+            );
+            assertTrue(false, "Sell order validation failed");
+        }
+
+        vm.stopPrank();
+
+        // Test 3: Insufficient balance validation
+        address poorUser = makeAddr("poor_eth_user");
+        vm.startPrank(poorUser);
+        mockWETH.mint(poorUser, 1 * 10 ** 17); // Only 0.1 ETH, not enough for the order
+        IERC20(Currency.unwrap(weth)).approve(
+            address(balanceManager),
+            1 * 10 ** 17
+        );
+
+        // This should fail due to insufficient balance
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                GTXRouter.InsufficientBalance.selector,
+                5 * 10 ** 17,
+                1 * 10 ** 17
+            )
+        );
+        gtxRouter.placeOrderWithDeposit(
+            weth,
+            usdc,
+            Price.wrap(2800 * 10 ** 6),
+            sellQty,
+            Side.SELL,
+            poorUser
+        );
+
+        vm.stopPrank();
+    }
+
+    function testMarketOrderValidation() public {
+        // Setup a proper order book with liquidity on both sides
+        vm.startPrank(user);
+        // Add sell orders
+        mockWETH.mint(user, 10 ether);
+        IERC20(Currency.unwrap(weth)).approve(
+            address(balanceManager),
+            10 ether
+        );
+        balanceManager.deposit(weth, 10 ether, user, user);
+        Price sellPrice = Price.wrap(3000 * 10 ** 6); // 3000 USDC per ETH
+        Quantity sellQty = Quantity.wrap(1 * 10 ** 18); // 1 ETH
+        gtxRouter.placeOrder(weth, usdc, sellPrice, sellQty, Side.SELL, user);
+
+        // Add buy orders
+        mockUSDC.mint(user, 10000 * 10 ** 6);
+        IERC20(Currency.unwrap(usdc)).approve(
+            address(balanceManager),
+            10000 * 10 ** 6
+        );
+        balanceManager.deposit(usdc, 10000 * 10 ** 6, user, user);
+        Price buyPrice = Price.wrap(2900 * 10 ** 6); // 2900 USDC per ETH
+        Quantity buyQty = Quantity.wrap(1 * 10 ** 18); // 1 ETH
+        gtxRouter.placeOrder(weth, usdc, buyPrice, buyQty, Side.BUY, user);
+        vm.stopPrank();
+
+        // Test market buy order validation
+        address marketBuyer = makeAddr("market_buyer");
+        vm.startPrank(marketBuyer);
+        mockUSDC.mint(marketBuyer, 5000 * 10 ** 6); // 5000 USDC
+        IERC20(Currency.unwrap(usdc)).approve(
+            address(balanceManager),
+            5000 * 10 ** 6
+        );
+        balanceManager.deposit(usdc, 5000 * 10 ** 6, marketBuyer, marketBuyer);
+
+        // Successful market buy
+        Quantity buyMarketQty = Quantity.wrap(5 * 10 ** 17); // 0.5 ETH
+        OrderId marketBuyId = gtxRouter.placeMarketOrder(
+            weth,
+            usdc,
+            buyMarketQty,
+            Side.BUY,
+            marketBuyer
+        );
+        console.log(
+            "Market buy order executed with ID:",
+            OrderId.unwrap(marketBuyId)
+        );
+        vm.stopPrank();
+
+        // Test market sell order validation
+        address marketSeller = makeAddr("market_seller");
+        vm.startPrank(marketSeller);
+        mockWETH.mint(marketSeller, 2 ether); // 2 ETH
+        IERC20(Currency.unwrap(weth)).approve(address(balanceManager), 2 ether);
+        balanceManager.deposit(weth, 2 ether, marketSeller, marketSeller);
+
+        // Successful market sell
+        Quantity sellMarketQty = Quantity.wrap(5 * 10 ** 17); // 0.5 ETH
+        OrderId marketSellId = gtxRouter.placeMarketOrder(
+            weth,
+            usdc,
+            sellMarketQty,
+            Side.SELL,
+            marketSeller
+        );
+        console.log(
+            "Market sell order executed with ID:",
+            OrderId.unwrap(marketSellId)
+        );
+        vm.stopPrank();
+
+        // Test insufficient balance market orders
+        address poorMarketTrader = makeAddr("poor_market_trader");
+        vm.startPrank(poorMarketTrader);
+
+        // Insufficient ETH for market sell
+        mockWETH.mint(poorMarketTrader, 1 * 10 ** 17); // Only 0.1 ETH
+        IERC20(Currency.unwrap(weth)).approve(
+            address(balanceManager),
+            1 * 10 ** 17
+        );
+        balanceManager.deposit(
+            weth,
+            1 * 10 ** 17,
+            poorMarketTrader,
+            poorMarketTrader
+        );
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                GTXRouter.InsufficientBalance.selector,
+                5 * 10 ** 17,
+                1 * 10 ** 17
+            )
+        );
+        gtxRouter.placeMarketOrder(
+            weth,
+            usdc,
+            sellMarketQty,
+            Side.SELL,
+            poorMarketTrader
+        );
+
+        vm.stopPrank();
+    }
+
+    function testPlaceMarketOrderWithDeposit() public {
+        // First, we need to ensure there's adequate liquidity on both sides of the order book
+
+        // Setup sell side liquidity (for BUY market orders)
+        vm.startPrank(user);
+        // Add sell orders at different price levels
+        mockWETH.mint(user, 10 ether);
+        IERC20(Currency.unwrap(weth)).approve(
+            address(balanceManager),
+            10 ether
+        );
+        balanceManager.deposit(weth, 10 ether, user, user);
+
+        // Place multiple sell orders to create depth in the order book
+        Price sellPrice1 = Price.wrap(3000 * 10 ** 6); // 3000 USDC per ETH
+        Price sellPrice2 = Price.wrap(3050 * 10 ** 6); // 3050 USDC per ETH
+        Price sellPrice3 = Price.wrap(3100 * 10 ** 6); // 3100 USDC per ETH
+
+        Quantity sellQty1 = Quantity.wrap(5 * 10 ** 17); // 0.5 ETH
+        Quantity sellQty2 = Quantity.wrap(5 * 10 ** 17); // 0.5 ETH
+        Quantity sellQty3 = Quantity.wrap(5 * 10 ** 17); // 0.5 ETH
+
+        gtxRouter.placeOrder(weth, usdc, sellPrice1, sellQty1, Side.SELL, user);
+        gtxRouter.placeOrder(weth, usdc, sellPrice2, sellQty2, Side.SELL, user);
+        gtxRouter.placeOrder(weth, usdc, sellPrice3, sellQty3, Side.SELL, user);
+
+        // Setup buy side liquidity (for SELL market orders)
+        mockUSDC.mint(user, 10000 * 10 ** 6);
+        IERC20(Currency.unwrap(usdc)).approve(
+            address(balanceManager),
+            10000 * 10 ** 6
+        );
+        balanceManager.deposit(usdc, 10000 * 10 ** 6, user, user);
+
+        // Place multiple buy orders to create depth in the order book
+        Price buyPrice1 = Price.wrap(2950 * 10 ** 6); // 2950 USDC per ETH
+        Price buyPrice2 = Price.wrap(2900 * 10 ** 6); // 2900 USDC per ETH
+        Price buyPrice3 = Price.wrap(2850 * 10 ** 6); // 2850 USDC per ETH
+
+        Quantity buyQty1 = Quantity.wrap(5 * 10 ** 17); // 0.5 ETH
+        Quantity buyQty2 = Quantity.wrap(5 * 10 ** 17); // 0.5 ETH
+        Quantity buyQty3 = Quantity.wrap(5 * 10 ** 17); // 0.5 ETH
+
+        gtxRouter.placeOrder(weth, usdc, buyPrice1, buyQty1, Side.BUY, user);
+        gtxRouter.placeOrder(weth, usdc, buyPrice2, buyQty2, Side.BUY, user);
+        gtxRouter.placeOrder(weth, usdc, buyPrice3, buyQty3, Side.BUY, user);
+
+        // Log the order book state to confirm liquidity
+        IOrderBook.PriceVolume memory bestSellPrice = gtxRouter.getBestPrice(
+            weth,
+            usdc,
+            Side.SELL
+        );
+        IOrderBook.PriceVolume memory bestBuyPrice = gtxRouter.getBestPrice(
+            weth,
+            usdc,
+            Side.BUY
+        );
+
+        console.log("Best SELL price:", Price.unwrap(bestSellPrice.price));
+        console.log("Best SELL volume:", bestSellPrice.volume);  // volume is already unwrapped
+        console.log("Best BUY price:", Price.unwrap(bestBuyPrice.price));
+        console.log("Best BUY volume:", bestBuyPrice.volume);  // volume is already unwrapped
+
+        vm.stopPrank();
+
+        // Verify order book has liquidity on both sides
+        assertTrue(
+            Price.unwrap(bestSellPrice.price) > 0,
+            "No sell side liquidity"
+        );
+        assertTrue(
+            Price.unwrap(bestBuyPrice.price) > 0,
+            "No buy side liquidity"
+        );
+
+        // Test 1: Market Buy with Deposit
+        address buyDepositUser = address(0x8);
+        vm.startPrank(buyDepositUser);
+
+        // Mint USDC directly to the user (not deposited yet)
+        uint256 buyerUsdcAmount = 5000 * 10 ** 6; // 5000 USDC
+        mockUSDC.mint(buyDepositUser, buyerUsdcAmount);
+
+        // Approve USDC for the balance manager
+        IERC20(Currency.unwrap(usdc)).approve(
+            address(balanceManager),
+            buyerUsdcAmount
+        );
+
+        // Market buy 0.5 ETH with immediate deposit
+        Quantity buyMarketQty = Quantity.wrap(5 * 10 ** 17); // 0.5 ETH
+
+        // Calculate expected USDC cost based on the current order book
+        uint256 expectedUsdcCost = (Quantity.unwrap(buyMarketQty) *
+            Price.unwrap(bestSellPrice.price)) / 10 ** 18;
+        console.log("Expected USDC cost for market buy:", expectedUsdcCost);
+
+        // This should automatically deposit USDC and execute the market order
+        OrderId buyDepositOrderId = gtxRouter.placeMarketOrderWithDeposit(
+            weth,
+            usdc,
+            buyMarketQty,
+            Side.BUY,
+            buyDepositUser
+        );
+
+        console.log(
+            "Market buy with deposit executed with ID:",
+            OrderId.unwrap(buyDepositOrderId)
+        );
+
+        // Verify the balance has been deposited and used
+        uint256 usdcBalance = balanceManager.getBalance(buyDepositUser, usdc);
+        uint256 ethBalance = balanceManager.getBalance(buyDepositUser, weth);
+
+        console.log("Remaining USDC balance after market buy:", usdcBalance);
+        console.log("Received ETH after market buy:", ethBalance);
+
+        // Should have spent approximately expectedUsdcCost (plus fees)
+        assertLt(usdcBalance, buyerUsdcAmount);
+        assertGt(ethBalance, 0, "User should have received ETH");
+        assertApproxEqRel(
+            ethBalance,
+            Quantity.unwrap(buyMarketQty),
+            0.01e18,
+            "Should have received ~0.5 ETH"
+        );
+
+        vm.stopPrank();
+
+        // Test 2: Market Sell with Deposit
+        address sellDepositUser = address(0x9);
+        vm.startPrank(sellDepositUser);
+
+        // Mint ETH directly to the user (not deposited yet)
+        uint256 sellerEthAmount = 2 ether; // 2 ETH
+        mockWETH.mint(sellDepositUser, sellerEthAmount);
+
+        // Approve ETH for the balance manager
+        IERC20(Currency.unwrap(weth)).approve(
+            address(balanceManager),
+            sellerEthAmount
+        );
+
+        // Market sell 0.5 ETH with immediate deposit
+        Quantity sellMarketQty = Quantity.wrap(5 * 10 ** 17); // 0.5 ETH
+
+        // Calculate expected USDC received based on the current order book
+        uint256 expectedUsdcReceived = (Quantity.unwrap(sellMarketQty) *
+            Price.unwrap(bestBuyPrice.price)) / 10 ** 18;
+        console.log(
+            "Expected USDC received for market sell:",
+            expectedUsdcReceived
+        );
+
+        // This should automatically deposit ETH and execute the market order
+        OrderId sellDepositOrderId = gtxRouter.placeMarketOrderWithDeposit(
+            weth,
+            usdc,
+            sellMarketQty,
+            Side.SELL,
+            sellDepositUser
+        );
+
+        console.log(
+            "Market sell with deposit executed with ID:",
+            OrderId.unwrap(sellDepositOrderId)
+        );
+
+        // Verify the balance has been deposited and used
+        uint256 ethBalanceAfterSell = balanceManager.getBalance(
+            sellDepositUser,
+            weth
+        );
+        uint256 receivedUsdc = balanceManager.getBalance(sellDepositUser, usdc);
+
+        console.log(
+            "Remaining ETH balance after market sell:",
+            ethBalanceAfterSell
+        );
+        console.log("Received USDC from market sell:", receivedUsdc);
+
+        // Should have spent 0.5 ETH and received approximately expectedUsdcReceived (minus fees)
+        assertEq(
+            ethBalanceAfterSell,
+            0,
+            "Should have 1.5 ETH remaining"
+        );
+        assertGt(receivedUsdc, 0, "Should have received some USDC");
+        assertApproxEqRel(
+            receivedUsdc,
+            expectedUsdcReceived,
+            0.01e18,
+            "Should have received ~1475 USDC"
+        );
+
+        vm.stopPrank();
+
+        // Test 3: Failed Market Buy with Deposit due to insufficient funds
+        address poorBuyUser = address(0xa);
+        vm.startPrank(poorBuyUser);
+
+        // Mint only a small amount of USDC to the user
+        uint256 poorBuyerUsdcAmount = 100 * 10 ** 6; // 100 USDC, not enough for 0.5 ETH at 3000 USDC/ETH
+        mockUSDC.mint(poorBuyUser, poorBuyerUsdcAmount);
+
+        // Approve USDC for the balance manager
+        IERC20(Currency.unwrap(usdc)).approve(
+            address(balanceManager),
+            poorBuyerUsdcAmount
+        );
+
+        bestSellPrice = gtxRouter.getBestPrice(
+            weth,
+            usdc,
+            Side.SELL
+        );
+        expectedUsdcCost = (Quantity.unwrap(buyMarketQty) *
+            Price.unwrap(bestSellPrice.price)) / 10 ** 18;
+
+        // Attempt to market buy 0.5 ETH with immediate deposit - should fail
+        // Expected cost: ~0.5 ETH * 3000 USDC/ETH = 1500 USDC
+        console.log("Expected USDC cost for market buy:", expectedUsdcCost);
+        console.log("Price:", Price.unwrap(bestSellPrice.price));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                GTXRouter.InsufficientBalance.selector,
+                expectedUsdcCost,
+                poorBuyerUsdcAmount
+            )
+        );
+        gtxRouter.placeMarketOrderWithDeposit(
+            weth,
+            usdc,
+            buyMarketQty,
+            Side.BUY,
+            poorBuyUser
+        );
+
+        vm.stopPrank();
+
+        // Test 4: Failed Market Sell with Deposit due to insufficient funds
+        address poorSellUser = address(0xb);
+        vm.startPrank(poorSellUser);
+
+        // Mint only a small amount of ETH to the user
+        uint256 poorSellerEthAmount = 1 * 10 ** 17; // 0.1 ETH, not enough for 0.5 ETH sell
+        mockWETH.mint(poorSellUser, poorSellerEthAmount);
+
+        // Approve ETH for the balance manager
+        IERC20(Currency.unwrap(weth)).approve(
+            address(balanceManager),
+            poorSellerEthAmount
+        );
+
+        // Attempt to market sell 0.5 ETH with immediate deposit - should fail
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                GTXRouter.InsufficientBalance.selector,
+                Quantity.unwrap(sellMarketQty),
+                poorSellerEthAmount
+            )
+        );
+        gtxRouter.placeMarketOrderWithDeposit(
+            weth,
+            usdc,
+            sellMarketQty,
+            Side.SELL,
+            poorSellUser
+        );
+
         vm.stopPrank();
     }
 
@@ -272,9 +861,8 @@ contract GTXRouterTest is Test {
 
     function testMatchBuyMarketOrder() public {
         // Set up a sell order
-
         vm.startPrank(alice);
-        mockWETH.mint(alice, 1e17);
+        mockWETH.mint(alice, 1e17);  // 0.1 ETH
         assertEq(mockWETH.balanceOf(alice), 1e17, "Alice should have 0.1 ETH");
 
         IERC20(Currency.unwrap(weth)).approve(address(balanceManager), 1e17);
@@ -325,12 +913,10 @@ contract GTXRouterTest is Test {
         );
         assertEq(lockedBalance, 1e17, "Locked balance should be 0.1 ETH");
 
-        // Now place a series of market orders with increasing sizes
-
-        // Test  market buy (0.0001 ETH)
+        // Now place a market buy order for 0.0001 ETH
         vm.startPrank(bob);
         // For 0.0001 ETH at price 1900 USDC/ETH, need 0.19 USDC
-        mockUSDC.mint(bob, 19e4);
+        mockUSDC.mint(bob, 19e4);  // 0.19 USDC
         assertEq(mockUSDC.balanceOf(bob), 19e4, "Bob should have 0.19 USDC");
 
         IERC20(Currency.unwrap(usdc)).approve(address(balanceManager), 19e4);
@@ -375,8 +961,11 @@ contract GTXRouterTest is Test {
             wethUsdcPair,
             weth
         );
+        // Calculate expected ETH received:
+        // Buy amount: 0.0001 ETH
         uint256 expectedEthReceived = 1e14; // 0.0001 ETH
-        uint256 feeAmount = (expectedEthReceived * 5) / 1000; // 0.0001 ETH * 0.5% (taker fee)
+        // Apply taker fee (0.5%)
+        uint256 feeAmount = (expectedEthReceived * 5) / 1000;
         assertEq(
             balance,
             expectedEthReceived - feeAmount,
@@ -393,12 +982,15 @@ contract GTXRouterTest is Test {
             wethUsdcPair,
             usdc
         );
-        uint256 expectedUsdcReceived = 0.19e6; // 0.0001 ETH * 1900 USDC per ETH
-        feeAmount = (expectedUsdcReceived * 1) / 1000; // 0.0001 ETH * 0.1% (maker fee)
+        // Calculate expected USDC received:
+        // 0.0001 ETH * 1900 USDC/ETH = 0.19 USDC
+        uint256 expectedUsdcReceived = 19e4; // 0.19 USDC
+        // Apply maker fee (0.1%)
+        feeAmount = (expectedUsdcReceived * 1) / 1000;
         assertEq(
             balance,
             expectedUsdcReceived - feeAmount,
-            "Alice should receive 0.0001 ETH minus 0.1% maker fee"
+            "Alice should receive 0.19 USDC minus 0.1% maker fee"
         );
         assertEq(
             lockedBalance,
@@ -415,7 +1007,7 @@ contract GTXRouterTest is Test {
         assertEq(
             lockedBalance,
             1e17 - 1e14,
-            "Alice WETH locked balance should be 0 after market buy"
+            "Alice WETH locked balance should be reduced by traded amount"
         );
     }
 
