@@ -16,10 +16,9 @@ interface DeployedContracts {
 }
 
 export const deployedContracts: DeployedContracts = {
-  10143: {},
-  31337: {
+  31338: {
     BalanceManager: {
-      address: "0xa51c1fc2f0d1a1b8494ed1fe312d7c3a78ed91c0",
+      address: "0x13fc4f19dcad64c9f25b1890adee552aeb61c033",
       abi: [
         {
           type: "constructor",
@@ -698,7 +697,7 @@ export const deployedContracts: DeployedContracts = {
       },
     },
     PoolManager: {
-      address: "0x0dcd1bf9a1b36ce34237eeafef220932846bcd82",
+      address: "0x41bcbaa436b23fe4b74efcb53c768e6822a970a5",
       abi: [
         {
           type: "constructor",
@@ -1323,10 +1322,28 @@ export const deployedContracts: DeployedContracts = {
           ],
         },
       ],
-      inheritedFunctions: {},
+      inheritedFunctions: {
+        owner: "lib/openzeppelin-contracts/contracts/access/Ownable.sol",
+        renounceOwnership:
+          "lib/openzeppelin-contracts/contracts/access/Ownable.sol",
+        transferOwnership:
+          "lib/openzeppelin-contracts/contracts/access/Ownable.sol",
+        addCommonIntermediary: "src/interfaces/IPoolManager.sol",
+        createPool: "src/interfaces/IPoolManager.sol",
+        createPoolKey: "src/interfaces/IPoolManager.sol",
+        getAllCurrencies: "src/interfaces/IPoolManager.sol",
+        getCommonIntermediaries: "src/interfaces/IPoolManager.sol",
+        getPool: "src/interfaces/IPoolManager.sol",
+        getPoolId: "src/interfaces/IPoolManager.sol",
+        getPoolLiquidityScore: "src/interfaces/IPoolManager.sol",
+        poolExists: "src/interfaces/IPoolManager.sol",
+        removeCommonIntermediary: "src/interfaces/IPoolManager.sol",
+        setRouter: "src/interfaces/IPoolManager.sol",
+        updatePoolLiquidity: "src/interfaces/IPoolManager.sol",
+      },
     },
     GTXRouter: {
-      address: "0x9a676e781a523b5d0c0e43731313a708cb607508",
+      address: "0x837312482e1a50a23cc16fc90c34c0e586c52291",
       abi: [
         {
           type: "constructor",
@@ -1879,6 +1896,11 @@ export const deployedContracts: DeployedContracts = {
         },
         {
           type: "error",
+          name: "OrderNotFound",
+          inputs: [],
+        },
+        {
+          type: "error",
           name: "OrderTooLarge",
           inputs: [
             {
@@ -1961,7 +1983,7 @@ export const deployedContracts: DeployedContracts = {
           name: "UnauthorizedRouter",
           inputs: [
             {
-              name: "reouter",
+              name: "router",
               type: "address",
               internalType: "address",
             },
@@ -1971,7 +1993,7 @@ export const deployedContracts: DeployedContracts = {
       inheritedFunctions: {},
     },
     MockToken: {
-      address: "0xc5a5c42992decbae36851359345fe25997f5c42d",
+      address: "0x1b9af473f8ef3cb20689be6b9f401c51aa407123",
       abi: [
         {
           type: "constructor",
@@ -2336,372 +2358,5 @@ export const deployedContracts: DeployedContracts = {
       },
     },
   },
-  1020201: {},
-  11155931: {
-    MockToken: {
-      address: "0x9d4e69fd965c99f0709a1d0a43d28fdeb3796f7e",
-      abi: [
-        {
-          type: "constructor",
-          inputs: [
-            {
-              name: "name_",
-              type: "string",
-              internalType: "string",
-            },
-            {
-              name: "symbol_",
-              type: "string",
-              internalType: "string",
-            },
-            {
-              name: "decimals_",
-              type: "uint8",
-              internalType: "uint8",
-            },
-          ],
-          stateMutability: "nonpayable",
-        },
-        {
-          type: "function",
-          name: "allowance",
-          inputs: [
-            {
-              name: "owner",
-              type: "address",
-              internalType: "address",
-            },
-            {
-              name: "spender",
-              type: "address",
-              internalType: "address",
-            },
-          ],
-          outputs: [
-            {
-              name: "",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
-          name: "approve",
-          inputs: [
-            {
-              name: "spender",
-              type: "address",
-              internalType: "address",
-            },
-            {
-              name: "value",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          outputs: [
-            {
-              name: "",
-              type: "bool",
-              internalType: "bool",
-            },
-          ],
-          stateMutability: "nonpayable",
-        },
-        {
-          type: "function",
-          name: "balanceOf",
-          inputs: [
-            {
-              name: "account",
-              type: "address",
-              internalType: "address",
-            },
-          ],
-          outputs: [
-            {
-              name: "",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
-          name: "decimals",
-          inputs: [],
-          outputs: [
-            {
-              name: "",
-              type: "uint8",
-              internalType: "uint8",
-            },
-          ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
-          name: "mint",
-          inputs: [
-            {
-              name: "account",
-              type: "address",
-              internalType: "address",
-            },
-            {
-              name: "amount",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          outputs: [],
-          stateMutability: "nonpayable",
-        },
-        {
-          type: "function",
-          name: "name",
-          inputs: [],
-          outputs: [
-            {
-              name: "",
-              type: "string",
-              internalType: "string",
-            },
-          ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
-          name: "symbol",
-          inputs: [],
-          outputs: [
-            {
-              name: "",
-              type: "string",
-              internalType: "string",
-            },
-          ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
-          name: "totalSupply",
-          inputs: [],
-          outputs: [
-            {
-              name: "",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
-          name: "transfer",
-          inputs: [
-            {
-              name: "to",
-              type: "address",
-              internalType: "address",
-            },
-            {
-              name: "value",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          outputs: [
-            {
-              name: "",
-              type: "bool",
-              internalType: "bool",
-            },
-          ],
-          stateMutability: "nonpayable",
-        },
-        {
-          type: "function",
-          name: "transferFrom",
-          inputs: [
-            {
-              name: "from",
-              type: "address",
-              internalType: "address",
-            },
-            {
-              name: "to",
-              type: "address",
-              internalType: "address",
-            },
-            {
-              name: "value",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          outputs: [
-            {
-              name: "",
-              type: "bool",
-              internalType: "bool",
-            },
-          ],
-          stateMutability: "nonpayable",
-        },
-        {
-          type: "event",
-          name: "Approval",
-          inputs: [
-            {
-              name: "owner",
-              type: "address",
-              indexed: true,
-              internalType: "address",
-            },
-            {
-              name: "spender",
-              type: "address",
-              indexed: true,
-              internalType: "address",
-            },
-            {
-              name: "value",
-              type: "uint256",
-              indexed: false,
-              internalType: "uint256",
-            },
-          ],
-          anonymous: false,
-        },
-        {
-          type: "event",
-          name: "Transfer",
-          inputs: [
-            {
-              name: "from",
-              type: "address",
-              indexed: true,
-              internalType: "address",
-            },
-            {
-              name: "to",
-              type: "address",
-              indexed: true,
-              internalType: "address",
-            },
-            {
-              name: "value",
-              type: "uint256",
-              indexed: false,
-              internalType: "uint256",
-            },
-          ],
-          anonymous: false,
-        },
-        {
-          type: "error",
-          name: "ERC20InsufficientAllowance",
-          inputs: [
-            {
-              name: "spender",
-              type: "address",
-              internalType: "address",
-            },
-            {
-              name: "allowance",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "needed",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-        },
-        {
-          type: "error",
-          name: "ERC20InsufficientBalance",
-          inputs: [
-            {
-              name: "sender",
-              type: "address",
-              internalType: "address",
-            },
-            {
-              name: "balance",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "needed",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-        },
-        {
-          type: "error",
-          name: "ERC20InvalidApprover",
-          inputs: [
-            {
-              name: "approver",
-              type: "address",
-              internalType: "address",
-            },
-          ],
-        },
-        {
-          type: "error",
-          name: "ERC20InvalidReceiver",
-          inputs: [
-            {
-              name: "receiver",
-              type: "address",
-              internalType: "address",
-            },
-          ],
-        },
-        {
-          type: "error",
-          name: "ERC20InvalidSender",
-          inputs: [
-            {
-              name: "sender",
-              type: "address",
-              internalType: "address",
-            },
-          ],
-        },
-        {
-          type: "error",
-          name: "ERC20InvalidSpender",
-          inputs: [
-            {
-              name: "spender",
-              type: "address",
-              internalType: "address",
-            },
-          ],
-        },
-      ],
-      inheritedFunctions: {
-        allowance: "lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol",
-        approve: "lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol",
-        balanceOf: "lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol",
-        decimals: "lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol",
-        name: "lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol",
-        symbol: "lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol",
-        totalSupply:
-          "lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol",
-        transfer: "lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol",
-        transferFrom:
-          "lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol",
-      },
-    },
-  },
+  313371: {},
 } as const;

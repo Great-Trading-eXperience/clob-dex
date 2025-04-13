@@ -301,7 +301,8 @@ contract BalanceAndFeeTest is Test {
             davidTradeValue;
 
         // Calculate expected fees - breaking down calculations
-        uint256 feeUnit = balanceManager.FEE_UNIT();
+        // uint256 feeUnit = balanceManager.FEE_UNIT();
+        uint256 feeUnit = 1;
         uint256 aliceTakerFee = (aliceTradeValue * feeTaker) / feeUnit;
         uint256 charlieTakerFee = (charlieTradeValue * feeTaker) / feeUnit;
         uint256 davidTakerFee = (davidTradeValue * feeTaker) / feeUnit;

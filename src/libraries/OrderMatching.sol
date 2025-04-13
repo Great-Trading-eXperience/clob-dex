@@ -9,7 +9,6 @@ import {IBalanceManager} from "../interfaces/IBalanceManager.sol";
 import {Currency} from "../types/Currency.sol";
 import {Quantity, OrderType} from "../types/Types.sol";
 import {PoolKey, PoolIdLibrary} from "../types/Pool.sol";
-import {console} from "forge-std/Test.sol";
 
 /// @title OrderMatching - A library for matching orders in a CLOB
 /// @notice Provides functionality to match orders in a Central Limit Order Book
@@ -116,9 +115,6 @@ library OrderMatching {
             }
         }
 
-        console.log("isMarketOrder", isMarketOrder);
-        console.log("remaining", remaining);
-
         if (remaining == 0 && !isMarketOrder) {
             orders[side][order.price].removeOrder(OrderId.unwrap(order.id));
 
@@ -216,10 +212,6 @@ library OrderMatching {
         );
         queue.totalVolume -= executedQuantity;
 
-        console.log("executed quantity", executedQuantity);
-        console.log("price", Price.unwrap(matchPrice));
-        console.log("side", _params.side == Side.BUY ? "BUY" : "SELL");
-
         transferBalances(
             _params.balanceManager,
             _params.trader,
@@ -272,12 +264,6 @@ library OrderMatching {
             Price.unwrap(matchPrice),
             poolKey.baseCurrency.decimals()
         );
-
-        console.log("\nTransfer balances:");
-        console.log("price:", Price.unwrap(matchPrice));
-        console.log("executed quantity:", Quantity.unwrap(executedQuantity));
-        console.log("quote amount:", quoteAmount);
-        console.log("base amount:", baseAmount);
 
         if (side == Side.SELL) {
             if (!isMarketOrder) {

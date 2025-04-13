@@ -14,13 +14,14 @@ import {MockToken} from "../src/mocks/MockToken.sol";
 import {GTXRouter} from "../src/GTXRouter.sol";
 // import {MockBalanceManager} from "../src/mocks/MockBalanceManager.sol";
 
+import {Test, console} from "forge-std/Test.sol";
 import {BalanceManager} from "../src/BalanceManager.sol";
 
 contract OrderMatchingTest is Test {
     OrderBook public orderBook;
 
     IOrderBook.TradingRules rules;
-    
+
     address alice = address(0x1);
     address bob = address(0x2);
     address charlie = address(0x3);
@@ -39,7 +40,7 @@ contract OrderMatchingTest is Test {
     uint256 lotSize = 1e18; // Example lot size
     uint256 maxOrderAmount = 500e18; // Example max order amount
 
-    GTXRouter router; 
+    GTXRouter router;
     PoolManager poolManager;
     BalanceManager balanceManager;
 
@@ -72,7 +73,12 @@ contract OrderMatchingTest is Test {
             quoteCurrency: Currency.wrap(quoteTokenAddress)
         });
 
-        BalanceManager balanceManager = new BalanceManager(owner, owner, feeMaker, feeTaker);
+        BalanceManager balanceManager = new BalanceManager(
+            owner,
+            owner,
+            feeMaker,
+            feeTaker
+        );
         poolManager = new PoolManager(owner, address(balanceManager));
         router = new GTXRouter(address(poolManager), address(balanceManager));
 
@@ -83,25 +89,49 @@ contract OrderMatchingTest is Test {
         vm.stopPrank();
 
         vm.startPrank(alice);
-        MockToken(baseTokenAddress).approve(address(balanceManager), type(uint256).max);
-        MockToken(quoteTokenAddress).approve(address(balanceManager), type(uint256).max);
+        MockToken(baseTokenAddress).approve(
+            address(balanceManager),
+            type(uint256).max
+        );
+        MockToken(quoteTokenAddress).approve(
+            address(balanceManager),
+            type(uint256).max
+        );
         vm.stopPrank();
-        
+
         vm.startPrank(bob);
-        MockToken(baseTokenAddress).approve(address(balanceManager), type(uint256).max);
-        MockToken(quoteTokenAddress).approve(address(balanceManager), type(uint256).max);
+        MockToken(baseTokenAddress).approve(
+            address(balanceManager),
+            type(uint256).max
+        );
+        MockToken(quoteTokenAddress).approve(
+            address(balanceManager),
+            type(uint256).max
+        );
         vm.stopPrank();
-        
+
         vm.startPrank(charlie);
-        MockToken(baseTokenAddress).approve(address(balanceManager), type(uint256).max);
-        MockToken(quoteTokenAddress).approve(address(balanceManager), type(uint256).max);
+        MockToken(baseTokenAddress).approve(
+            address(balanceManager),
+            type(uint256).max
+        );
+        MockToken(quoteTokenAddress).approve(
+            address(balanceManager),
+            type(uint256).max
+        );
         vm.stopPrank();
 
         vm.startPrank(david);
-        MockToken(baseTokenAddress).approve(address(balanceManager), type(uint256).max);
-        MockToken(quoteTokenAddress).approve(address(balanceManager), type(uint256).max);
+        MockToken(baseTokenAddress).approve(
+            address(balanceManager),
+            type(uint256).max
+        );
+        MockToken(quoteTokenAddress).approve(
+            address(balanceManager),
+            type(uint256).max
+        );
         vm.stopPrank();
-        
+
         poolManager.createPool(baseCurrency, quoteCurrency, rules);
 
         PoolKey memory key = poolManager.createPoolKey(
@@ -121,17 +151,26 @@ contract OrderMatchingTest is Test {
         Side side = Side.BUY;
         address user = alice;
 
-        router.placeOrderWithDeposit(baseCurrency, quoteCurrency, price, quantity, side, user);
-                
-        (uint48 orderCount, uint256 totalVolume) =
-            orderBook.getOrderQueue(side, price);
+        router.placeOrderWithDeposit(
+            baseCurrency,
+            quoteCurrency,
+            price,
+            quantity,
+            side,
+            user
+        );
+
+        (uint48 orderCount, uint256 totalVolume) = orderBook.getOrderQueue(
+            side,
+            price
+        );
 
         assertEq(orderCount, 1);
         assertEq(totalVolume, Quantity.unwrap(quantity));
 
         vm.stopPrank();
     }
-    
+
     function testMarketOrder() public {
         vm.startPrank(alice);
 
@@ -140,10 +179,18 @@ contract OrderMatchingTest is Test {
         Side side = Side.SELL;
         address user = alice;
 
-        router.placeMarketOrderWithDeposit(baseCurrency, quoteCurrency, quantity, side, user);
-         
-        (uint48 orderCount, uint256 totalVolume) =
-            orderBook.getOrderQueue(side, price);
+        router.placeMarketOrderWithDeposit(
+            baseCurrency,
+            quoteCurrency,
+            quantity,
+            side,
+            user
+        );
+
+        (uint48 orderCount, uint256 totalVolume) = orderBook.getOrderQueue(
+            side,
+            price
+        );
 
         assertEq(totalVolume, 0);
         assertEq(orderCount, 0);

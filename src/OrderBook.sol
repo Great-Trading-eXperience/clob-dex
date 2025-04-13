@@ -7,7 +7,6 @@ import {OrderId, Quantity, Side, Status, OrderType, TimeInForce} from "./types/T
 import {BokkyPooBahsRedBlackTreeLibrary as RBTree, Price} from "./libraries/BokkyPooBahsRedBlackTreeLibrary.sol";
 import {OrderQueueLib} from "./libraries/OrderQueueLib.sol";
 import {OrderMatching} from "./libraries/OrderMatching.sol";
-import {OrderPacking} from "./libraries/OrderPacking.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import {PoolKey} from "./types/Pool.sol";
@@ -24,7 +23,6 @@ contract OrderBook is Ownable, IOrderBook, ReentrancyGuard, IOrderBookErrors {
     using OrderQueueLib for OrderQueueLib.OrderQueue;
     using OrderMatching for *;
     using EnumerableSet for EnumerableSet.UintSet;
-    using OrderPacking for *;
 
     mapping(address => EnumerableSet.UintSet) private activeUserOrders;
     mapping(uint48 => OrderDetails) private orderDetailsMap;
