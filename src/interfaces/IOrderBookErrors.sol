@@ -20,6 +20,7 @@ interface IOrderBookErrors {
     error SlippageExceeded(uint256 requestedPrice, uint256 limitPrice);
     error TradingPaused();
     error UnauthorizedCancellation();
-    error UnauthorizedRouter(address router);
+    error UnauthorizedRouter(address reouter);
     error OrderNotFound();
+    error InsufficientBalance(uint256 requiredDeposit, uint256 userBalance);
 }

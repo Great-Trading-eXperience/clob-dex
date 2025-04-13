@@ -24,25 +24,95 @@ contract GTXRouter is IOrderBookErrors {
         balanceManager = IBalanceManager(_balanceManager);
     }
 
+    function _validateCallerBalance(
+        address _caller,
+        Side _side,
+        Currency _baseCurrency,
+        Currency _quoteCurrency,
+        Quantity _quantity,
+        Price _price,
+        bool _isMarketOrder,
+        bool _isWalletDeposit
+    ) internal view returns (Currency, uint256) {
+        Currency depositCurrency;
+        uint256 requiredBalance;
+
+        // Create pool key for validation
+        PoolKey memory key = poolManager.createPoolKey(
+            _baseCurrency,
+            _quoteCurrency
+        );
+
+        if (_side == Side.BUY) {
+            // For market BUY orders, user must deposit quote currency (e.g., USDC)
+            depositCurrency = _quoteCurrency;
+
+            // Get the best price from the sell side of the order book
+            IPoolManager.Pool memory pool = poolManager.getPool(key);
+            Price price;
+
+            if (_isMarketOrder) {
+                price = pool.orderBook.getBestPrice(Side.SELL).price;
+            } else {
+                price = _price;
+            }
+
+            // Calculate required USDC based on ETH quantity and price
+            requiredBalance = PoolIdLibrary.baseToQuote(
+                Quantity.unwrap(_quantity),
+                Price.unwrap(price),
+                _baseCurrency.decimals()
+            );
+        } else {
+            // For market SELL orders, user must deposit base currency (e.g., ETH)
+            depositCurrency = _baseCurrency;
+            requiredBalance = Quantity.unwrap(_quantity);
+        }
+
+        // Check balance in the balance manager or wallet
+        uint256 currentBalance = _isWalletDeposit
+            ? IERC20(Currency.unwrap(depositCurrency)).balanceOf(_caller)
+            : balanceManager.getBalance(_caller, depositCurrency);
+
+        if (currentBalance < requiredBalance) {
+            revert InsufficientBalance(requiredBalance, currentBalance);
+        }
+
+        return (depositCurrency, requiredBalance);
+    }
+
     function placeOrder(
         Currency _baseCurrency,
         Currency _quoteCurrency,
-        Price price,
-        Quantity quantity,
-        Side side,
-        address user
+        Price _price,
+        Quantity _quantity,
+        Side _side,
+        address _user
     ) public returns (OrderId orderId) {
+        (
+            Currency depositCurrency,
+            uint256 requiredBalance
+        ) = _validateCallerBalance(
+                msg.sender,
+                _side,
+                _baseCurrency,
+                _quoteCurrency,
+                _quantity,
+                _price,
+                false,
+                false
+            );
+
         PoolKey memory key = poolManager.createPoolKey(
             _baseCurrency,
             _quoteCurrency
         );
         IPoolManager.Pool memory pool = poolManager.getPool(key);
-        //TODO: allow TimeInForce from router params
         orderId = pool.orderBook.placeOrder(
-            price,
-            quantity,
-            side,
-            user,
+            _price,
+            _quantity,
+            _side,
+            _user,
             TimeInForce.GTC
         );
     }
@@ -50,55 +120,64 @@ contract GTXRouter is IOrderBookErrors {
     function placeOrderWithDeposit(
         Currency _baseCurrency,
         Currency _quoteCurrency,
-        Price price,
-        Quantity quantity,
-        Side side,
-        address user
+        Price _price,
+        Quantity _quantity,
+        Side _side,
+        address _user
     ) external returns (OrderId orderId) {
-        uint256 depositAmount;
-        Currency depositCurrency;
-
-        if (side == Side.BUY) {
-            depositAmount = PoolIdLibrary.baseToQuote(
-                Quantity.unwrap(quantity),
-                Price.unwrap(price),
-                _baseCurrency.decimals()
+        (
+            Currency depositCurrency,
+            uint256 requiredBalance
+        ) = _validateCallerBalance(
+                msg.sender,
+                _side,
+                _baseCurrency,
+                _quoteCurrency,
+                _quantity,
+                _price,
+                false,
+                true
             );
-            depositCurrency = _quoteCurrency;
-        } else {
-            depositAmount = Quantity.unwrap(quantity);
-            depositCurrency = _baseCurrency;
-        }
 
         IBalanceManager(balanceManager).deposit(
             depositCurrency,
-            depositAmount,
+            requiredBalance,
             msg.sender,
-            user
+            _user
         );
-
         orderId = placeOrder(
             _baseCurrency,
             _quoteCurrency,
-            price,
-            quantity,
-            side,
-            user
+            _price,
+            _quantity,
+            _side,
+            _user
         );
     }
 
     function placeMarketOrder(
         Currency _baseCurrency,
         Currency _quoteCurrency,
-        Quantity quantity,
-        Side side,
-        address user
+        Quantity _quantity,
+        Side _side,
+        address _user
     ) public returns (OrderId orderId) {
+        _validateCallerBalance(
+            msg.sender,
+            _side,
+            _baseCurrency,
+            _quoteCurrency,
+            _quantity,
+            Price.wrap(0),
+            true,
+            false
+        );
+
         PoolKey memory key = poolManager.createPoolKey(
             _baseCurrency,
             _quoteCurrency
         );
-        return _placeMarketOrder(key, quantity, side, user);
+        return _placeMarketOrder(key, _quantity, _side, _user);
     }
 
     function _placeMarketOrder(
@@ -156,52 +235,37 @@ contract GTXRouter is IOrderBookErrors {
     function placeMarketOrderWithDeposit(
         Currency _baseCurrency,
         Currency _quoteCurrency,
-        Quantity quantity,
-        Side side,
-        address user
+        Quantity _quantity,
+        Side _side,
+        address _user
     ) external returns (OrderId orderId) {
         PoolKey memory key = poolManager.createPoolKey(
             _baseCurrency,
             _quoteCurrency
         );
 
-        Currency depositCurrency;
-        uint256 depositAmount;
-
-        if (side == Side.BUY) {
-            // For market BUY orders, user must deposit quote currency (e.g., USDC)
-            depositCurrency = _quoteCurrency;
-
-            // Get the best price from the sell side of the order book
-            IPoolManager.Pool memory pool = poolManager.getPool(key);
-            IOrderBook.PriceVolume memory bestPrice = pool
-                .orderBook
-                .getBestPrice(Side.SELL);
-
-            if (Price.unwrap(bestPrice.price) == 0) {
-                revert OrderHasNoLiquidity();
-            }
-
-            // Calculate required USDC based on ETH quantity and price
-            depositAmount = PoolIdLibrary.baseToQuote(
-                Quantity.unwrap(quantity),
-                Price.unwrap(bestPrice.price),
-                _baseCurrency.decimals()
+        (
+            Currency depositCurrency,
+            uint256 requiredBalance
+        ) = _validateCallerBalance(
+                msg.sender,
+                _side,
+                _baseCurrency,
+                _quoteCurrency,
+                _quantity,
+                Price.wrap(0),
+                true,
+                true
             );
-        } else {
-            // For market SELL orders, user must deposit base currency (e.g., ETH)
-            depositCurrency = _baseCurrency;
-            depositAmount = Quantity.unwrap(quantity);
-        }
 
         IBalanceManager(balanceManager).deposit(
             depositCurrency,
-            depositAmount,
+            requiredBalance,
             msg.sender,
-            user
+            _user
         );
 
-        return _placeMarketOrder(key, quantity, side, user);
+        return _placeMarketOrder(key, _quantity, _side, _user);
     }
 
     function cancelOrder(

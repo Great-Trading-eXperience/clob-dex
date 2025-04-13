@@ -604,7 +604,7 @@ contract BalanceAndFeeTest is Test {
         console.log("Total trade value:", totalTradeValue);
     }
 
-    /*function testSingleMakerMultipleTakersPartialOrderMatchingWithHigherMakerQuantity()
+    function testSingleMakerMultipleTakersPartialOrderMatchingWithHigherMakerQuantity()
         public
     {
         console.log(
@@ -1037,7 +1037,7 @@ contract BalanceAndFeeTest is Test {
         }
     }
 
-    /*function testMultipleMakersSingleTakerPartialOrderMatchingWithHigherMakerQuantity() public {
+    function testMultipleMakersSingleTakerPartialOrderMatchingWithHigherMakerQuantity() public {
         console.log("\n=== MULTIPLE MAKERS SINGLE TAKER PARTIAL ORDER MATCHING WITH HIGHER MAKER QUANTITY TEST ===");
 
         // Get initial balances for all participants
@@ -1489,9 +1489,9 @@ contract BalanceAndFeeTest is Test {
         console.log("Fee collector received:");
         console.log("  Maker fees: ", aliceMakerFee, "WETH");
         console.log("  Taker fees: ", bobTakerFee, "USDC");
-    }*/
+    }
 
-    /*function testMultipleMakersSingleTakerPartialOrderMatchingWithHigherTakerQuantity() public {
+    function testMultipleMakersSingleTakerPartialOrderMatchingWithHigherTakerQuantity() public {
         console.log("\n=== MULTIPLE MAKERS SINGLE TAKER PARTIAL ORDER MATCHING WITH HIGHER TAKER QUANTITY TEST ===");
 
         // Get initial balances for all participants
@@ -2001,9 +2001,9 @@ contract BalanceAndFeeTest is Test {
         console.log("  Total taker fees: ", bobTakerFee, "USDC");
 
         console.log("Total trade value:", totalTradeValue, "USDC");
-    }*/
+    }
 
-    /*function testMarketOrderWithNoLiquidity() public {
+    function testMarketOrderWithNoLiquidity() public {
         console.log("\n=== MARKET ORDER WITH NO LIQUIDITY TEST ===");
 
         // Get initial balances for Bob
@@ -2129,7 +2129,7 @@ contract BalanceAndFeeTest is Test {
                 "Result: Market order was rejected (transaction reverted)"
             );
         }
-    }*/
+    }
 
     // Helper function to log balances
     function logBalance(string memory user, address addr) internal view {
