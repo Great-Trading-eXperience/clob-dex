@@ -15,6 +15,11 @@ import {MockToken} from "../src/mocks/MockToken.sol";
 import {GTXRouter} from "../src/GTXRouter.sol";
 import {BalanceManager} from "../src/BalanceManager.sol";
 
+import "@openzeppelin/contracts/proxy/beacon/UpgradeableBeacon.sol";
+import "@openzeppelin/contracts/proxy/beacon/BeaconProxy.sol";
+import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
+import {BeaconDeployer} from "./helpers/BeaconDeployer.t.sol";
+
 contract BalanceAndFeeTest is Test {
     IPoolManager.Pool public pool;
     OrderBook public orderBook;
@@ -85,15 +90,31 @@ contract BalanceAndFeeTest is Test {
             quoteCurrency: Currency.wrap(quoteTokenAddress)
         });
 
-        // Initialize contracts with fee configuration
-        balanceManager = new BalanceManager(
+        BeaconDeployer beaconDeployer = new BeaconDeployer();
+
+        (BeaconProxy balanceManagerProxy, address balanceManagerBeacon) = beaconDeployer.deployUpgradeableContract(
+            address(new BalanceManager()),
             owner,
-            feeCollector,
-            feeMaker,
-            feeTaker
+            abi.encodeCall(BalanceManager.initialize, (owner, feeCollector, feeMaker, feeTaker))
         );
-        poolManager = new PoolManager(owner, address(balanceManager));
-        router = new GTXRouter(address(poolManager), address(balanceManager));
+        balanceManager = BalanceManager(address(balanceManagerProxy));
+
+        IBeacon orderBookBeacon = new UpgradeableBeacon(address(new OrderBook()), owner);
+        address orderBookBeaconAddress = address(orderBookBeacon);
+
+        (BeaconProxy poolManagerProxy, address poolManagerBeacon) = beaconDeployer.deployUpgradeableContract(
+            address(new PoolManager()),
+            owner,
+            abi.encodeCall(PoolManager.initialize, (owner, address(balanceManager), address(orderBookBeaconAddress)))
+        );
+        poolManager = PoolManager(address(poolManagerProxy));
+
+        (BeaconProxy routerProxy, address gtxRouterBeacon) = beaconDeployer.deployUpgradeableContract(
+            address(new GTXRouter()),
+            owner,
+            abi.encodeCall(GTXRouter.initialize, (address(poolManager), address(balanceManager)))
+        );
+        router = GTXRouter(address(routerProxy));
 
         // Set up permissions and connections
         vm.startPrank(owner);

@@ -6,6 +6,11 @@ import "../src/BalanceManager.sol";
 import "../src/mocks/MockUSDC.sol";
 import "../src/mocks/MockWETH.sol";
 
+import "@openzeppelin/contracts/proxy/beacon/UpgradeableBeacon.sol";
+import "@openzeppelin/contracts/proxy/beacon/BeaconProxy.sol";
+import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
+import {BeaconDeployer} from "./helpers/BeaconDeployer.t.sol";
+
 contract BalanceManagerTest is Test {
     BalanceManager private balanceManager;
     address private owner = address(0x123);
@@ -22,8 +27,14 @@ contract BalanceManagerTest is Test {
     uint256 constant FEE_UNIT = 1000;
 
     function setUp() public {
-        balanceManager = new BalanceManager(owner, feeReceiver, feeMaker, feeTaker);
-        // balanceManager = new BalanceManager();
+        BeaconDeployer beaconDeployer = new BeaconDeployer();
+        (BeaconProxy beaconProxy,) = beaconDeployer.deployUpgradeableContract(
+            address(new BalanceManager()),
+            owner,
+            abi.encodeCall(BalanceManager.initialize, (owner, feeReceiver, feeMaker, feeTaker))
+        );
+
+        balanceManager = BalanceManager(address(beaconProxy));
 
         MockUSDC mockUSDC = new MockUSDC();
         MockWETH mockWETH = new MockWETH();

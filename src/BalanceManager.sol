@@ -2,12 +2,14 @@
 pragma solidity ^0.8.26;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {IBalanceManager} from "./interfaces/IBalanceManager.sol";
 import {Currency} from "./types/Currency.sol";
+import {OwnableUpgradeable} from "../lib/openzeppelin-contracts-upgradeable/contracts/access/OwnableUpgradeable.sol";
+import {ReentrancyAttackUpgradeable} from "../lib/openzeppelin-contracts-upgradeable/contracts/mocks/ReentrancyAttackUpgradeable.sol";
+import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import {ReentrancyGuardUpgradeable} from "../lib/openzeppelin-contracts-upgradeable/contracts/utils/ReentrancyGuardUpgradeable.sol";
 
-contract BalanceManager is IBalanceManager, Ownable, ReentrancyGuard {
+contract BalanceManager is IBalanceManager, OwnableUpgradeable, ReentrancyGuardUpgradeable {
     mapping(address owner => mapping(uint256 id => uint256 balance)) public balanceOf;
     mapping(address owner => mapping(address operator => mapping(uint256 id => uint256 amount)))
         public lockedBalanceOf;
@@ -19,12 +21,20 @@ contract BalanceManager is IBalanceManager, Ownable, ReentrancyGuard {
     uint256 public feeTaker; // e.g., 5 for 0.5%
     uint256 public constant FEE_UNIT = 1000;
 
-    constructor(
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
+    function initialize(
         address _owner,
         address _feeReceiver,
         uint256 _feeMaker,
         uint256 _feeTaker
-    ) Ownable(_owner) {
+    ) public initializer {
+        __Ownable_init(_owner);
+        ReentrancyGuardUpgradeable.__ReentrancyGuard_init();
+
         feeReceiver = _feeReceiver;
         feeMaker = _feeMaker;
         feeTaker = _feeTaker;

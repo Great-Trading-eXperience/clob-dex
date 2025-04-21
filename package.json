@@ -24,6 +24,7 @@
   "keywords": [],
   "license": "MIT",
   "dependencies": {
+    "@openzeppelin/upgrades-core": "^1.44.0",
     "dotenv": "~16.3.1",
     "envfile": "~6.18.0",
     "ethers": "~5.7.1",
