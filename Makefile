@@ -12,7 +12,7 @@ network ?= $(DEFAULT_NETWORK)
 
 # Helper function to run forge script
 define forge_script
-	forge script script/Deploy.s.sol --rpc-url $(network) -vvvv --broadcast --via-ir
+	forge script script/DeployUpgradeableBeacon.s.sol:DeployScript --rpc-url $(network) -vvvv --broadcast --via-ir --force
 endef
 
 # Define a target to deploy using the specified network

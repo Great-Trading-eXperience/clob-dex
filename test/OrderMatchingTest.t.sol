@@ -1,3 +1,4 @@
+
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.26;
 
@@ -13,10 +14,14 @@ import {Price} from "../src/libraries/BokkyPooBahsRedBlackTreeLibrary.sol";
 import {ERC20Mock} from "@openzeppelin/contracts/mocks/token/ERC20Mock.sol";
 import {MockToken} from "../src/mocks/MockToken.sol";
 import {GTXRouter} from "../src/GTXRouter.sol";
-// import {MockBalanceManager} from "../src/mocks/MockBalanceManager.sol";
+import "@openzeppelin/contracts/proxy/beacon/UpgradeableBeacon.sol";
+import "@openzeppelin/contracts/proxy/beacon/BeaconProxy.sol";
+import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
+import {BeaconDeployer} from "./helpers/BeaconDeployer.t.sol";
 
 import {Test, console} from "forge-std/Test.sol";
 import {BalanceManager} from "../src/BalanceManager.sol";
+import {BeaconDeployer} from "./helpers/BeaconDeployer.t.sol";
 
 contract OrderMatchingTest is Test {
     OrderBook public orderBook;
@@ -74,14 +79,33 @@ contract OrderMatchingTest is Test {
             quoteCurrency: Currency.wrap(quoteTokenAddress)
         });
 
-        BalanceManager balanceManager = new BalanceManager(
+
+        BeaconDeployer beaconDeployer = new BeaconDeployer();
+
+        (BeaconProxy balanceManagerProxy, address balanceManagerBeacon) = beaconDeployer.deployUpgradeableContract(
+            address(new BalanceManager()),
             owner,
-            owner,
-            feeMaker,
-            feeTaker
+            abi.encodeCall(BalanceManager.initialize, (owner, owner, feeMaker, feeTaker))
         );
-        poolManager = new PoolManager(owner, address(balanceManager));
-        router = new GTXRouter(address(poolManager), address(balanceManager));
+        balanceManager = BalanceManager(address(balanceManagerProxy));
+
+        IBeacon orderBookBeacon = new UpgradeableBeacon(address(new OrderBook()), owner);
+        address orderBookBeaconAddress = address(orderBookBeacon);
+
+        (BeaconProxy poolManagerProxy, address poolManagerBeacon) = beaconDeployer.deployUpgradeableContract(
+            address(new PoolManager()),
+            owner,
+            abi.encodeCall(PoolManager.initialize, (owner, address(balanceManager), address(orderBookBeaconAddress)))
+        );
+        poolManager = PoolManager(address(poolManagerProxy));
+
+        (BeaconProxy routerProxy, address gtxRouterBeacon) = beaconDeployer.deployUpgradeableContract(
+            address(new GTXRouter()),
+            owner,
+            abi.encodeCall(GTXRouter.initialize, (address(poolManager), address(balanceManager)))
+        );
+        router = GTXRouter(address(routerProxy));
+
 
         vm.startPrank(owner);
         balanceManager.setAuthorizedOperator(address(poolManager), true);

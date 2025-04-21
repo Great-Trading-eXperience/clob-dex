@@ -1,3 +1,4 @@
+/*
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.26;
 
@@ -23,7 +24,7 @@ contract DeployContracts is Script {
     function run() public returns (address, address, address) {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         address owner = vm.addr(deployerPrivateKey);
-        
+
         vm.startBroadcast(deployerPrivateKey);
 
         uint256 feeMaker = 1; // Example fee maker value
@@ -68,3 +69,4 @@ contract DeployContracts is Script {
         return (address(balanceManager), address(poolManager), address(router));
     }
 }
+*/

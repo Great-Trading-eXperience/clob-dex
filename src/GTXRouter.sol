@@ -1,25 +1,34 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.26;
 
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {IOrderBook} from "./interfaces/IOrderBook.sol";
-import {IBalanceManager} from "./interfaces/IBalanceManager.sol";
-import {IPoolManager} from "./interfaces/IPoolManager.sol";
-import {IOrderBookErrors} from "./interfaces/IOrderBookErrors.sol";
-import {OrderId, Quantity, Side, TimeInForce} from "./types/Types.sol";
+import "./interfaces/IOrderBook.sol";
 import {Currency} from "./types/Currency.sol";
+import {IBalanceManager} from "./interfaces/IBalanceManager.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {IOrderBookErrors} from "./interfaces/IOrderBookErrors.sol";
+import {IOrderBook} from "./interfaces/IOrderBook.sol";
+import {IPoolManager} from "./interfaces/IPoolManager.sol";
+import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import {OrderId, Quantity, Side, TimeInForce} from "./types/Types.sol";
 import {PoolKey, PoolIdLibrary} from "./types/Pool.sol";
 import {Price} from "./libraries/BokkyPooBahsRedBlackTreeLibrary.sol";
-
+import {OwnableUpgradeable} from "../lib/openzeppelin-contracts-upgradeable/contracts/access/OwnableUpgradeable.sol";
 /// @title GTXRouter - A router for interacting with the OrderBook
 /// @notice Provides functions to place and cancel orders
-contract GTXRouter is IOrderBookErrors {
+contract GTXRouter is Initializable, OwnableUpgradeable, IOrderBookErrors {
     using PoolIdLibrary for PoolKey;
 
     IPoolManager public poolManager;
     IBalanceManager public balanceManager;
 
-    constructor(address _poolManager, address _balanceManager) {
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
+    function initialize(
+        address _poolManager, address _balanceManager
+    ) public initializer {
         poolManager = IPoolManager(_poolManager);
         balanceManager = IBalanceManager(_balanceManager);
     }

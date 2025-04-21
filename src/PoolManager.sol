@@ -10,12 +10,15 @@ import {IOrderBook} from "./interfaces/IOrderBook.sol";
 import {IPoolManager} from "./interfaces/IPoolManager.sol";
 import {IBalanceManager} from "./interfaces/IBalanceManager.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import {Upgrades} from "../lib/openzeppelin-foundry-upgrades/src/Upgrades.sol";
 
-import "forge-std/console.sol";
 
-contract PoolManager is Ownable, IPoolManager {
+contract PoolManager is Initializable, OwnableUpgradeable, IPoolManager {
     address private balanceManager;
     address private router;
+    address private orderBookBeacon;
 
     mapping(PoolId => Pool) public pools;
 
@@ -35,8 +38,15 @@ contract PoolManager is Ownable, IPoolManager {
     event IntermediaryRemoved(Currency currency);
     event PoolLiquidityUpdated(PoolId poolId, uint256 newLiquidity);
 
-    constructor(address _owner, address _balanceManager) Ownable(_owner) {
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
+    function initialize(address _owner, address _balanceManager, address _orderBookBeacon) public initializer {
+        __Ownable_init(_owner);
         balanceManager = _balanceManager;
+        orderBookBeacon = _orderBookBeacon;
     }
 
     function getPool(
@@ -72,11 +82,17 @@ contract PoolManager is Ownable, IPoolManager {
 
         PoolKey memory key = createPoolKey(_baseCurrency, _quoteCurrency);
         PoolId id = key.toId();
-        IOrderBook orderBook = new OrderBook(address(this), balanceManager, _tradingRules, key);
+
+        address orderBookProxy = Upgrades.deployBeaconProxy(
+            orderBookBeacon,
+            abi.encodeCall(OrderBook.initialize, (address(this), balanceManager, _tradingRules, key))
+        );
+
+        IOrderBook orderBookInterface = IOrderBook(orderBookProxy);
 
         // Effects: Update the state before any external interaction
         pools[id] = Pool({
-            orderBook: orderBook,
+            orderBook: orderBookInterface,
             baseCurrency: key.baseCurrency,
             quoteCurrency: key.quoteCurrency
         });
@@ -98,10 +114,10 @@ contract PoolManager is Ownable, IPoolManager {
         poolLiquidity[id] = 1;
 
         // Interactions: External calls after state changes
-        orderBook.setRouter(router);
-        IBalanceManager(balanceManager).setAuthorizedOperator(address(orderBook), true);
+        orderBookInterface.setRouter(router);
+        IBalanceManager(balanceManager).setAuthorizedOperator(address(orderBookProxy), true);
 
-        emit PoolCreated(id, address(orderBook), key.baseCurrency, key.quoteCurrency);
+        emit PoolCreated(id, address(orderBookProxy), key.baseCurrency, key.quoteCurrency);
 
         return id;
     }

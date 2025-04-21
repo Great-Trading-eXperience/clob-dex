@@ -10,6 +10,11 @@ import "../src/mocks/MockWETH.sol";
 import "../src/mocks/MockToken.sol";
 import "../src/OrderBook.sol";
 import {IOrderBookErrors} from "../src/interfaces/IOrderBookErrors.sol";
+import "@openzeppelin/contracts/proxy/beacon/UpgradeableBeacon.sol";
+import "@openzeppelin/contracts/proxy/beacon/BeaconProxy.sol";
+import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
+import {BeaconDeployer} from "./helpers/BeaconDeployer.t.sol";
+import {Side} from "../src/types/Types.sol";
 
 contract GTXRouterTest is Test {
     GTXRouter private gtxRouter;
@@ -41,28 +46,38 @@ contract GTXRouterTest is Test {
     uint256 private initialBalanceWETH = 1e18;
 
     // Default trading rules
-    OrderBook.TradingRules private defaultTradingRules;
+    IOrderBook.TradingRules private defaultTradingRules;
 
     function setUp() public {
-        balanceManager = new BalanceManager(
+        BeaconDeployer beaconDeployer = new BeaconDeployer();
+
+        (BeaconProxy balanceManagerProxy, address balanceManagerBeacon) = beaconDeployer.deployUpgradeableContract(
+            address(new BalanceManager()),
             owner,
-            feeReceiver,
-            feeMaker,
-            feeTaker
+            abi.encodeCall(BalanceManager.initialize, (owner, feeReceiver, feeMaker, feeTaker))
         );
-        poolManager = new PoolManager(owner, address(balanceManager));
-        gtxRouter = new GTXRouter(
-            address(poolManager),
-            address(balanceManager)
+        balanceManager = BalanceManager(address(balanceManagerProxy));
+
+        IBeacon orderBookBeacon = new UpgradeableBeacon(address(new OrderBook()), owner);
+        address orderBookBeaconAddress = address(orderBookBeacon);
+
+        (BeaconProxy poolManagerProxy, address poolManagerBeacon) = beaconDeployer.deployUpgradeableContract(
+            address(new PoolManager()),
+            owner,
+            abi.encodeCall(PoolManager.initialize, (owner, address(balanceManager), address(orderBookBeaconAddress)))
         );
+        poolManager = PoolManager(address(poolManagerProxy));
+
+        (BeaconProxy routerProxy, address gtxRouterBeacon) = beaconDeployer.deployUpgradeableContract(
+            address(new GTXRouter()),
+            owner,
+            abi.encodeCall(GTXRouter.initialize, (address(poolManager), address(balanceManager)))
+        );
+        gtxRouter = GTXRouter(address(routerProxy));
 
         mockUSDC = new MockUSDC();
         mockWETH = new MockWETH();
         mockWBTC = new MockToken("Mock WBTC", "mWBTC", 8);
-
-        // Only mint to the user address in setup
-        mockUSDC.mint(user, initialBalanceUSDC);
-        mockWETH.mint(user, initialBalanceWETH);
 
         usdc = Currency.wrap(address(mockUSDC));
         weth = Currency.wrap(address(mockWETH));
@@ -689,7 +704,8 @@ contract GTXRouterTest is Test {
 
     function testPlaceOrderWithDeposit() public {
         uint256 depositAmount = 10 ether;
-        vm.startPrank(user);
+        vm.startPrank(alice);
+        mockWETH.mint(alice, depositAmount);
         IERC20(Currency.unwrap(weth)).approve(
             address(balanceManager),
             depositAmount

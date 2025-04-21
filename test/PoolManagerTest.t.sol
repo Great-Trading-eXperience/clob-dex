@@ -7,6 +7,10 @@ import "../src/BalanceManager.sol";
 import "../src/mocks/MockUSDC.sol";
 import "../src/mocks/MockWETH.sol";
 import "../src/OrderBook.sol";
+import "@openzeppelin/contracts/proxy/beacon/UpgradeableBeacon.sol";
+import "@openzeppelin/contracts/proxy/beacon/BeaconProxy.sol";
+import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
+import {BeaconDeployer} from "./helpers/BeaconDeployer.t.sol";
 
 contract PoolManagerTest is Test {
     PoolManager private poolManager;
@@ -33,9 +37,24 @@ contract PoolManagerTest is Test {
     IOrderBook.TradingRules private defaultTradingRules;
 
     function setUp() public {
-        balanceManager = new BalanceManager(owner, feeReceiver, feeMaker, feeTaker);
-        // balanceManager = new BalanceManager();
-        poolManager = new PoolManager(owner, address(balanceManager));
+        BeaconDeployer beaconDeployer = new BeaconDeployer();
+
+        (BeaconProxy balanceManagerProxy, address balanceManagerBeacon) = beaconDeployer.deployUpgradeableContract(
+            address(new BalanceManager()),
+            owner,
+            abi.encodeCall(BalanceManager.initialize, (owner, feeReceiver, feeMaker, feeTaker))
+        );
+        balanceManager = BalanceManager(address(balanceManagerProxy));
+
+        IBeacon orderBookBeacon = new UpgradeableBeacon(address(new OrderBook()), owner);
+        address orderBookBeaconAddress = address(orderBookBeacon);
+
+        (BeaconProxy poolManagerProxy, address poolManagerBeacon) = beaconDeployer.deployUpgradeableContract(
+            address(new PoolManager()),
+            owner,
+            abi.encodeCall(PoolManager.initialize, (owner, address(balanceManager), address(orderBookBeaconAddress)))
+        );
+        poolManager = PoolManager(address(poolManagerProxy));
 
         mockUSDC = new MockUSDC();
         mockWETH = new MockWETH();

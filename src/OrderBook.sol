@@ -14,11 +14,14 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Currency} from "./types/Currency.sol";
 import {IBalanceManager} from "./interfaces/IBalanceManager.sol";
 import {PoolIdLibrary} from "./types/Pool.sol";
+import {ReentrancyGuardUpgradeable} from "../lib/openzeppelin-contracts-upgradeable/contracts/utils/ReentrancyGuardUpgradeable.sol";
+import {OwnableUpgradeable} from "../lib/openzeppelin-contracts-upgradeable/contracts/access/OwnableUpgradeable.sol";
+import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
 /// @title OrderBook - A Central Limit Order Book implementation
 /// @notice Manages limit and market orders in a decentralized exchange
 /// @dev Implements price-time priority matching with reentrance protection
-contract OrderBook is Ownable, IOrderBook, ReentrancyGuard, IOrderBookErrors {
+contract OrderBook is Initializable, OwnableUpgradeable, ReentrancyGuardUpgradeable, IOrderBook, IOrderBookErrors {
     using RBTree for RBTree.Tree;
     using OrderQueueLib for OrderQueueLib.OrderQueue;
     using OrderMatching for *;
@@ -35,20 +38,29 @@ contract OrderBook is Ownable, IOrderBook, ReentrancyGuard, IOrderBookErrors {
     uint8 private constant MAX_OPEN_LIMIT_ORDER = 100;
     address private balanceManager;
     address private router;
-    uint48 private nextOrderId = 1;
+    uint48 private nextOrderId;
     PoolKey private poolKey;
     bool private tradingPaused;
     TradingRules private tradingRules;
 
-    constructor(
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
+    function initialize(
         address _poolManager,
         address _balanceManager,
         TradingRules memory _tradingRules,
         PoolKey memory _poolKey
-    ) Ownable(_poolManager) {
+    ) public initializer {
+        __Ownable_init(_poolManager);
+        __ReentrancyGuard_init();
+
         balanceManager = _balanceManager;
         tradingRules = _tradingRules;
         poolKey = _poolKey;
+        nextOrderId = 1;
     }
 
     // Restrict access to authorized only
