@@ -13,44 +13,9 @@ import {PoolManagerStorage} from "./storages/PoolManagerStorage.sol";
 
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import {Upgrades} from "../lib/openzeppelin-foundry-upgrades/src/Upgrades.sol";
 
-contract PoolManager is Initializable, OwnableUpgradeable, IPoolManager {
-    address private balanceManager;
-    address private router;
-    address private orderBookBeacon;
-
-    mapping(PoolId => Pool) public pools;
-
-    // Track all currencies that have at least one pool
-    mapping(Currency => bool) public registeredCurrencies;
-    Currency[] public allCurrencies;
-
-    // Common intermediaries (prioritized for routing)
-    Currency[] public commonIntermediaries;
-    mapping(Currency => bool) public isCommonIntermediary;
-
-    // Liquidity ranking for path finding (higher is better)
-    mapping(PoolId => uint256) public poolLiquidity;
-
-    // Pool address mapping
-    mapping(address => bool) public isValidPool;
-
-    event CurrencyAdded(Currency currency);
-    event IntermediaryAdded(Currency currency);
-    event IntermediaryRemoved(Currency currency);
-    event PoolLiquidityUpdated(PoolId poolId, uint256 newLiquidity);
-
-    /// @custom:oz-upgrades-unsafe-allow constructor
-    constructor() {
-        _disableInitializers();
-    }
-
-    function initialize(
-        address _owner,
-        address _balanceManager,
-        address _orderBookBeacon
-    ) public initializer {
+contract PoolManager is Initializable, OwnableUpgradeable, PoolManagerStorage, IPoolManager {
+    function initialize(address _owner, address _balanceManager, address _orderBookBeacon) public initializer {
         __Ownable_init(_owner);
         Storage storage $ = getStorage();
         $.balanceManager = _balanceManager;
@@ -93,10 +58,8 @@ contract PoolManager is Initializable, OwnableUpgradeable, IPoolManager {
         PoolId id = key.toId();
 
         address orderBookProxy = Upgrades.deployBeaconProxy(
-            orderBookBeacon,
-            abi.encodeCall(
-                OrderBook.initialize, (address(this), balanceManager, _tradingRules, key)
-            )
+            $.orderBookBeacon,
+            abi.encodeCall(OrderBook.initialize, (address(this), $.balanceManager, _tradingRules, key))
         );
         isValidPool[orderBookProxy] = true;
 
