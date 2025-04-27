@@ -1,16 +1,19 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.26;
 
-import {Test, console} from "forge-std/Test.sol";
-import "../src/PoolManager.sol";
 import "../src/BalanceManager.sol";
+
+import "../src/OrderBook.sol";
+import "../src/PoolManager.sol";
 import "../src/mocks/MockUSDC.sol";
 import "../src/mocks/MockWETH.sol";
-import "../src/OrderBook.sol";
-import "@openzeppelin/contracts/proxy/beacon/UpgradeableBeacon.sol";
-import "@openzeppelin/contracts/proxy/beacon/BeaconProxy.sol";
-import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
+
 import {BeaconDeployer} from "./helpers/BeaconDeployer.t.sol";
+import "@openzeppelin/contracts/proxy/beacon/BeaconProxy.sol";
+import "@openzeppelin/contracts/proxy/beacon/UpgradeableBeacon.sol";
+import {Test, console} from "forge-std/Test.sol";
+
+import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
 
 contract PoolManagerTest is Test {
     PoolManager private poolManager;
@@ -68,11 +71,10 @@ contract PoolManagerTest is Test {
 
         // Initialize default trading rules
         defaultTradingRules = IOrderBook.TradingRules({
-            minTradeAmount: Quantity.wrap(uint128(1e14)), // 0.0001 ETH,
-            minAmountMovement: Quantity.wrap(uint128(1e14)), // 0.0001 ETH
-            minOrderSize: Quantity.wrap(uint128(5e6)), // 5 USDC
-            minPriceMovement: Quantity.wrap(uint128(1e4)), // 0.01 USDC with 6 decimals
-            slippageTreshold: 20 // 20%
+            minTradeAmount: 1e14, // 0.0001 ETH,
+            minAmountMovement: 1e14, // 0.0001 ETH
+            minOrderSize: 5e6, // 5 USDC
+            minPriceMovement: 1e4 // 0.01 USDC with 6 decimals
         });
 
         // Transfer ownership of BalanceManager to PoolManager

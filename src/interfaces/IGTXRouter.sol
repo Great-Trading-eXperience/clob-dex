@@ -1,42 +1,67 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.26;
 
-import {OrderId, Quantity, Side} from "../types/Types.sol";
-import {Currency} from "../types/Currency.sol";
-import {PoolKey} from "../types/Pool.sol";
-import {Price} from "../libraries/BokkyPooBahsRedBlackTreeLibrary.sol";
+import {Currency} from "../libraries/Currency.sol";
+import {PoolKey} from "../libraries/Pool.sol";
+import {IOrderBook} from "./IOrderBook.sol";
+import {IPoolManager} from "./IPoolManager.sol";
 
 interface IGTXRouter {
     function placeOrder(
-        PoolKey calldata key,
-        Price price,
-        Quantity quantity,
-        Side side,
-        address user
-    ) external returns (OrderId orderId);
+        IPoolManager.Pool memory pool,
+        uint128 _price,
+        uint128 _quantity,
+        IOrderBook.Side _side,
+        address _user
+    ) external returns (uint48 orderId);
 
     function placeOrderWithDeposit(
-        PoolKey calldata key,
-        Price price,
-        Quantity quantity,
-        Side side,
-        address user
-    ) external returns (OrderId orderId);
+        IPoolManager.Pool memory pool,
+        uint128 _price,
+        uint128 _quantity,
+        IOrderBook.Side _side,
+        address _user
+    ) external returns (uint48 orderId);
 
     function placeMarketOrder(
-        PoolKey calldata key,
-        Quantity quantity,
-        Side side,
-        address user
-    ) external returns (OrderId orderId);
+        IPoolManager.Pool memory pool,
+        uint128 _quantity,
+        IOrderBook.Side _side,
+        address _user
+    ) external returns (uint48 orderId);
 
     function placeMarketOrderWithDeposit(
-        PoolKey calldata key,
-        Price price,
-        Quantity quantity,
-        Side side,
-        address user
-    ) external returns (OrderId orderId);
+        IPoolManager.Pool memory pool,
+        uint128 _quantity,
+        IOrderBook.Side _side,
+        address _user
+    ) external returns (uint48 orderId);
 
-    function cancelOrder(PoolKey calldata key, Side side, Price price, OrderId orderId) external;
+    function cancelOrder(IPoolManager.Pool memory pool, uint48 orderId) external;
+
+    function getBestPrice(
+        Currency _baseCurrency,
+        Currency _quoteCurrency,
+        IOrderBook.Side side
+    ) external view returns (IOrderBook.PriceVolume memory);
+
+    function getOrderQueue(
+        Currency _baseCurrency,
+        Currency _quoteCurrency,
+        IOrderBook.Side side,
+        uint128 price
+    ) external view returns (uint48 orderCount, uint256 totalVolume);
+
+    function getOrder(
+        Currency _baseCurrency,
+        Currency _quoteCurrency,
+        uint48 orderId
+    ) external view returns (IOrderBook.Order memory);
+
+    function getNextBestPrices(
+        IPoolManager.Pool memory pool,
+        IOrderBook.Side side,
+        uint128 price,
+        uint8 count
+    ) external view returns (IOrderBook.PriceVolume[] memory);
 }

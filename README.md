@@ -60,9 +60,6 @@ mapping(Side => RBTree.Tree) private priceTrees;
 
 // Order Queues at Each Price Level
 mapping(Side => mapping(Price => OrderQueueLib.OrderQueue)) private orderQueues;
-
-// User's Active Orders
-mapping(address => EnumerableSet.UintSet) private activeUserOrders;
 ```
 
 ### 👀 View Functions

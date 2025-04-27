@@ -1,3 +1,4 @@
+/*
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.26;
 
@@ -212,3 +213,4 @@ contract CreateMockPools is Script {
         console.log("Environment variables set for subsequent script executions");
     }
 }
+*/

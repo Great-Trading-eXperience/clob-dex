@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: SEE LICENSE IN LICENSE
 pragma solidity ^0.8.20;
 
-import {ERC20Mock} from "@openzeppelin/contracts/mocks/token/ERC20Mock.sol";
+import {MockToken} from "../src/mocks/MockToken.sol";
 import {MockUSDC} from "../src/mocks/MockUSDC.sol";
 import {MockWETH} from "../src/mocks/MockWETH.sol";
 import {DeployHelpers} from "./DeployHelpers.s.sol";
-import {MockToken} from "../src/mocks/MockToken.sol";
+import {ERC20Mock} from "@openzeppelin/contracts/mocks/token/ERC20Mock.sol";
 
 contract HelperConfig is DeployHelpers {
     NetworkConfig public activeNetworkConfig;

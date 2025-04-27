@@ -40,30 +40,6 @@ export const deployedContracts: DeployedContracts = {
         },
         {
           type: "function",
-          name: "balanceOf",
-          inputs: [
-            {
-              name: "owner",
-              type: "address",
-              internalType: "address",
-            },
-            {
-              name: "id",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          outputs: [
-            {
-              name: "balance",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
           name: "deposit",
           inputs: [
             {
@@ -92,6 +68,40 @@ export const deployedContracts: DeployedContracts = {
         },
         {
           type: "function",
+          name: "depositAndLock",
+          inputs: [
+            {
+              name: "currency",
+              type: "address",
+              internalType: "Currency",
+            },
+            {
+              name: "amount",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "user",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "orderBook",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
           name: "feeMaker",
           inputs: [],
           outputs: [
@@ -99,6 +109,19 @@ export const deployedContracts: DeployedContracts = {
               name: "",
               type: "uint256",
               internalType: "uint256",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "feeReceiver",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "address",
+              internalType: "address",
             },
           ],
           stateMutability: "view",
@@ -222,32 +245,31 @@ export const deployedContracts: DeployedContracts = {
         },
         {
           type: "function",
-          name: "lockedBalanceOf",
+          name: "lock",
           inputs: [
             {
-              name: "owner",
+              name: "user",
               type: "address",
               internalType: "address",
             },
             {
-              name: "operator",
+              name: "currency",
               type: "address",
-              internalType: "address",
+              internalType: "Currency",
             },
-            {
-              name: "id",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          outputs: [
             {
               name: "amount",
               type: "uint256",
               internalType: "uint256",
             },
+            {
+              name: "orderBook",
+              type: "address",
+              internalType: "address",
+            },
           ],
-          stateMutability: "view",
+          outputs: [],
+          stateMutability: "nonpayable",
         },
         {
           type: "function",
@@ -612,11 +634,6 @@ export const deployedContracts: DeployedContracts = {
         },
         {
           type: "error",
-          name: "ERC20TransferFailed",
-          inputs: [],
-        },
-        {
-          type: "error",
           name: "InsufficientBalance",
           inputs: [
             {
@@ -723,7 +740,9 @@ export const deployedContracts: DeployedContracts = {
       ],
       inheritedFunctions: {
         deposit: "src/interfaces/IBalanceManager.sol",
+        depositAndLock: "src/interfaces/IBalanceManager.sol",
         getBalance: "src/interfaces/IBalanceManager.sol",
+        getLockedBalance: "src/interfaces/IBalanceManager.sol",
         lock: "src/interfaces/IBalanceManager.sol",
         setAuthorizedOperator: "src/interfaces/IBalanceManager.sol",
         setFees: "src/interfaces/IBalanceManager.sol",
@@ -744,11 +763,6 @@ export const deployedContracts: DeployedContracts = {
       address: "0xe7f1725e7734ce288f8367e1bb143e90bb3f0512",
       abi: [
         {
-          type: "constructor",
-          inputs: [],
-          stateMutability: "nonpayable",
-        },
-        {
           type: "function",
           name: "addCommonIntermediary",
           inputs: [
@@ -760,44 +774,6 @@ export const deployedContracts: DeployedContracts = {
           ],
           outputs: [],
           stateMutability: "nonpayable",
-        },
-        {
-          type: "function",
-          name: "allCurrencies",
-          inputs: [
-            {
-              name: "",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          outputs: [
-            {
-              name: "",
-              type: "address",
-              internalType: "Currency",
-            },
-          ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
-          name: "commonIntermediaries",
-          inputs: [
-            {
-              name: "",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          outputs: [
-            {
-              name: "",
-              type: "address",
-              internalType: "Currency",
-            },
-          ],
-          stateMutability: "view",
         },
         {
           type: "function",
@@ -821,27 +797,22 @@ export const deployedContracts: DeployedContracts = {
                 {
                   name: "minTradeAmount",
                   type: "uint128",
-                  internalType: "Quantity",
+                  internalType: "uint128",
                 },
                 {
                   name: "minAmountMovement",
                   type: "uint128",
-                  internalType: "Quantity",
+                  internalType: "uint128",
                 },
                 {
                   name: "minPriceMovement",
                   type: "uint128",
-                  internalType: "Quantity",
+                  internalType: "uint128",
                 },
                 {
                   name: "minOrderSize",
                   type: "uint128",
-                  internalType: "Quantity",
-                },
-                {
-                  name: "slippageTreshold",
-                  type: "uint8",
-                  internalType: "uint8",
+                  internalType: "uint128",
                 },
               ],
             },
@@ -1045,25 +1016,6 @@ export const deployedContracts: DeployedContracts = {
         },
         {
           type: "function",
-          name: "isCommonIntermediary",
-          inputs: [
-            {
-              name: "",
-              type: "address",
-              internalType: "Currency",
-            },
-          ],
-          outputs: [
-            {
-              name: "",
-              type: "bool",
-              internalType: "bool",
-            },
-          ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
           name: "owner",
           inputs: [],
           outputs: [
@@ -1086,73 +1038,6 @@ export const deployedContracts: DeployedContracts = {
             },
             {
               name: "currency2",
-              type: "address",
-              internalType: "Currency",
-            },
-          ],
-          outputs: [
-            {
-              name: "",
-              type: "bool",
-              internalType: "bool",
-            },
-          ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
-          name: "poolLiquidity",
-          inputs: [
-            {
-              name: "",
-              type: "bytes32",
-              internalType: "PoolId",
-            },
-          ],
-          outputs: [
-            {
-              name: "",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
-          name: "pools",
-          inputs: [
-            {
-              name: "",
-              type: "bytes32",
-              internalType: "PoolId",
-            },
-          ],
-          outputs: [
-            {
-              name: "baseCurrency",
-              type: "address",
-              internalType: "Currency",
-            },
-            {
-              name: "quoteCurrency",
-              type: "address",
-              internalType: "Currency",
-            },
-            {
-              name: "orderBook",
-              type: "address",
-              internalType: "contract IOrderBook",
-            },
-          ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
-          name: "registeredCurrencies",
-          inputs: [
-            {
-              name: "",
               type: "address",
               internalType: "Currency",
             },
@@ -1448,19 +1333,31 @@ export const deployedContracts: DeployedContracts = {
           name: "cancelOrder",
           inputs: [
             {
-              name: "_baseCurrency",
-              type: "address",
-              internalType: "Currency",
-            },
-            {
-              name: "_quoteCurrency",
-              type: "address",
-              internalType: "Currency",
+              name: "pool",
+              type: "tuple",
+              internalType: "struct IPoolManager.Pool",
+              components: [
+                {
+                  name: "baseCurrency",
+                  type: "address",
+                  internalType: "Currency",
+                },
+                {
+                  name: "quoteCurrency",
+                  type: "address",
+                  internalType: "Currency",
+                },
+                {
+                  name: "orderBook",
+                  type: "address",
+                  internalType: "contract IOrderBook",
+                },
+              ],
             },
             {
               name: "orderId",
               type: "uint48",
-              internalType: "OrderId",
+              internalType: "uint48",
             },
           ],
           outputs: [],
@@ -1483,7 +1380,7 @@ export const deployedContracts: DeployedContracts = {
             {
               name: "side",
               type: "uint8",
-              internalType: "enum Side",
+              internalType: "enum IOrderBook.Side",
             },
           ],
           outputs: [
@@ -1494,8 +1391,8 @@ export const deployedContracts: DeployedContracts = {
               components: [
                 {
                   name: "price",
-                  type: "uint256",
-                  internalType: "Price",
+                  type: "uint128",
+                  internalType: "uint128",
                 },
                 {
                   name: "volume",
@@ -1512,24 +1409,36 @@ export const deployedContracts: DeployedContracts = {
           name: "getNextBestPrices",
           inputs: [
             {
-              name: "_baseCurrency",
-              type: "address",
-              internalType: "Currency",
-            },
-            {
-              name: "_quoteCurrency",
-              type: "address",
-              internalType: "Currency",
+              name: "pool",
+              type: "tuple",
+              internalType: "struct IPoolManager.Pool",
+              components: [
+                {
+                  name: "baseCurrency",
+                  type: "address",
+                  internalType: "Currency",
+                },
+                {
+                  name: "quoteCurrency",
+                  type: "address",
+                  internalType: "Currency",
+                },
+                {
+                  name: "orderBook",
+                  type: "address",
+                  internalType: "contract IOrderBook",
+                },
+              ],
             },
             {
               name: "side",
               type: "uint8",
-              internalType: "enum Side",
+              internalType: "enum IOrderBook.Side",
             },
             {
               name: "price",
-              type: "uint256",
-              internalType: "Price",
+              type: "uint128",
+              internalType: "uint128",
             },
             {
               name: "count",
@@ -1545,13 +1454,99 @@ export const deployedContracts: DeployedContracts = {
               components: [
                 {
                   name: "price",
-                  type: "uint256",
-                  internalType: "Price",
+                  type: "uint128",
+                  internalType: "uint128",
                 },
                 {
                   name: "volume",
                   type: "uint256",
                   internalType: "uint256",
+                },
+              ],
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "getOrder",
+          inputs: [
+            {
+              name: "_baseCurrency",
+              type: "address",
+              internalType: "Currency",
+            },
+            {
+              name: "_quoteCurrency",
+              type: "address",
+              internalType: "Currency",
+            },
+            {
+              name: "orderId",
+              type: "uint48",
+              internalType: "uint48",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "tuple",
+              internalType: "struct IOrderBook.Order",
+              components: [
+                {
+                  name: "user",
+                  type: "address",
+                  internalType: "address",
+                },
+                {
+                  name: "id",
+                  type: "uint48",
+                  internalType: "uint48",
+                },
+                {
+                  name: "next",
+                  type: "uint48",
+                  internalType: "uint48",
+                },
+                {
+                  name: "quantity",
+                  type: "uint128",
+                  internalType: "uint128",
+                },
+                {
+                  name: "filled",
+                  type: "uint128",
+                  internalType: "uint128",
+                },
+                {
+                  name: "price",
+                  type: "uint128",
+                  internalType: "uint128",
+                },
+                {
+                  name: "prev",
+                  type: "uint48",
+                  internalType: "uint48",
+                },
+                {
+                  name: "expiry",
+                  type: "uint48",
+                  internalType: "uint48",
+                },
+                {
+                  name: "status",
+                  type: "uint8",
+                  internalType: "enum IOrderBook.Status",
+                },
+                {
+                  name: "orderType",
+                  type: "uint8",
+                  internalType: "enum IOrderBook.OrderType",
+                },
+                {
+                  name: "side",
+                  type: "uint8",
+                  internalType: "enum IOrderBook.Side",
                 },
               ],
             },
@@ -1575,12 +1570,12 @@ export const deployedContracts: DeployedContracts = {
             {
               name: "side",
               type: "uint8",
-              internalType: "enum Side",
+              internalType: "enum IOrderBook.Side",
             },
             {
               name: "price",
-              type: "uint256",
-              internalType: "Price",
+              type: "uint128",
+              internalType: "uint128",
             },
           ],
           outputs: [
@@ -1593,97 +1588,6 @@ export const deployedContracts: DeployedContracts = {
               name: "totalVolume",
               type: "uint256",
               internalType: "uint256",
-            },
-          ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
-          name: "getUserActiveOrders",
-          inputs: [
-            {
-              name: "_baseCurrency",
-              type: "address",
-              internalType: "Currency",
-            },
-            {
-              name: "_quoteCurrency",
-              type: "address",
-              internalType: "Currency",
-            },
-            {
-              name: "user",
-              type: "address",
-              internalType: "address",
-            },
-          ],
-          outputs: [
-            {
-              name: "",
-              type: "tuple[]",
-              internalType: "struct IOrderBook.Order[]",
-              components: [
-                {
-                  name: "user",
-                  type: "address",
-                  internalType: "address",
-                },
-                {
-                  name: "id",
-                  type: "uint48",
-                  internalType: "OrderId",
-                },
-                {
-                  name: "next",
-                  type: "uint48",
-                  internalType: "OrderId",
-                },
-                {
-                  name: "prev",
-                  type: "uint48",
-                  internalType: "OrderId",
-                },
-                {
-                  name: "timestamp",
-                  type: "uint48",
-                  internalType: "uint48",
-                },
-                {
-                  name: "expiry",
-                  type: "uint48",
-                  internalType: "uint48",
-                },
-                {
-                  name: "quantity",
-                  type: "uint128",
-                  internalType: "Quantity",
-                },
-                {
-                  name: "filled",
-                  type: "uint128",
-                  internalType: "Quantity",
-                },
-                {
-                  name: "price",
-                  type: "uint256",
-                  internalType: "Price",
-                },
-                {
-                  name: "status",
-                  type: "uint8",
-                  internalType: "enum Status",
-                },
-                {
-                  name: "orderType",
-                  type: "uint8",
-                  internalType: "enum OrderType",
-                },
-                {
-                  name: "side",
-                  type: "uint8",
-                  internalType: "enum Side",
-                },
-              ],
             },
           ],
           stateMutability: "view",
@@ -1724,24 +1628,36 @@ export const deployedContracts: DeployedContracts = {
           name: "placeMarketOrder",
           inputs: [
             {
-              name: "_baseCurrency",
-              type: "address",
-              internalType: "Currency",
-            },
-            {
-              name: "_quoteCurrency",
-              type: "address",
-              internalType: "Currency",
+              name: "pool",
+              type: "tuple",
+              internalType: "struct IPoolManager.Pool",
+              components: [
+                {
+                  name: "baseCurrency",
+                  type: "address",
+                  internalType: "Currency",
+                },
+                {
+                  name: "quoteCurrency",
+                  type: "address",
+                  internalType: "Currency",
+                },
+                {
+                  name: "orderBook",
+                  type: "address",
+                  internalType: "contract IOrderBook",
+                },
+              ],
             },
             {
               name: "_quantity",
               type: "uint128",
-              internalType: "Quantity",
+              internalType: "uint128",
             },
             {
               name: "_side",
               type: "uint8",
-              internalType: "enum Side",
+              internalType: "enum IOrderBook.Side",
             },
             {
               name: "_user",
@@ -1753,7 +1669,7 @@ export const deployedContracts: DeployedContracts = {
             {
               name: "orderId",
               type: "uint48",
-              internalType: "OrderId",
+              internalType: "uint48",
             },
           ],
           stateMutability: "nonpayable",
@@ -1763,24 +1679,36 @@ export const deployedContracts: DeployedContracts = {
           name: "placeMarketOrderWithDeposit",
           inputs: [
             {
-              name: "_baseCurrency",
-              type: "address",
-              internalType: "Currency",
-            },
-            {
-              name: "_quoteCurrency",
-              type: "address",
-              internalType: "Currency",
+              name: "pool",
+              type: "tuple",
+              internalType: "struct IPoolManager.Pool",
+              components: [
+                {
+                  name: "baseCurrency",
+                  type: "address",
+                  internalType: "Currency",
+                },
+                {
+                  name: "quoteCurrency",
+                  type: "address",
+                  internalType: "Currency",
+                },
+                {
+                  name: "orderBook",
+                  type: "address",
+                  internalType: "contract IOrderBook",
+                },
+              ],
             },
             {
               name: "_quantity",
               type: "uint128",
-              internalType: "Quantity",
+              internalType: "uint128",
             },
             {
               name: "_side",
               type: "uint8",
-              internalType: "enum Side",
+              internalType: "enum IOrderBook.Side",
             },
             {
               name: "_user",
@@ -1792,7 +1720,7 @@ export const deployedContracts: DeployedContracts = {
             {
               name: "orderId",
               type: "uint48",
-              internalType: "OrderId",
+              internalType: "uint48",
             },
           ],
           stateMutability: "nonpayable",
@@ -1802,29 +1730,41 @@ export const deployedContracts: DeployedContracts = {
           name: "placeOrder",
           inputs: [
             {
-              name: "_baseCurrency",
-              type: "address",
-              internalType: "Currency",
-            },
-            {
-              name: "_quoteCurrency",
-              type: "address",
-              internalType: "Currency",
+              name: "pool",
+              type: "tuple",
+              internalType: "struct IPoolManager.Pool",
+              components: [
+                {
+                  name: "baseCurrency",
+                  type: "address",
+                  internalType: "Currency",
+                },
+                {
+                  name: "quoteCurrency",
+                  type: "address",
+                  internalType: "Currency",
+                },
+                {
+                  name: "orderBook",
+                  type: "address",
+                  internalType: "contract IOrderBook",
+                },
+              ],
             },
             {
               name: "_price",
-              type: "uint256",
-              internalType: "Price",
+              type: "uint128",
+              internalType: "uint128",
             },
             {
               name: "_quantity",
               type: "uint128",
-              internalType: "Quantity",
+              internalType: "uint128",
             },
             {
               name: "_side",
               type: "uint8",
-              internalType: "enum Side",
+              internalType: "enum IOrderBook.Side",
             },
             {
               name: "_user",
@@ -1836,7 +1776,7 @@ export const deployedContracts: DeployedContracts = {
             {
               name: "orderId",
               type: "uint48",
-              internalType: "OrderId",
+              internalType: "uint48",
             },
           ],
           stateMutability: "nonpayable",
@@ -1846,29 +1786,41 @@ export const deployedContracts: DeployedContracts = {
           name: "placeOrderWithDeposit",
           inputs: [
             {
-              name: "_baseCurrency",
-              type: "address",
-              internalType: "Currency",
-            },
-            {
-              name: "_quoteCurrency",
-              type: "address",
-              internalType: "Currency",
+              name: "pool",
+              type: "tuple",
+              internalType: "struct IPoolManager.Pool",
+              components: [
+                {
+                  name: "baseCurrency",
+                  type: "address",
+                  internalType: "Currency",
+                },
+                {
+                  name: "quoteCurrency",
+                  type: "address",
+                  internalType: "Currency",
+                },
+                {
+                  name: "orderBook",
+                  type: "address",
+                  internalType: "contract IOrderBook",
+                },
+              ],
             },
             {
               name: "_price",
-              type: "uint256",
-              internalType: "Price",
+              type: "uint128",
+              internalType: "uint128",
             },
             {
               name: "_quantity",
               type: "uint128",
-              internalType: "Quantity",
+              internalType: "uint128",
             },
             {
               name: "_side",
               type: "uint8",
-              internalType: "enum Side",
+              internalType: "enum IOrderBook.Side",
             },
             {
               name: "_user",
@@ -1880,7 +1832,7 @@ export const deployedContracts: DeployedContracts = {
             {
               name: "orderId",
               type: "uint48",
-              internalType: "OrderId",
+              internalType: "uint48",
             },
           ],
           stateMutability: "nonpayable",
@@ -2138,6 +2090,11 @@ export const deployedContracts: DeployedContracts = {
         },
         {
           type: "error",
+          name: "QueueEmpty",
+          inputs: [],
+        },
+        {
+          type: "error",
           name: "SlippageExceeded",
           inputs: [
             {
@@ -2191,6 +2148,15 @@ export const deployedContracts: DeployedContracts = {
         },
       ],
       inheritedFunctions: {
+        cancelOrder: "src/interfaces/IGTXRouter.sol",
+        getBestPrice: "src/interfaces/IGTXRouter.sol",
+        getNextBestPrices: "src/interfaces/IGTXRouter.sol",
+        getOrder: "src/interfaces/IGTXRouter.sol",
+        getOrderQueue: "src/interfaces/IGTXRouter.sol",
+        placeMarketOrder: "src/interfaces/IGTXRouter.sol",
+        placeMarketOrderWithDeposit: "src/interfaces/IGTXRouter.sol",
+        placeOrder: "src/interfaces/IGTXRouter.sol",
+        placeOrderWithDeposit: "src/interfaces/IGTXRouter.sol",
         owner:
           "lib/openzeppelin-contracts-upgradeable/contracts/access/OwnableUpgradeable.sol",
         renounceOwnership:
@@ -2595,30 +2561,6 @@ export const deployedContracts: DeployedContracts = {
         },
         {
           type: "function",
-          name: "balanceOf",
-          inputs: [
-            {
-              name: "owner",
-              type: "address",
-              internalType: "address",
-            },
-            {
-              name: "id",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          outputs: [
-            {
-              name: "balance",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
           name: "deposit",
           inputs: [
             {
@@ -2647,6 +2589,40 @@ export const deployedContracts: DeployedContracts = {
         },
         {
           type: "function",
+          name: "depositAndLock",
+          inputs: [
+            {
+              name: "currency",
+              type: "address",
+              internalType: "Currency",
+            },
+            {
+              name: "amount",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "user",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "orderBook",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
           name: "feeMaker",
           inputs: [],
           outputs: [
@@ -2654,6 +2630,19 @@ export const deployedContracts: DeployedContracts = {
               name: "",
               type: "uint256",
               internalType: "uint256",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "feeReceiver",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "address",
+              internalType: "address",
             },
           ],
           stateMutability: "view",
@@ -2777,32 +2766,31 @@ export const deployedContracts: DeployedContracts = {
         },
         {
           type: "function",
-          name: "lockedBalanceOf",
+          name: "lock",
           inputs: [
             {
-              name: "owner",
+              name: "user",
               type: "address",
               internalType: "address",
             },
             {
-              name: "operator",
+              name: "currency",
               type: "address",
-              internalType: "address",
+              internalType: "Currency",
             },
-            {
-              name: "id",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          outputs: [
             {
               name: "amount",
               type: "uint256",
               internalType: "uint256",
             },
+            {
+              name: "orderBook",
+              type: "address",
+              internalType: "address",
+            },
           ],
-          stateMutability: "view",
+          outputs: [],
+          stateMutability: "nonpayable",
         },
         {
           type: "function",
@@ -3167,11 +3155,6 @@ export const deployedContracts: DeployedContracts = {
         },
         {
           type: "error",
-          name: "ERC20TransferFailed",
-          inputs: [],
-        },
-        {
-          type: "error",
           name: "InsufficientBalance",
           inputs: [
             {
@@ -3278,7 +3261,9 @@ export const deployedContracts: DeployedContracts = {
       ],
       inheritedFunctions: {
         deposit: "src/interfaces/IBalanceManager.sol",
+        depositAndLock: "src/interfaces/IBalanceManager.sol",
         getBalance: "src/interfaces/IBalanceManager.sol",
+        getLockedBalance: "src/interfaces/IBalanceManager.sol",
         lock: "src/interfaces/IBalanceManager.sol",
         setAuthorizedOperator: "src/interfaces/IBalanceManager.sol",
         setFees: "src/interfaces/IBalanceManager.sol",
@@ -3299,11 +3284,6 @@ export const deployedContracts: DeployedContracts = {
       address: "0x4a679253410272dd5232b3ff7cf5dbb88f295319",
       abi: [
         {
-          type: "constructor",
-          inputs: [],
-          stateMutability: "nonpayable",
-        },
-        {
           type: "function",
           name: "addCommonIntermediary",
           inputs: [
@@ -3315,44 +3295,6 @@ export const deployedContracts: DeployedContracts = {
           ],
           outputs: [],
           stateMutability: "nonpayable",
-        },
-        {
-          type: "function",
-          name: "allCurrencies",
-          inputs: [
-            {
-              name: "",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          outputs: [
-            {
-              name: "",
-              type: "address",
-              internalType: "Currency",
-            },
-          ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
-          name: "commonIntermediaries",
-          inputs: [
-            {
-              name: "",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          outputs: [
-            {
-              name: "",
-              type: "address",
-              internalType: "Currency",
-            },
-          ],
-          stateMutability: "view",
         },
         {
           type: "function",
@@ -3376,27 +3318,22 @@ export const deployedContracts: DeployedContracts = {
                 {
                   name: "minTradeAmount",
                   type: "uint128",
-                  internalType: "Quantity",
+                  internalType: "uint128",
                 },
                 {
                   name: "minAmountMovement",
                   type: "uint128",
-                  internalType: "Quantity",
+                  internalType: "uint128",
                 },
                 {
                   name: "minPriceMovement",
                   type: "uint128",
-                  internalType: "Quantity",
+                  internalType: "uint128",
                 },
                 {
                   name: "minOrderSize",
                   type: "uint128",
-                  internalType: "Quantity",
-                },
-                {
-                  name: "slippageTreshold",
-                  type: "uint8",
-                  internalType: "uint8",
+                  internalType: "uint128",
                 },
               ],
             },
@@ -3600,25 +3537,6 @@ export const deployedContracts: DeployedContracts = {
         },
         {
           type: "function",
-          name: "isCommonIntermediary",
-          inputs: [
-            {
-              name: "",
-              type: "address",
-              internalType: "Currency",
-            },
-          ],
-          outputs: [
-            {
-              name: "",
-              type: "bool",
-              internalType: "bool",
-            },
-          ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
           name: "owner",
           inputs: [],
           outputs: [
@@ -3641,73 +3559,6 @@ export const deployedContracts: DeployedContracts = {
             },
             {
               name: "currency2",
-              type: "address",
-              internalType: "Currency",
-            },
-          ],
-          outputs: [
-            {
-              name: "",
-              type: "bool",
-              internalType: "bool",
-            },
-          ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
-          name: "poolLiquidity",
-          inputs: [
-            {
-              name: "",
-              type: "bytes32",
-              internalType: "PoolId",
-            },
-          ],
-          outputs: [
-            {
-              name: "",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
-          name: "pools",
-          inputs: [
-            {
-              name: "",
-              type: "bytes32",
-              internalType: "PoolId",
-            },
-          ],
-          outputs: [
-            {
-              name: "baseCurrency",
-              type: "address",
-              internalType: "Currency",
-            },
-            {
-              name: "quoteCurrency",
-              type: "address",
-              internalType: "Currency",
-            },
-            {
-              name: "orderBook",
-              type: "address",
-              internalType: "contract IOrderBook",
-            },
-          ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
-          name: "registeredCurrencies",
-          inputs: [
-            {
-              name: "",
               type: "address",
               internalType: "Currency",
             },
@@ -4003,19 +3854,31 @@ export const deployedContracts: DeployedContracts = {
           name: "cancelOrder",
           inputs: [
             {
-              name: "_baseCurrency",
-              type: "address",
-              internalType: "Currency",
-            },
-            {
-              name: "_quoteCurrency",
-              type: "address",
-              internalType: "Currency",
+              name: "pool",
+              type: "tuple",
+              internalType: "struct IPoolManager.Pool",
+              components: [
+                {
+                  name: "baseCurrency",
+                  type: "address",
+                  internalType: "Currency",
+                },
+                {
+                  name: "quoteCurrency",
+                  type: "address",
+                  internalType: "Currency",
+                },
+                {
+                  name: "orderBook",
+                  type: "address",
+                  internalType: "contract IOrderBook",
+                },
+              ],
             },
             {
               name: "orderId",
               type: "uint48",
-              internalType: "OrderId",
+              internalType: "uint48",
             },
           ],
           outputs: [],
@@ -4038,7 +3901,7 @@ export const deployedContracts: DeployedContracts = {
             {
               name: "side",
               type: "uint8",
-              internalType: "enum Side",
+              internalType: "enum IOrderBook.Side",
             },
           ],
           outputs: [
@@ -4049,8 +3912,8 @@ export const deployedContracts: DeployedContracts = {
               components: [
                 {
                   name: "price",
-                  type: "uint256",
-                  internalType: "Price",
+                  type: "uint128",
+                  internalType: "uint128",
                 },
                 {
                   name: "volume",
@@ -4067,24 +3930,36 @@ export const deployedContracts: DeployedContracts = {
           name: "getNextBestPrices",
           inputs: [
             {
-              name: "_baseCurrency",
-              type: "address",
-              internalType: "Currency",
-            },
-            {
-              name: "_quoteCurrency",
-              type: "address",
-              internalType: "Currency",
+              name: "pool",
+              type: "tuple",
+              internalType: "struct IPoolManager.Pool",
+              components: [
+                {
+                  name: "baseCurrency",
+                  type: "address",
+                  internalType: "Currency",
+                },
+                {
+                  name: "quoteCurrency",
+                  type: "address",
+                  internalType: "Currency",
+                },
+                {
+                  name: "orderBook",
+                  type: "address",
+                  internalType: "contract IOrderBook",
+                },
+              ],
             },
             {
               name: "side",
               type: "uint8",
-              internalType: "enum Side",
+              internalType: "enum IOrderBook.Side",
             },
             {
               name: "price",
-              type: "uint256",
-              internalType: "Price",
+              type: "uint128",
+              internalType: "uint128",
             },
             {
               name: "count",
@@ -4100,13 +3975,99 @@ export const deployedContracts: DeployedContracts = {
               components: [
                 {
                   name: "price",
-                  type: "uint256",
-                  internalType: "Price",
+                  type: "uint128",
+                  internalType: "uint128",
                 },
                 {
                   name: "volume",
                   type: "uint256",
                   internalType: "uint256",
+                },
+              ],
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "getOrder",
+          inputs: [
+            {
+              name: "_baseCurrency",
+              type: "address",
+              internalType: "Currency",
+            },
+            {
+              name: "_quoteCurrency",
+              type: "address",
+              internalType: "Currency",
+            },
+            {
+              name: "orderId",
+              type: "uint48",
+              internalType: "uint48",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "tuple",
+              internalType: "struct IOrderBook.Order",
+              components: [
+                {
+                  name: "user",
+                  type: "address",
+                  internalType: "address",
+                },
+                {
+                  name: "id",
+                  type: "uint48",
+                  internalType: "uint48",
+                },
+                {
+                  name: "next",
+                  type: "uint48",
+                  internalType: "uint48",
+                },
+                {
+                  name: "quantity",
+                  type: "uint128",
+                  internalType: "uint128",
+                },
+                {
+                  name: "filled",
+                  type: "uint128",
+                  internalType: "uint128",
+                },
+                {
+                  name: "price",
+                  type: "uint128",
+                  internalType: "uint128",
+                },
+                {
+                  name: "prev",
+                  type: "uint48",
+                  internalType: "uint48",
+                },
+                {
+                  name: "expiry",
+                  type: "uint48",
+                  internalType: "uint48",
+                },
+                {
+                  name: "status",
+                  type: "uint8",
+                  internalType: "enum IOrderBook.Status",
+                },
+                {
+                  name: "orderType",
+                  type: "uint8",
+                  internalType: "enum IOrderBook.OrderType",
+                },
+                {
+                  name: "side",
+                  type: "uint8",
+                  internalType: "enum IOrderBook.Side",
                 },
               ],
             },
@@ -4130,12 +4091,12 @@ export const deployedContracts: DeployedContracts = {
             {
               name: "side",
               type: "uint8",
-              internalType: "enum Side",
+              internalType: "enum IOrderBook.Side",
             },
             {
               name: "price",
-              type: "uint256",
-              internalType: "Price",
+              type: "uint128",
+              internalType: "uint128",
             },
           ],
           outputs: [
@@ -4148,97 +4109,6 @@ export const deployedContracts: DeployedContracts = {
               name: "totalVolume",
               type: "uint256",
               internalType: "uint256",
-            },
-          ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
-          name: "getUserActiveOrders",
-          inputs: [
-            {
-              name: "_baseCurrency",
-              type: "address",
-              internalType: "Currency",
-            },
-            {
-              name: "_quoteCurrency",
-              type: "address",
-              internalType: "Currency",
-            },
-            {
-              name: "user",
-              type: "address",
-              internalType: "address",
-            },
-          ],
-          outputs: [
-            {
-              name: "",
-              type: "tuple[]",
-              internalType: "struct IOrderBook.Order[]",
-              components: [
-                {
-                  name: "user",
-                  type: "address",
-                  internalType: "address",
-                },
-                {
-                  name: "id",
-                  type: "uint48",
-                  internalType: "OrderId",
-                },
-                {
-                  name: "next",
-                  type: "uint48",
-                  internalType: "OrderId",
-                },
-                {
-                  name: "prev",
-                  type: "uint48",
-                  internalType: "OrderId",
-                },
-                {
-                  name: "timestamp",
-                  type: "uint48",
-                  internalType: "uint48",
-                },
-                {
-                  name: "expiry",
-                  type: "uint48",
-                  internalType: "uint48",
-                },
-                {
-                  name: "quantity",
-                  type: "uint128",
-                  internalType: "Quantity",
-                },
-                {
-                  name: "filled",
-                  type: "uint128",
-                  internalType: "Quantity",
-                },
-                {
-                  name: "price",
-                  type: "uint256",
-                  internalType: "Price",
-                },
-                {
-                  name: "status",
-                  type: "uint8",
-                  internalType: "enum Status",
-                },
-                {
-                  name: "orderType",
-                  type: "uint8",
-                  internalType: "enum OrderType",
-                },
-                {
-                  name: "side",
-                  type: "uint8",
-                  internalType: "enum Side",
-                },
-              ],
             },
           ],
           stateMutability: "view",
@@ -4279,24 +4149,36 @@ export const deployedContracts: DeployedContracts = {
           name: "placeMarketOrder",
           inputs: [
             {
-              name: "_baseCurrency",
-              type: "address",
-              internalType: "Currency",
-            },
-            {
-              name: "_quoteCurrency",
-              type: "address",
-              internalType: "Currency",
+              name: "pool",
+              type: "tuple",
+              internalType: "struct IPoolManager.Pool",
+              components: [
+                {
+                  name: "baseCurrency",
+                  type: "address",
+                  internalType: "Currency",
+                },
+                {
+                  name: "quoteCurrency",
+                  type: "address",
+                  internalType: "Currency",
+                },
+                {
+                  name: "orderBook",
+                  type: "address",
+                  internalType: "contract IOrderBook",
+                },
+              ],
             },
             {
               name: "_quantity",
               type: "uint128",
-              internalType: "Quantity",
+              internalType: "uint128",
             },
             {
               name: "_side",
               type: "uint8",
-              internalType: "enum Side",
+              internalType: "enum IOrderBook.Side",
             },
             {
               name: "_user",
@@ -4308,7 +4190,7 @@ export const deployedContracts: DeployedContracts = {
             {
               name: "orderId",
               type: "uint48",
-              internalType: "OrderId",
+              internalType: "uint48",
             },
           ],
           stateMutability: "nonpayable",
@@ -4318,24 +4200,36 @@ export const deployedContracts: DeployedContracts = {
           name: "placeMarketOrderWithDeposit",
           inputs: [
             {
-              name: "_baseCurrency",
-              type: "address",
-              internalType: "Currency",
-            },
-            {
-              name: "_quoteCurrency",
-              type: "address",
-              internalType: "Currency",
+              name: "pool",
+              type: "tuple",
+              internalType: "struct IPoolManager.Pool",
+              components: [
+                {
+                  name: "baseCurrency",
+                  type: "address",
+                  internalType: "Currency",
+                },
+                {
+                  name: "quoteCurrency",
+                  type: "address",
+                  internalType: "Currency",
+                },
+                {
+                  name: "orderBook",
+                  type: "address",
+                  internalType: "contract IOrderBook",
+                },
+              ],
             },
             {
               name: "_quantity",
               type: "uint128",
-              internalType: "Quantity",
+              internalType: "uint128",
             },
             {
               name: "_side",
               type: "uint8",
-              internalType: "enum Side",
+              internalType: "enum IOrderBook.Side",
             },
             {
               name: "_user",
@@ -4347,7 +4241,7 @@ export const deployedContracts: DeployedContracts = {
             {
               name: "orderId",
               type: "uint48",
-              internalType: "OrderId",
+              internalType: "uint48",
             },
           ],
           stateMutability: "nonpayable",
@@ -4357,29 +4251,41 @@ export const deployedContracts: DeployedContracts = {
           name: "placeOrder",
           inputs: [
             {
-              name: "_baseCurrency",
-              type: "address",
-              internalType: "Currency",
-            },
-            {
-              name: "_quoteCurrency",
-              type: "address",
-              internalType: "Currency",
+              name: "pool",
+              type: "tuple",
+              internalType: "struct IPoolManager.Pool",
+              components: [
+                {
+                  name: "baseCurrency",
+                  type: "address",
+                  internalType: "Currency",
+                },
+                {
+                  name: "quoteCurrency",
+                  type: "address",
+                  internalType: "Currency",
+                },
+                {
+                  name: "orderBook",
+                  type: "address",
+                  internalType: "contract IOrderBook",
+                },
+              ],
             },
             {
               name: "_price",
-              type: "uint256",
-              internalType: "Price",
+              type: "uint128",
+              internalType: "uint128",
             },
             {
               name: "_quantity",
               type: "uint128",
-              internalType: "Quantity",
+              internalType: "uint128",
             },
             {
               name: "_side",
               type: "uint8",
-              internalType: "enum Side",
+              internalType: "enum IOrderBook.Side",
             },
             {
               name: "_user",
@@ -4391,7 +4297,7 @@ export const deployedContracts: DeployedContracts = {
             {
               name: "orderId",
               type: "uint48",
-              internalType: "OrderId",
+              internalType: "uint48",
             },
           ],
           stateMutability: "nonpayable",
@@ -4401,29 +4307,41 @@ export const deployedContracts: DeployedContracts = {
           name: "placeOrderWithDeposit",
           inputs: [
             {
-              name: "_baseCurrency",
-              type: "address",
-              internalType: "Currency",
-            },
-            {
-              name: "_quoteCurrency",
-              type: "address",
-              internalType: "Currency",
+              name: "pool",
+              type: "tuple",
+              internalType: "struct IPoolManager.Pool",
+              components: [
+                {
+                  name: "baseCurrency",
+                  type: "address",
+                  internalType: "Currency",
+                },
+                {
+                  name: "quoteCurrency",
+                  type: "address",
+                  internalType: "Currency",
+                },
+                {
+                  name: "orderBook",
+                  type: "address",
+                  internalType: "contract IOrderBook",
+                },
+              ],
             },
             {
               name: "_price",
-              type: "uint256",
-              internalType: "Price",
+              type: "uint128",
+              internalType: "uint128",
             },
             {
               name: "_quantity",
               type: "uint128",
-              internalType: "Quantity",
+              internalType: "uint128",
             },
             {
               name: "_side",
               type: "uint8",
-              internalType: "enum Side",
+              internalType: "enum IOrderBook.Side",
             },
             {
               name: "_user",
@@ -4435,7 +4353,7 @@ export const deployedContracts: DeployedContracts = {
             {
               name: "orderId",
               type: "uint48",
-              internalType: "OrderId",
+              internalType: "uint48",
             },
           ],
           stateMutability: "nonpayable",
@@ -4693,6 +4611,11 @@ export const deployedContracts: DeployedContracts = {
         },
         {
           type: "error",
+          name: "QueueEmpty",
+          inputs: [],
+        },
+        {
+          type: "error",
           name: "SlippageExceeded",
           inputs: [
             {
@@ -4746,6 +4669,15 @@ export const deployedContracts: DeployedContracts = {
         },
       ],
       inheritedFunctions: {
+        cancelOrder: "src/interfaces/IGTXRouter.sol",
+        getBestPrice: "src/interfaces/IGTXRouter.sol",
+        getNextBestPrices: "src/interfaces/IGTXRouter.sol",
+        getOrder: "src/interfaces/IGTXRouter.sol",
+        getOrderQueue: "src/interfaces/IGTXRouter.sol",
+        placeMarketOrder: "src/interfaces/IGTXRouter.sol",
+        placeMarketOrderWithDeposit: "src/interfaces/IGTXRouter.sol",
+        placeOrder: "src/interfaces/IGTXRouter.sol",
+        placeOrderWithDeposit: "src/interfaces/IGTXRouter.sol",
         owner:
           "lib/openzeppelin-contracts-upgradeable/contracts/access/OwnableUpgradeable.sol",
         renounceOwnership:
