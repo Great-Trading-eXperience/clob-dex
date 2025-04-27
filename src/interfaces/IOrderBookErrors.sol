@@ -21,6 +21,7 @@ interface IOrderBookErrors {
     error TradingPaused();
     error UnauthorizedCancellation();
     error UnauthorizedRouter(address reouter);
-    error OrderNotFound();
     error InsufficientBalance(uint256 requiredDeposit, uint256 userBalance);
+    error OrderNotFound();
+    error QueueEmpty();
 }

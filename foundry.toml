@@ -27,6 +27,9 @@ optimizer = false
 optimizer_runs = 0
 via-ir = true
 debug = true
+gas_reports = ["OrderBook", "GTXRouter"]
+#gas_reports = ["OrderBook", "GTXRouter", "PoolManager", "BalanceManager"]
+gas_snapshot_emit = false
 
 [rpc_endpoints]
 # default_network = "http://157.173.201.26:8547"
@@ -50,11 +53,13 @@ riseSepolia = { key = "" }
 [fmt]
 bracket_spacing = false
 int_types = "long"
-line_length = 100
+line_length = 120
 multiline_func_header = "params_first"
 number_underscore = "thousands"
 quote_style = "double"
 tab_width = 4
+single_line_statement_blocks = "multi"
+sort_imports = true
 
 [profile.verification]
 verifier = "blockscout"

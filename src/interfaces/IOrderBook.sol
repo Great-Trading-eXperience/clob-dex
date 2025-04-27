@@ -1,102 +1,133 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.26;
 
-import {OrderId, Quantity, Side, Status, TimeInForce, OrderType} from "../types/Types.sol";
-import {Price} from "../libraries/BokkyPooBahsRedBlackTreeLibrary.sol";
-import {PoolKey} from "../types/Pool.sol";
-import {Currency} from "../types/Currency.sol";
-
 interface IOrderBook {
+    enum Side {
+        BUY,
+        SELL
+    }
+
+    enum Status {
+        OPEN,
+        PARTIALLY_FILLED,
+        FILLED,
+        CANCELLED,
+        REJECTED,
+        EXPIRED
+    }
+
+    enum OrderType {
+        LIMIT,
+        MARKET
+    }
+
+    enum TimeInForce {
+        GTC,
+        IOC,
+        FOK,
+        PO
+    }
+
     struct Order {
+        // Slot 1
         address user;
-        OrderId id;
-        OrderId next;
-        OrderId prev;
-        uint48 timestamp;
+        uint48 id;
+        uint48 next;
+        // Slot 2
+        uint128 quantity;
+        uint128 filled;
+        // Slot 3
+        uint128 price;
+        uint48 prev;
         uint48 expiry;
-        Quantity quantity;
-        Quantity filled;
-        Price price;
         Status status;
         OrderType orderType;
         Side side;
     }
 
-    struct OrderDetails {
-        Side side;
-        Price price;
-        address user;
-        bool exists;
+    struct OrderQueue {
+        uint256 totalVolume;
+        uint48 orderCount;
+        uint48 head;
+        uint48 tail;
     }
 
     struct TradingRules {
-        Quantity minTradeAmount;
-        Quantity minAmountMovement;
-        Quantity minPriceMovement;
-        Quantity minOrderSize;
-        uint8 slippageTreshold;
+        uint128 minTradeAmount;
+        uint128 minAmountMovement;
+        uint128 minPriceMovement;
+        uint128 minOrderSize;
     }
 
     struct PriceVolume {
-        Price price;
+        uint128 price;
         uint256 volume;
     }
 
+    struct MatchOrder {
+        IOrderBook.Order order;
+        IOrderBook.Side side;
+        address trader;
+        address balanceManager;
+        IOrderBook orderBook;
+    }
+
     event OrderPlaced(
-        OrderId indexed orderId,
+        uint48 indexed orderId,
         address indexed user,
         Side indexed side,
-        Price price,
-        Quantity quantity,
-        uint48 timestamp,
+        uint128 price,
+        uint128 quantity,
         uint48 expiry,
         bool isMarketOrder,
         Status status
     );
 
-    event OrderCancelled(
-        OrderId indexed orderId,
+    event OrderMatched(
         address indexed user,
+        uint48 indexed buyOrderId,
+        uint48 indexed sellOrderId,
+        IOrderBook.Side side,
         uint48 timestamp,
-        Status status
+        uint128 executionPrice,
+        uint128 executedQuantity
     );
 
-    function setRouter(address router) external;
+    event UpdateOrder(uint48 indexed orderId, uint48 timestamp, uint128 filled, IOrderBook.Status status);
+
+    event OrderCancelled(uint48 indexed orderId, address indexed user, uint48 timestamp, Status status);
+
+    function setRouter(
+        address router
+    ) external;
 
     function placeOrder(
-        Price price,
-        Quantity quantity,
+        uint128 price,
+        uint128 quantity,
         Side side,
         address user,
         TimeInForce timeInForce
-    ) external returns (OrderId);
+    ) external returns (uint48 orderId);
 
-    function placeMarketOrder(
-        Quantity quantity,
-        Side side,
-        address user
-    ) external returns (OrderId);
+    function getOrder(
+        uint48 orderId
+    ) external view returns (Order memory order);
 
-    function cancelOrder(OrderId orderId, address user) external;
+    function placeMarketOrder(uint128 quantity, Side side, address user) external returns (uint48);
 
-    function getOrderQueue(
-        Side side,
-        Price price
-    ) external view returns (uint48 orderCount, uint256 totalVolume);
+    function cancelOrder(uint48 orderId, address user) external;
 
-    function getBestPrice(Side side) external view returns (PriceVolume memory);
+    function getOrderQueue(Side side, uint128 price) external view returns (uint48 orderCount, uint256 totalVolume);
 
-    function getUserActiveOrders(
-        address user
-    ) external view returns (Order[] memory);
+    function getBestPrice(
+        Side side
+    ) external view returns (PriceVolume memory);
 
-    function getNextBestPrices(
-        Side side,
-        Price price,
-        uint8 count
-    ) external view returns (PriceVolume[] memory);
+    function getNextBestPrices(Side side, uint128 price, uint8 count) external view returns (PriceVolume[] memory);
 
-    function setTradingRules(TradingRules calldata tradingRules) external;
+    function setTradingRules(
+        TradingRules calldata tradingRules
+    ) external;
 
     function getTradingRules() external view returns (TradingRules memory);
 }

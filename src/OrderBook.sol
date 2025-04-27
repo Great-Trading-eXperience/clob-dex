@@ -1,51 +1,45 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.26;
 
+import {OwnableUpgradeable} from "../lib/openzeppelin-contracts-upgradeable/contracts/access/OwnableUpgradeable.sol";
+import {ReentrancyGuardUpgradeable} from
+    "../lib/openzeppelin-contracts-upgradeable/contracts/utils/ReentrancyGuardUpgradeable.sol";
+import {IBalanceManager} from "./interfaces/IBalanceManager.sol";
 import {IOrderBook} from "./interfaces/IOrderBook.sol";
 import {IOrderBookErrors} from "./interfaces/IOrderBookErrors.sol";
-import {OrderId, Quantity, Side, Status, OrderType, TimeInForce} from "./types/Types.sol";
-import {BokkyPooBahsRedBlackTreeLibrary as RBTree, Price} from "./libraries/BokkyPooBahsRedBlackTreeLibrary.sol";
-import {OrderQueueLib} from "./libraries/OrderQueueLib.sol";
-import {OrderMatching} from "./libraries/OrderMatching.sol";
+import {Currency} from "./libraries/Currency.sol";
+import {PoolKey} from "./libraries/Pool.sol";
+import {PoolIdLibrary} from "./libraries/Pool.sol";
+
+import {OrderBookStorage} from "./storages/OrderBookStorage.sol";
+import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
-import {PoolKey} from "./types/Pool.sol";
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {Currency} from "./types/Currency.sol";
-import {IBalanceManager} from "./interfaces/IBalanceManager.sol";
-import {PoolIdLibrary} from "./types/Pool.sol";
-import {ReentrancyGuardUpgradeable} from "../lib/openzeppelin-contracts-upgradeable/contracts/utils/ReentrancyGuardUpgradeable.sol";
-import {OwnableUpgradeable} from "../lib/openzeppelin-contracts-upgradeable/contracts/access/OwnableUpgradeable.sol";
-import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import {RedBlackTreeLib} from "@solady/utils/RedBlackTreeLib.sol";
 
-/// @title OrderBook - A Central Limit Order Book implementation
-/// @notice Manages limit and market orders in a decentralized exchange
-/// @dev Implements price-time priority matching with reentrance protection
-contract OrderBook is Initializable, OwnableUpgradeable, ReentrancyGuardUpgradeable, IOrderBook, IOrderBookErrors {
-    using RBTree for RBTree.Tree;
-    using OrderQueueLib for OrderQueueLib.OrderQueue;
-    using OrderMatching for *;
+contract OrderBook is
+    Initializable,
+    OwnableUpgradeable,
+    ReentrancyGuardUpgradeable,
+    IOrderBook,
+    IOrderBookErrors,
+    OrderBookStorage
+{
+    using RedBlackTreeLib for RedBlackTreeLib.Tree;
     using EnumerableSet for EnumerableSet.UintSet;
-
-    mapping(address => EnumerableSet.UintSet) private activeUserOrders;
-    mapping(uint48 => OrderDetails) private orderDetailsMap;
-    mapping(Side => RBTree.Tree) private priceTrees;
-    mapping(Side => mapping(Price => OrderQueueLib.OrderQueue))
-        private orderQueues;
-    mapping(address => bool) private authorizedOperators; // To allow Routers or other contracts
-
-    uint48 private constant EXPIRY_DAYS = 90 * 24 * 60 * 60; // 90 days in seconds
-    uint8 private constant MAX_OPEN_LIMIT_ORDER = 100;
-    address private balanceManager;
-    address private router;
-    uint48 private nextOrderId;
-    PoolKey private poolKey;
-    bool private tradingPaused;
-    TradingRules private tradingRules;
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
         _disableInitializers();
+    }
+
+    modifier onlyRouter() {
+        Storage storage $ = getStorage();
+        if (msg.sender != $.router && msg.sender != owner() && msg.sender != address(this)) {
+            revert UnauthorizedRouter(msg.sender);
+        }
+        _;
     }
 
     function initialize(
@@ -57,212 +51,119 @@ contract OrderBook is Initializable, OwnableUpgradeable, ReentrancyGuardUpgradea
         __Ownable_init(_poolManager);
         __ReentrancyGuard_init();
 
-        balanceManager = _balanceManager;
-        tradingRules = _tradingRules;
-        poolKey = _poolKey;
-        nextOrderId = 1;
-    }
-
-    // Restrict access to authorized only
-    modifier onlyRouter() {
-        if (
-            msg.sender != router &&
-            msg.sender != owner() &&
-            msg.sender != address(this)
-        ) {
-            revert UnauthorizedRouter(msg.sender);
-        }
-        _;
+        Storage storage $ = getStorage();
+        $.balanceManager = _balanceManager;
+        $.tradingRules = _tradingRules;
+        $.poolKey = _poolKey;
+        $.nextOrderId = 1;
+        $.expiryDays = 90 days;
     }
 
     function getTradingRules() external view returns (TradingRules memory) {
-        return tradingRules;
+        Storage storage $ = getStorage();
+        return $.tradingRules;
     }
 
-    function setRouter(address _router) external onlyOwner {
-        router = _router;
+    function setRouter(
+        address _router
+    ) external onlyOwner {
+        Storage storage $ = getStorage();
+        $.router = _router;
     }
 
-    /**
-     * @notice Sets all trading rules at once
-     * @param _tradingRules New trading rules to apply
-     */
     function setTradingRules(
         TradingRules calldata _tradingRules
     ) external onlyOwner {
-        tradingRules = _tradingRules;
+        Storage storage $ = getStorage();
+        $.tradingRules = _tradingRules;
     }
 
-    /**
-     * @notice Validates order parameters before processing
-     * @dev Similar to TradePairs.addOrderChecks, this performs pre-trade validation
-     * @param price The price of the order
-     * @param quantity The quantity of the order
-     * @param side The side of the order (BUY/SELL)
-     * @param orderType Type of order (LIMIT or MARKET)
-     * @return validatedPrice The validated price (may be adjusted for market orders)
-     */
     function validateOrder(
-        Price price,
-        Quantity quantity,
+        uint128 price,
+        uint128 quantity,
         Side side,
         OrderType orderType,
         TimeInForce timeInForce
-    ) private view returns (Price validatedPrice) {
-        if (tradingPaused) {
-            revert TradingPaused();
-        }
-
+    ) private view {
+        Storage storage $ = getStorage();
         validateBasicOrderParameters(price, quantity, orderType);
 
-        (uint256 orderAmount, uint256 quoteAmount) = calculateOrderAmounts(
-            price,
-            quantity,
-            side,
-            orderType
-        );
+        (uint256 orderAmount, uint256 quoteAmount) = calculateOrderAmounts(price, quantity, side, orderType);
 
         validateMinimumSizes(orderAmount, quoteAmount);
 
-        // validateIncrements(orderAmount, quoteAmount, side, price);
-
         // Check price increments
-        uint256 minPriceMove = Quantity.unwrap(tradingRules.minPriceMovement);
-        if (Price.unwrap(price) % minPriceMove != 0) {
+        uint256 minPriceMove = $.tradingRules.minPriceMovement;
+        if (price % minPriceMove != 0) {
             revert InvalidPriceIncrement();
         }
 
-        //TODO: Slippage check for market orders
-
-        return
-            orderType == OrderType.MARKET
-                ? validateMarketOrder(side)
-                : validateLimitOrder(price, side, timeInForce);
+        if (orderType == OrderType.LIMIT) {
+            validateLimitOrder(price, side, timeInForce);
+        }
     }
 
-    function validateBasicOrderParameters(
-        Price price,
-        Quantity quantity,
-        OrderType orderType
-    ) private pure {
-        if (Quantity.unwrap(quantity) == 0) {
+    function validateBasicOrderParameters(uint128 price, uint128 quantity, OrderType orderType) private pure {
+        if (quantity == 0) {
             revert InvalidQuantity();
         }
 
-        if (orderType == OrderType.LIMIT && Price.unwrap(price) == 0) {
-            revert InvalidPrice(Price.unwrap(price));
+        if (orderType == OrderType.LIMIT && price == 0) {
+            revert InvalidPrice(price);
         }
     }
 
     function calculateOrderAmounts(
-        Price price,
-        Quantity quantity,
+        uint128 price,
+        uint128 quantity,
         Side side,
         OrderType orderType
     ) private view returns (uint256 orderAmount, uint256 quoteAmount) {
-        orderAmount = Quantity.unwrap(quantity);
+        Storage storage $ = getStorage();
+        orderAmount = quantity;
 
         if (orderType == OrderType.LIMIT) {
-            quoteAmount = PoolIdLibrary.baseToQuote(
-                orderAmount,
-                Price.unwrap(price),
-                poolKey.baseCurrency.decimals()
-            );
+            quoteAmount = PoolIdLibrary.baseToQuote(orderAmount, price, $.poolKey.baseCurrency.decimals());
         } else {
-            Price bestOppositePrice = side == Side.SELL
-                ? priceTrees[Side.BUY].last() // For SELL, get highest buy price
-                : priceTrees[Side.SELL].first(); // For BUY, get lowest sell price
+            bytes32 bestOppositePricePtr =
+                side == Side.SELL ? $.priceTrees[Side.BUY].last() : $.priceTrees[Side.SELL].first();
+            uint128 bestOppositePrice = uint128(RedBlackTreeLib.value(bestOppositePricePtr));
 
-            if (RBTree.isEmpty(bestOppositePrice)) {
+            if (bestOppositePrice == 0) {
                 revert OrderHasNoLiquidity();
             }
 
-            quoteAmount = PoolIdLibrary.baseToQuote(
-                orderAmount,
-                Price.unwrap(bestOppositePrice),
-                poolKey.baseCurrency.decimals()
-            );
+            quoteAmount = PoolIdLibrary.baseToQuote(orderAmount, bestOppositePrice, $.poolKey.baseCurrency.decimals());
         }
 
         return (orderAmount, quoteAmount);
     }
 
-    function validateMinimumSizes(
-        uint256 orderAmount,
-        uint256 quoteAmount
-    ) private view {
+    function validateMinimumSizes(uint256 orderAmount, uint256 quoteAmount) private view {
+        Storage storage $ = getStorage();
         // Validate minimum order size (quote currency)
-        uint256 minSize = Quantity.unwrap(tradingRules.minOrderSize);
+        uint256 minSize = $.tradingRules.minOrderSize;
+
         if (quoteAmount < minSize) {
             revert OrderTooSmall(quoteAmount, minSize);
         }
 
         // Validate minimum trade amount (base currency)
-        uint256 minAmount = Quantity.unwrap(tradingRules.minTradeAmount);
+        uint256 minAmount = $.tradingRules.minTradeAmount;
         if (orderAmount < minAmount) {
             revert OrderTooSmall(orderAmount, minAmount);
         }
     }
 
-    // function validateIncrements(
-    //     uint256 orderAmount,
-    //     uint256 quoteAmount,
-    //     Side side,
-    //     Price price
-    // ) private view {
-    //     // TODO: Check base currency amount increments (quantity)
-    //     uint256 minAmountMove = Quantity.unwrap(tradingRules.minAmountMovement);
-    //     if (orderAmount % minAmountMove != 0) {
-    //         revert InvalidQuantityIncrement();
-    //     }
-
-    //     // TODO: Additional check for quote amount increments
-    //     if (quoteAmount % minPriceMove != 0) {
-    //         revert InvalidQuantityIncrement();
-    //     }
-    // }
-
-    function validateMarketOrder(Side side) private view returns (Price) {
-        Price bestOppositePrice = side == Side.BUY
-            ? priceTrees[Side.SELL].first()
-            : priceTrees[Side.BUY].last();
-
-        if (RBTree.isEmpty(bestOppositePrice)) {
-            revert OrderHasNoLiquidity();
-        }
-
-        // Calculate adjusted price with slippage
-        Price adjustedPrice;
-        if (side == Side.BUY) {
-            adjustedPrice = Price.wrap(
-                (Price.unwrap(bestOppositePrice) *
-                    (100 + tradingRules.slippageTreshold)) / 100
-            );
-        } else {
-            adjustedPrice = Price.wrap(
-                (Price.unwrap(bestOppositePrice) *
-                    (100 - tradingRules.slippageTreshold)) / 100
-            );
-        }
-
-        return adjustedPrice;
-    }
-
-    function validateLimitOrder(
-        Price price,
-        Side side,
-        TimeInForce timeInForce
-    ) private view returns (Price) {
-        // Check Post-Only (PO) condition
+    function validateLimitOrder(uint128 price, Side side, TimeInForce timeInForce) private view returns (uint128) {
+        Storage storage $ = getStorage();
         if (timeInForce == TimeInForce.PO) {
-            Price bestOppositePrice = side == Side.BUY
-                ? priceTrees[Side.SELL].first()
-                : priceTrees[Side.BUY].last();
+            bytes32 bestOppositePricePtr =
+                side == Side.BUY ? $.priceTrees[Side.SELL].first() : $.priceTrees[Side.BUY].last();
+            uint128 bestOppositePrice = uint128(RedBlackTreeLib.value(bestOppositePricePtr));
 
-            if (!RBTree.isEmpty(bestOppositePrice)) {
-                bool wouldTake = side == Side.BUY
-                    ? Price.unwrap(price) >= Price.unwrap(bestOppositePrice)
-                    : Price.unwrap(price) <= Price.unwrap(bestOppositePrice);
+            if (bestOppositePrice != 0) {
+                bool wouldTake = side == Side.BUY ? price >= bestOppositePrice : price <= bestOppositePrice;
 
                 if (wouldTake) {
                     revert PostOnlyWouldTake();
@@ -273,376 +174,476 @@ contract OrderBook is Initializable, OwnableUpgradeable, ReentrancyGuardUpgradea
         return price;
     }
 
-    /// @notice Places a new limit order
-    /// @param price The price of the order
-    /// @param quantity The quantity of the order
-    /// @param side The side of the order (BUY/SELL)
-    /// @param user The user placing the order
-    /// @param timeInForce Time in force for the order (GTC, IOC, FOK, PO)
-    /// @return orderId The ID of the placed order
     function placeOrder(
-        Price price,
-        Quantity quantity,
+        uint128 price,
+        uint128 quantity,
         Side side,
         address user,
         TimeInForce timeInForce
-    ) external onlyRouter nonReentrant returns (OrderId) {
+    ) external onlyRouter returns (uint48 orderId) {
+        Storage storage $ = getStorage();
         validateOrder(price, quantity, side, OrderType.LIMIT, timeInForce);
 
-        OrderId orderId = OrderId.wrap(nextOrderId);
+        orderId = $.nextOrderId;
 
         Order memory newOrder = Order({
             id: orderId,
             user: user,
-            next: OrderId.wrap(0),
-            prev: OrderId.wrap(0),
+            next: 0,
+            prev: 0,
             price: price,
-            timestamp: uint48(block.timestamp),
             quantity: quantity,
-            filled: Quantity.wrap(0),
-            expiry: uint48(block.timestamp + EXPIRY_DAYS),
+            filled: 0,
+            expiry: uint48(block.timestamp + $.expiryDays),
             status: Status.OPEN,
             orderType: OrderType.LIMIT,
             side: side
         });
 
-        orderQueues[side][price].addOrder(newOrder);
+        _lockOrderAmount(user, side, price, quantity);
 
-        if (!priceTrees[side].exists(price)) {
-            priceTrees[side].insert(price);
+        _addOrderToQueue(newOrder);
+
+        _handleTimeInForce(newOrder, side, user, timeInForce);
+
+        unchecked {
+            $.nextOrderId++;
         }
 
-        activeUserOrders[user].add(OrderId.unwrap(orderId));
+        emit OrderPlaced(orderId, user, side, price, quantity, newOrder.expiry, false, Status.OPEN);
 
-        // Store order details for direct lookup
-        orderDetailsMap[OrderId.unwrap(orderId)] = OrderDetails({
-            side: side,
-            price: price,
-            user: user,
-            exists: true
-        });
+        return orderId;
+    }
 
-        emit OrderPlaced(
-            orderId,
-            user,
-            side,
-            price,
-            quantity,
-            uint48(block.timestamp),
-            newOrder.expiry,
-            false,
-            Status.OPEN
-        );
+    function _lockOrderAmount(address user, Side side, uint128 price, uint128 quantity) private {
+        Storage storage $ = getStorage();
+        PoolKey memory poolKey = $.poolKey;
 
         uint256 amountToLock;
         Currency currencyToLock;
 
         if (side == Side.BUY) {
-            amountToLock = PoolIdLibrary.baseToQuote(
-                Quantity.unwrap(quantity),
-                Price.unwrap(price),
-                poolKey.baseCurrency.decimals()
-            );
+            amountToLock = PoolIdLibrary.baseToQuote(quantity, price, poolKey.baseCurrency.decimals());
             currencyToLock = poolKey.quoteCurrency;
         } else {
-            amountToLock = Quantity.unwrap(quantity);
+            amountToLock = quantity;
             currencyToLock = poolKey.baseCurrency;
         }
 
-        IBalanceManager(balanceManager).lock(
-            user,
-            currencyToLock,
-            amountToLock
-        );
+        IBalanceManager($.balanceManager).lock(user, currencyToLock, amountToLock);
+    }
 
-        uint128 filled = 0;
+    function _handleTimeInForce(
+        Order memory order,
+        Side side,
+        address user,
+        TimeInForce timeInForce
+    ) private returns (uint128 filled) {
+        Storage storage $ = getStorage();
+        filled = 0;
+
         if (timeInForce != TimeInForce.PO) {
-            OrderMatching.MatchOrder memory matchOrder = OrderMatching
-                .MatchOrder({
-                    order: newOrder,
-                    side: side,
-                    trader: user,
-                    balanceManager: balanceManager,
-                    poolKey: poolKey,
-                    orderBook: this
-                });
-
-            filled = OrderMatching.matchOrder(
-                matchOrder,
-                orderQueues,
-                priceTrees,
-                false
-            );
+            filled = _matchOrder(order, side, user, false);
         }
 
-        if (
-            timeInForce == TimeInForce.FOK &&
-            filled < uint128(Quantity.unwrap(quantity))
-        ) {
-            revert FillOrKillNotFulfilled(
-                filled,
-                uint128(Quantity.unwrap(quantity))
-            );
-        } else if (
-            timeInForce == TimeInForce.IOC &&
-            filled < uint128(Quantity.unwrap(quantity))
-        ) {
-            Order storage orderToCancel = orderQueues[side][price].orders[
-                OrderId.unwrap(orderId)
-            ];
+        $.orders[order.id].filled = filled;
+        $.orderQueues[side][order.price].totalVolume -= filled;
 
-            if (
-                Quantity.unwrap(orderToCancel.quantity) >
-                Quantity.unwrap(orderToCancel.filled)
-            ) {
-                _cancelOrder(side, price, orderId, user);
+        if (filled == order.quantity) {
+            _removeOrderFromQueue($.orderQueues[side][order.price], $.orders[order.id]);
+            emit UpdateOrder(order.id, uint48(block.timestamp), filled, Status.FILLED);
+        }
+
+        if (timeInForce == TimeInForce.FOK && filled < uint128(order.quantity)) {
+            revert FillOrKillNotFulfilled(filled, uint128(order.quantity));
+        } else if (timeInForce == TimeInForce.IOC && filled < uint128(order.quantity)) {
+            Order storage orderToCancel = $.orders[order.id];
+            if (orderToCancel.quantity > orderToCancel.filled) {
+                _cancelOrder(order.id, user);
             }
         }
 
-        unchecked {
-            nextOrderId++;
-        }
-
-        return orderId;
+        return filled;
     }
 
-    /// @notice Places a new market order
-    /// @param quantity The quantity of the order
-    /// @param side The side of the order (BUY/SELL)
-    /// @param user The user placing the order
-    /// @return orderId The ID of the placed order
     function placeMarketOrder(
-        Quantity quantity,
+        uint128 quantity,
         Side side,
         address user
-    ) external override onlyRouter nonReentrant returns (OrderId) {
-        Price validatedPrice = validateOrder(
-            Price.wrap(0),
-            quantity,
-            side,
-            OrderType.MARKET,
-            TimeInForce.GTC
-        );
+    ) external onlyRouter nonReentrant returns (uint48 orderId) {
+        Storage storage $ = getStorage();
+        validateOrder(0, quantity, side, OrderType.MARKET, TimeInForce.GTC);
 
-        OrderId orderId = OrderId.wrap(nextOrderId++);
+        orderId = $.nextOrderId;
 
         Order memory marketOrder = Order({
             id: orderId,
             user: user,
-            next: OrderId.wrap(0),
-            prev: OrderId.wrap(0),
-            price: validatedPrice,
-            timestamp: uint48(block.timestamp),
+            next: 0,
+            prev: 0,
+            price: 0,
             quantity: quantity,
-            filled: Quantity.wrap(0),
-            expiry: uint48(block.timestamp + EXPIRY_DAYS),
+            filled: 0,
+            expiry: uint48(block.timestamp + $.expiryDays),
             status: Status.OPEN,
             orderType: OrderType.MARKET,
             side: side
         });
 
-        emit OrderPlaced(
-            orderId,
-            user,
-            side,
-            validatedPrice,
-            quantity,
-            uint48(block.timestamp),
-            marketOrder.expiry,
-            true,
-            Status.OPEN
-        );
+        _matchOrder(marketOrder, side, user, true);
 
-        OrderMatching.MatchOrder memory matchOrder = OrderMatching.MatchOrder({
-            order: marketOrder,
-            side: side,
-            trader: user,
-            balanceManager: balanceManager,
-            poolKey: poolKey,
-            orderBook: this
-        });
+        unchecked {
+            $.nextOrderId++;
+        }
 
-        OrderMatching.matchOrder(matchOrder, orderQueues, priceTrees, true);
+        emit OrderPlaced(orderId, user, side, 0, quantity, marketOrder.expiry, true, Status.OPEN);
 
         return orderId;
     }
 
-    function cancelOrder(
-        OrderId orderId,
-        address user
-    ) external override onlyRouter {
-        uint48 orderIdRaw = OrderId.unwrap(orderId);
-        OrderDetails memory orderDetails = orderDetailsMap[orderIdRaw];
-
-        if (!orderDetails.exists) {
-            revert OrderNotFound();
-        }
-
-        _cancelOrder(orderDetails.side, orderDetails.price, orderId, user);
+    function cancelOrder(uint48 orderId, address user) external onlyRouter {
+        _cancelOrder(orderId, user);
     }
 
-    function _cancelOrder(
-        Side side,
-        Price price,
-        OrderId orderId,
-        address user
-    ) internal {
-        OrderQueueLib.OrderQueue storage queue = orderQueues[side][price];
-        Order storage order = queue.orders[OrderId.unwrap(orderId)];
+    function _cancelOrder(uint48 orderId, address user) private {
+        Storage storage $ = getStorage();
+        Order storage order = $.orders[orderId];
+        IOrderBook.OrderQueue storage queue = $.orderQueues[order.side][order.price];
 
-        if (order.user != user) revert UnauthorizedCancellation();
-
-        Quantity remainingQuantity = Quantity.wrap(
-            Quantity.unwrap(order.quantity) - Quantity.unwrap(order.filled)
-        );
-
-        queue.removeOrder(OrderId.unwrap(orderId));
-
-        emit OrderMatching.UpdateOrder(
-            orderId,
-            uint48(block.timestamp),
-            order.filled,
-            Status.CANCELLED
-        );
-        emit OrderCancelled(
-            orderId,
-            user,
-            uint48(block.timestamp),
-            Status.CANCELLED
-        );
-
-        activeUserOrders[user].remove(OrderId.unwrap(orderId));
-
-        // Remove order details from the map
-        delete orderDetailsMap[OrderId.unwrap(orderId)];
-
-        uint256 amountToUnlock;
-        if (side == Side.BUY) {
-            amountToUnlock = PoolIdLibrary.baseToQuote(
-                Quantity.unwrap(remainingQuantity),
-                Price.unwrap(price),
-                poolKey.baseCurrency.decimals()
-            );
-        } else {
-            amountToUnlock = Quantity.unwrap(remainingQuantity);
+        if (order.user != user) {
+            revert UnauthorizedCancellation();
         }
 
-        IBalanceManager(balanceManager).unlock(
-            user,
-            side == Side.BUY ? poolKey.quoteCurrency : poolKey.baseCurrency,
-            amountToUnlock
+        uint128 remainingQuantity = order.quantity - order.filled;
+
+        _removeOrderFromQueue(queue, order);
+
+        emit OrderCancelled(orderId, user, uint48(block.timestamp), Status.CANCELLED);
+
+        uint256 amountToUnlock;
+        if (order.side == Side.BUY) {
+            amountToUnlock =
+                PoolIdLibrary.baseToQuote(remainingQuantity, order.price, $.poolKey.baseCurrency.decimals());
+        } else {
+            amountToUnlock = remainingQuantity;
+        }
+
+        IBalanceManager($.balanceManager).unlock(
+            user, order.side == Side.BUY ? $.poolKey.quoteCurrency : $.poolKey.baseCurrency, amountToUnlock
         );
 
-        if (queue.isEmpty()) {
-            priceTrees[side].remove(price);
+        if (isQueueEmpty(order.side, order.price)) {
+            RedBlackTreeLib.remove($.priceTrees[order.side], order.price);
         }
     }
 
     function getBestPrice(
         Side side
     ) external view override returns (PriceVolume memory) {
-        Price price = side == Side.BUY
-            ? priceTrees[side].last()
-            : priceTrees[side].first();
+        Storage storage $ = getStorage();
+        bytes32 pricePtr = side == Side.BUY ? $.priceTrees[side].last() : $.priceTrees[side].first();
+        uint128 price = uint128(RedBlackTreeLib.value(pricePtr));
 
-        return
-            PriceVolume({
-                price: price,
-                volume: orderQueues[side][price].totalVolume
-            });
+        return PriceVolume({price: price, volume: $.orderQueues[side][price].totalVolume});
     }
 
-    function getOrderQueue(
+    function getOrderQueue(Side side, uint128 price) external view returns (uint48 orderCount, uint256 totalVolume) {
+        Storage storage $ = getStorage();
+        IOrderBook.OrderQueue storage queue = $.orderQueues[side][price];
+        return (queue.orderCount, queue.totalVolume);
+    }
+
+    function getOrder(
+        uint48 orderId
+    ) external view returns (Order memory) {
+        Storage storage $ = getStorage();
+        return $.orders[orderId];
+    }
+
+    function _handleExpiredOrder(IOrderBook.OrderQueue storage queue, IOrderBook.Order storage order) private {
+        _removeOrderFromQueue(queue, order);
+        emit UpdateOrder(order.id, uint48(block.timestamp), 0, Status.EXPIRED);
+    }
+
+    function _processMatchingOrder(
+        Order memory originalOrder,
+        Order storage matchingOrder,
+        OrderQueue storage queue,
+        uint128 bestPrice,
+        uint128 remaining,
+        uint128 filled,
         Side side,
-        Price price
-    ) external view returns (uint48 orderCount, uint256 totalVolume) {
-        OrderQueueLib.OrderQueue storage queue = orderQueues[side][price];
-        uint48 validOrderCount = 0;
-        uint256 validVolume = 0;
+        address user,
+        bool isMarketOrder
+    ) private returns (uint128, uint128) {
+        uint128 matchingRemaining = matchingOrder.quantity - matchingOrder.filled;
+        uint128 executedQuantity = remaining < matchingRemaining ? remaining : matchingRemaining;
 
-        uint48 currentOrderId = queue.head;
-        while (currentOrderId != 0) {
-            Order storage order = queue.orders[currentOrderId];
-            if (order.expiry > block.timestamp) {
-                validOrderCount++;
-                validVolume +=
-                    uint128(Quantity.unwrap(order.quantity)) -
-                    uint128(Quantity.unwrap(order.filled));
-            }
-            currentOrderId = uint48(OrderId.unwrap(order.next));
+        remaining -= executedQuantity;
+        filled += executedQuantity;
+
+        matchingOrder.filled += executedQuantity;
+        queue.totalVolume -= executedQuantity;
+
+        transferBalances(user, matchingOrder.user, bestPrice, executedQuantity, side, isMarketOrder);
+
+        if (matchingOrder.filled == matchingOrder.quantity) {
+            _removeOrderFromQueue(queue, matchingOrder);
         }
 
-        return (validOrderCount, validVolume);
+        emit OrderMatched(
+            user,
+            side == Side.BUY ? originalOrder.id : matchingOrder.id,
+            side == Side.SELL ? originalOrder.id : matchingOrder.id,
+            side,
+            uint48(block.timestamp),
+            bestPrice,
+            executedQuantity
+        );
+
+        return (remaining, filled);
     }
 
-    function getUserActiveOrders(
-        address user
-    ) external view override returns (Order[] memory) {
-        EnumerableSet.UintSet storage userOrders = activeUserOrders[user];
-        Order[] memory orders = new Order[](userOrders.length());
-        uint48 validOrderCount = 0;
+    function _updatePriceLevel(
+        uint128 bestPrice,
+        OrderQueue storage queue,
+        RedBlackTreeLib.Tree storage priceTree
+    ) private {
+        if (queue.orderCount == 0 && priceTree.exists(bestPrice)) {
+            priceTree.remove(bestPrice);
+        }
+    }
 
-        for (uint48 i = 0; i < userOrders.length(); i++) {
-            uint48 orderId = uint48(userOrders.at(i));
-            OrderDetails memory orderDetails = orderDetailsMap[orderId];
+    function _matchOrder(
+        Order memory order,
+        Side side,
+        address user,
+        bool isMarketOrder
+    ) private returns (uint128 filled) {
+        Storage storage $ = getStorage();
+        Side oppositeSide = side == Side.BUY ? Side.SELL : Side.BUY;
+        RedBlackTreeLib.Tree storage priceTree = $.priceTrees[oppositeSide];
 
-            if (!orderDetails.exists) {
-                continue;
+        uint128 remaining = order.quantity - order.filled;
+        uint128 orderPrice = order.price;
+        uint128 latestBestPrice = 0;
+        uint128 previousRemaining = 0;
+        filled = 0;
+
+        while (remaining > 0) {
+            uint128 bestPrice = _getBestMatchingPrice(orderPrice, oppositeSide, isMarketOrder);
+
+            if (bestPrice == 0) {
+                break;
             }
 
-            Order memory order = orderQueues[orderDetails.side][
-                orderDetails.price
-            ].getOrder(orderId);
+            if (bestPrice == latestBestPrice && previousRemaining == remaining) {
+                bytes32 bestPricePtr = priceTree.find(bestPrice);
+                bestPrice = side == Side.BUY
+                    ? uint128(RedBlackTreeLib.value(RedBlackTreeLib.next(bestPricePtr)))
+                    : uint128(RedBlackTreeLib.value(RedBlackTreeLib.prev(bestPricePtr)));
 
-            if (order.expiry <= block.timestamp) {
-                continue;
+                if (bestPrice == 0) {
+                    break;
+                }
             }
 
-            orders[validOrderCount] = order;
-            validOrderCount++;
+            latestBestPrice = bestPrice;
+            previousRemaining = remaining;
+            OrderQueue storage queue = $.orderQueues[oppositeSide][bestPrice];
+            uint48 currentOrderId = queue.head;
+
+            while (currentOrderId != 0 && remaining > 0) {
+                Order storage matchingOrder = $.orders[currentOrderId];
+                uint48 nextOrderId = matchingOrder.next;
+
+                if (matchingOrder.expiry < block.timestamp) {
+                    _handleExpiredOrder(queue, matchingOrder);
+                } else if (matchingOrder.user == user) {
+                    _cancelOrder(currentOrderId, user);
+                } else {
+                    (remaining, filled) = _processMatchingOrder(
+                        order, matchingOrder, queue, bestPrice, remaining, filled, side, user, isMarketOrder
+                    );
+                }
+                currentOrderId = nextOrderId;
+            }
+
+            _updatePriceLevel(bestPrice, queue, priceTree);
         }
 
-        assembly {
-            mstore(orders, validOrderCount)
-        }
-
-        return orders;
+        return filled;
     }
 
     function getNextBestPrices(
         Side side,
-        Price price,
+        uint128 price,
         uint8 count
     ) external view override returns (PriceVolume[] memory) {
+        Storage storage $ = getStorage();
         PriceVolume[] memory levels = new PriceVolume[](count);
-        Price currentPrice = price;
+        uint128 currentPrice = price;
 
         for (uint8 i = 0; i < count; i++) {
             currentPrice = _getNextBestPrice(side, currentPrice);
-            if (RBTree.isEmpty(currentPrice)) break;
+            if (currentPrice == 0) {
+                break;
+            }
 
-            levels[i] = PriceVolume({
-                price: currentPrice,
-                volume: orderQueues[side][currentPrice].totalVolume
-            });
+            levels[i] = PriceVolume({price: currentPrice, volume: $.orderQueues[side][currentPrice].totalVolume});
         }
 
         return levels;
     }
 
-    function _getNextBestPrice(
-        Side side,
-        Price price
-    ) private view returns (Price) {
-        if (RBTree.isEmpty(price)) {
-            return
-                side == Side.BUY
-                    ? priceTrees[side].last()
-                    : priceTrees[side].first();
+    function _getNextBestPrice(Side side, uint128 price) private view returns (uint128) {
+        Storage storage $ = getStorage();
+        RedBlackTreeLib.Tree storage priceTree = $.priceTrees[side];
+
+        bytes32 pricePtr;
+        if (price == 0) {
+            // Get the first or last price based on the side
+            pricePtr = side == Side.BUY ? priceTree.last() : priceTree.first();
+        } else {
+            // Find the pointer for the current price
+            bytes32 currentPricePtr = priceTree.find(uint256(price));
+            // Traverse to the next or previous price based on the side
+            pricePtr = side == Side.BUY ? RedBlackTreeLib.prev(currentPricePtr) : RedBlackTreeLib.next(currentPricePtr);
         }
-        return
-            side == Side.BUY
-                ? priceTrees[side].prev(price)
-                : priceTrees[side].next(price);
+
+        // Return the price value if the pointer is valid
+        return pricePtr != bytes32(0) ? uint128(RedBlackTreeLib.value(pricePtr)) : 0;
+    }
+
+    function _getBestMatchingPrice(
+        uint128 orderPrice,
+        IOrderBook.Side side,
+        bool isMarketOrder
+    ) private view returns (uint128) {
+        Storage storage $ = getStorage();
+        RedBlackTreeLib.Tree storage priceTree = $.priceTrees[side];
+
+        bytes32 pricePtr = side == IOrderBook.Side.BUY ? priceTree.last() : priceTree.first();
+        uint128 bestPrice = uint128(RedBlackTreeLib.value(pricePtr));
+
+        if (isMarketOrder) {
+            return bestPrice;
+        }
+
+        if (priceTree.exists(orderPrice)) {
+            return orderPrice;
+        }
+
+        return 0;
+    }
+
+    function transferBalances(
+        address trader,
+        address matchingUser,
+        uint128 matchPrice,
+        uint128 executedQuantity,
+        IOrderBook.Side side,
+        bool isMarketOrder
+    ) private {
+        Storage storage $ = getStorage();
+        uint256 baseAmount = executedQuantity;
+
+        uint256 quoteAmount = PoolIdLibrary.baseToQuote(baseAmount, matchPrice, $.poolKey.baseCurrency.decimals());
+
+        if (side == IOrderBook.Side.SELL) {
+            if (!isMarketOrder) {
+                IBalanceManager($.balanceManager).unlock(trader, $.poolKey.baseCurrency, baseAmount);
+            }
+
+            IBalanceManager($.balanceManager).transferFrom(trader, matchingUser, $.poolKey.baseCurrency, baseAmount);
+
+            IBalanceManager($.balanceManager).transferLockedFrom(
+                matchingUser, trader, $.poolKey.quoteCurrency, quoteAmount
+            );
+        } else {
+            if (!isMarketOrder) {
+                IBalanceManager($.balanceManager).unlock(trader, $.poolKey.quoteCurrency, quoteAmount);
+            }
+            IBalanceManager($.balanceManager).transferFrom(trader, matchingUser, $.poolKey.quoteCurrency, quoteAmount);
+            IBalanceManager($.balanceManager).transferLockedFrom(
+                matchingUser, trader, $.poolKey.baseCurrency, baseAmount
+            );
+        }
+    }
+
+    function _addOrderToQueue(
+        IOrderBook.Order memory _order
+    ) private {
+        Storage storage $ = getStorage();
+        IOrderBook.OrderQueue storage queue = $.orderQueues[_order.side][_order.price];
+        Order storage order = $.orders[_order.id];
+
+        order.id = _order.id;
+        order.user = _order.user;
+        order.next = _order.next;
+        order.prev = _order.prev;
+        order.price = _order.price;
+        order.quantity = _order.quantity;
+        order.filled = _order.filled;
+        order.expiry = _order.expiry;
+        order.status = _order.status;
+        order.orderType = _order.orderType;
+        order.side = _order.side;
+
+        if (queue.head == 0) {
+            queue.head = _order.id;
+            queue.tail = _order.id;
+        } else {
+            $.orders[queue.tail].next = _order.id;
+            order.prev = queue.tail;
+            queue.tail = _order.id;
+        }
+
+        unchecked {
+            queue.totalVolume += uint256(_order.quantity);
+            queue.orderCount++;
+        }
+
+        RedBlackTreeLib.Tree storage priceTree = $.priceTrees[_order.side];
+
+        if (!RedBlackTreeLib.exists(priceTree, uint256(_order.price))) {
+            RedBlackTreeLib.insert(priceTree, (_order.price));
+        }
+    }
+
+    function _removeOrderFromQueue(
+        IOrderBook.OrderQueue storage queue,
+        IOrderBook.Order storage order
+    ) private returns (uint256) {
+        Storage storage $ = getStorage();
+
+        if (queue.orderCount == 0) {
+            revert QueueEmpty();
+        }
+
+        uint256 remainingQuantity = order.quantity - order.filled;
+
+        // Update queue pointers
+        if (order.prev != 0) {
+            $.orders[order.prev].next = order.next;
+        } else {
+            queue.head = order.next;
+        }
+
+        if (order.next != 0) {
+            $.orders[order.next].prev = order.prev;
+        } else {
+            queue.tail = order.prev;
+        }
+
+        queue.orderCount--;
+        queue.totalVolume -= remainingQuantity;
+
+        return remainingQuantity;
+    }
+
+    function isQueueEmpty(IOrderBook.Side side, uint128 price) private view returns (bool) {
+        Storage storage $ = getStorage();
+        return $.orderQueues[side][price].orderCount == 0;
     }
 }
