@@ -18,6 +18,12 @@ contract MarketMaker is ERC20, Gauge {
         _mint(msg.sender, amount);
     }
 
+    function withdraw(
+        uint256 amount
+    ) external {
+        _burn(msg.sender, amount);
+    }
+
     function redeemRewards() external {
         _redeemRewards(msg.sender);
     }
