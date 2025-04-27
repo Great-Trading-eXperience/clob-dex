@@ -5,7 +5,7 @@ import "../../interfaces/IMsgReceiverApp.sol";
 
 // solhint-disable no-empty-blocks
 
-abstract contract MsgReceiverApp is IMsgReceiverApp {
+abstract contract MsgReceiverAppUpd is IMsgReceiverApp {
     error MsgNotFromReceiveEndpoint(address sender);
 
     address public immutable msgReceiveEndpoint;

@@ -3,22 +3,31 @@ pragma solidity ^0.8.0;
 
 import {IMsgSendEndpoint} from "../../interfaces/IMsgSendEndpoint.sol";
 import {EnumerableMap} from "@openzeppelin/contracts/utils/structs/EnumerableMap.sol";
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 
 // solhint-disable no-empty-blocks
 
-abstract contract MsgSenderApp is Ownable {
+abstract contract MsgSenderAppUpd is OwnableUpgradeable {
     using EnumerableMap for EnumerableMap.UintToAddressMap;
 
     error InsufficientFeeToSendMsg(uint256 balance, uint256 fee);
 
-    uint256 public approxDstExecutionGas;
+    struct MsgSenderStorage {
+        uint256 approxDstExecutionGas;
+        EnumerableMap.UintToAddressMap destinationContracts;
+    }
+
+    bytes32 private constant MSG_SENDER_STORAGE = keccak256("gtx.crosschain.msgsender.storage");
+
+    function _getMsgSenderStorage() internal pure returns (MsgSenderStorage storage $) {
+        bytes32 slot = MSG_SENDER_STORAGE;
+        assembly {
+            $.slot := slot
+        }
+    }
 
     IMsgSendEndpoint public immutable msgSendEndpoint;
-
-    // destinationContracts mapping contains one address for each chainId only
-    EnumerableMap.UintToAddressMap internal destinationContracts;
 
     modifier refundUnusedEth() {
         _;
@@ -27,15 +36,24 @@ abstract contract MsgSenderApp is Ownable {
         }
     }
 
-    constructor(address _msgSendEndpoint, uint256 _approxDstExecutionGas) Ownable(msg.sender) {
+    constructor(
+        address _msgSendEndpoint
+    ) {
         msgSendEndpoint = IMsgSendEndpoint(_msgSendEndpoint);
-        approxDstExecutionGas = _approxDstExecutionGas;
+    }
+
+    function __MsgSenderAppUpd_init(
+        uint256 _approxDstExecutionGas
+    ) internal {
+        _getMsgSenderStorage().approxDstExecutionGas = _approxDstExecutionGas;
     }
 
     function _sendMessage(uint256 chainId, bytes memory message) internal {
-        assert(destinationContracts.contains(chainId));
-        address toAddr = destinationContracts.get(chainId);
-        uint256 estimatedGasAmount = approxDstExecutionGas;
+        MsgSenderStorage storage $ = _getMsgSenderStorage();
+
+        assert($.destinationContracts.contains(chainId));
+        address toAddr = $.destinationContracts.get(chainId);
+        uint256 estimatedGasAmount = $.approxDstExecutionGas;
         uint256 fee = msgSendEndpoint.calcFee(toAddr, chainId, message, estimatedGasAmount);
         // LM contracts won't hold ETH on its own so this is fine
         if (address(this).balance < fee) {
@@ -48,13 +66,13 @@ abstract contract MsgSenderApp is Ownable {
         address _address,
         uint256 _chainId
     ) external payable onlyOwner {
-        destinationContracts.set(_chainId, _address);
+        _getMsgSenderStorage().destinationContracts.set(_chainId, _address);
     }
 
     function setApproxDstExecutionGas(
         uint256 gas
     ) external onlyOwner {
-        approxDstExecutionGas = gas;
+        _getMsgSenderStorage().approxDstExecutionGas = gas;
     }
 
     function getAllDestinationContracts()
@@ -62,12 +80,13 @@ abstract contract MsgSenderApp is Ownable {
         view
         returns (uint256[] memory chainIds, address[] memory addrs)
     {
-        uint256 length = destinationContracts.length();
+        MsgSenderStorage storage $ = _getMsgSenderStorage();
+        uint256 length = $.destinationContracts.length();
         chainIds = new uint256[](length);
         addrs = new address[](length);
 
         for (uint256 i = 0; i < length; ++i) {
-            (chainIds[i], addrs[i]) = destinationContracts.at(i);
+            (chainIds[i], addrs[i]) = $.destinationContracts.at(i);
         }
     }
 
@@ -75,8 +94,9 @@ abstract contract MsgSenderApp is Ownable {
         uint256 chainId,
         bytes memory message
     ) internal view returns (uint256) {
+        MsgSenderStorage storage $ = _getMsgSenderStorage();
         return msgSendEndpoint.calcFee(
-            destinationContracts.get(chainId), chainId, message, approxDstExecutionGas
+            $.destinationContracts.get(chainId), chainId, message, $.approxDstExecutionGas
         );
     }
 }
