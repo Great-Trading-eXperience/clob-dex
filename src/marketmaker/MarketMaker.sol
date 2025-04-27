@@ -8,9 +8,15 @@ contract MarketMaker is ERC20, Gauge {
     constructor(
         string memory name,
         string memory symbol,
-        address _vePendle,
+        address _veToken,
         address _gaugeController
-    ) ERC20(name, symbol) Gauge(_vePendle, _gaugeController) {}
+    ) ERC20(name, symbol) Gauge(_veToken, _gaugeController) {}
+
+    function deposit(
+        uint256 amount
+    ) external {
+        _mint(msg.sender, amount);
+    }
 
     function redeemRewards() external {
         _redeemRewards(msg.sender);

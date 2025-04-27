@@ -59,6 +59,7 @@ contract VotingControllerUpg is Initializable, VotingControllerStorageUpg, MsgSe
     ) external initializer {
         deployedWTime = WeekMath.getCurrentWeekStart();
         __MsgSenderAppUpd_init(_initialApproxDestinationGas);
+        __Ownable_init(msg.sender);
     }
 
     /*///////////////////////////////////////////////////////////////
