@@ -4,18 +4,14 @@ pragma solidity ^0.8.17;
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {EnumerableMap} from "@openzeppelin/contracts/utils/structs/EnumerableMap.sol";
-
 import {IVotingEscrowMainchain} from "../../interfaces/IVotingEscrowMainchain.sol";
 import {IVeToken} from "../../interfaces/IVeToken.sol";
-
 import "../libraries/VeHistoryLib.sol";
-
 import {MiniHelpers} from "../libraries/MiniHelpers.sol";
-
 import {VotingEscrowTokenBase} from "./VotingEscrowTokenBase.sol";
-import {MsgSenderApp} from "../crosschain/MsgSenderApp.sol";
+import {MsgSenderAppUpd} from "../crosschain/MsgSenderAppUpd.sol";
 
-contract VotingEscrowMainchain is VotingEscrowTokenBase, IVotingEscrowMainchain, MsgSenderApp {
+contract VotingEscrowMainchain is VotingEscrowTokenBase, IVotingEscrowMainchain, MsgSenderAppUpd {
     using SafeERC20 for IERC20;
     using VeBalanceLib for VeBalance;
     using VeBalanceLib for LockedPosition;
@@ -40,7 +36,7 @@ contract VotingEscrowMainchain is VotingEscrowTokenBase, IVotingEscrowMainchain,
     bytes private constant SAMPLE_POSITION_UPDATE_MESSAGE =
         abi.encode(0, VeBalance(0, 0), abi.encode(address(0), LockedPosition(0, 0)));
 
-    IERC20 public immutable pendle;
+    IERC20 public immutable mainToken;
 
     uint128 public lastSlopeChangeAppliedAt;
 
@@ -52,16 +48,17 @@ contract VotingEscrowMainchain is VotingEscrowTokenBase, IVotingEscrowMainchain,
     mapping(uint128 => uint128) public totalSupplyAt;
 
     // Saving VeBalance checkpoint for users of each week, can later use binary search
-    // to ask for their vePendle balance at any wTime
+    // to ask for their veToken balance at any wTime
     mapping(address => Checkpoints.History) internal userHistory;
 
     constructor(
-        IERC20 _pendle,
-        address _pendleMsgSendEndpoint,
+        IERC20 _mainToken,
+        address _msgSendEndpoint,
         uint256 initialApproxDestinationGas
-    ) MsgSenderApp(_pendleMsgSendEndpoint, initialApproxDestinationGas) {
-        pendle = _pendle;
+    ) MsgSenderAppUpd(_msgSendEndpoint) {
+        mainToken = _mainToken;
         lastSlopeChangeAppliedAt = WeekMath.getCurrentWeekStart();
+        __MsgSenderAppUpd_init(initialApproxDestinationGas);
     }
 
     /// @notice basically a proxy function to call increaseLockPosition & broadcastUserPosition at the same time
@@ -104,7 +101,7 @@ contract VotingEscrowMainchain is VotingEscrowTokenBase, IVotingEscrowMainchain,
         uint128 additionalDurationToLock = newExpiry - positionData[user].expiry;
 
         if (additionalAmountToLock > 0) {
-            pendle.safeTransferFrom(user, address(this), additionalAmountToLock);
+            mainToken.safeTransferFrom(user, address(this), additionalAmountToLock);
         }
 
         newVeBalance = _increasePosition(user, additionalAmountToLock, additionalDurationToLock);
@@ -127,7 +124,7 @@ contract VotingEscrowMainchain is VotingEscrowTokenBase, IVotingEscrowMainchain,
 
         delete positionData[user];
 
-        pendle.safeTransfer(user, amount);
+        mainToken.safeTransfer(user, amount);
 
         emit Withdraw(user, amount);
     }
@@ -265,7 +262,7 @@ contract VotingEscrowMainchain is VotingEscrowTokenBase, IVotingEscrowMainchain,
             (user == address(0) ? EMPTY_BYTES : abi.encode(user, positionData[user]));
 
         for (uint256 i = 0; i < chainIds.length; ++i) {
-            if (!destinationContracts.contains(chainIds[i])) {
+            if (!_getMsgSenderStorage().destinationContracts.contains(chainIds[i])) {
                 revert ChainNotSupported(chainIds[i]);
             }
             _broadcast(chainIds[i], uint128(block.timestamp), supply, userData);

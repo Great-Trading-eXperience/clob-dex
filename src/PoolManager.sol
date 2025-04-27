@@ -14,7 +14,6 @@ import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Own
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {Upgrades} from "../lib/openzeppelin-foundry-upgrades/src/Upgrades.sol";
 
-
 contract PoolManager is Initializable, OwnableUpgradeable, IPoolManager {
     address private balanceManager;
     address private router;
@@ -33,6 +32,9 @@ contract PoolManager is Initializable, OwnableUpgradeable, IPoolManager {
     // Liquidity ranking for path finding (higher is better)
     mapping(PoolId => uint256) public poolLiquidity;
 
+    // Pool address mapping
+    mapping(address => bool) public isValidPool;
+
     event CurrencyAdded(Currency currency);
     event IntermediaryAdded(Currency currency);
     event IntermediaryRemoved(Currency currency);
@@ -43,7 +45,11 @@ contract PoolManager is Initializable, OwnableUpgradeable, IPoolManager {
         _disableInitializers();
     }
 
-    function initialize(address _owner, address _balanceManager, address _orderBookBeacon) public initializer {
+    function initialize(
+        address _owner,
+        address _balanceManager,
+        address _orderBookBeacon
+    ) public initializer {
         __Ownable_init(_owner);
         balanceManager = _balanceManager;
         orderBookBeacon = _orderBookBeacon;
@@ -85,8 +91,11 @@ contract PoolManager is Initializable, OwnableUpgradeable, IPoolManager {
 
         address orderBookProxy = Upgrades.deployBeaconProxy(
             orderBookBeacon,
-            abi.encodeCall(OrderBook.initialize, (address(this), balanceManager, _tradingRules, key))
+            abi.encodeCall(
+                OrderBook.initialize, (address(this), balanceManager, _tradingRules, key)
+            )
         );
+        isValidPool[orderBookProxy] = true;
 
         IOrderBook orderBookInterface = IOrderBook(orderBookProxy);
 

@@ -5,27 +5,25 @@ pragma solidity ^0.8.17;
 import {VeBalanceLib} from "../libraries/VeBalanceLib.sol";
 import {WeekMath} from "../libraries/WeekMath.sol";
 import {VotingEscrowTokenBase} from "./VotingEscrowTokenBase.sol";
-import {MsgReceiverApp} from "../crosschain/MsgReceiverApp.sol";
+import {MsgReceiverAppUpd} from "../crosschain/MsgReceiverAppUpd.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import "../libraries/VeBalanceLib.sol";
 
 // solhint-disable no-empty-blocks
-contract VotingEscrowSidechain is VotingEscrowTokenBase, MsgReceiverApp, Ownable {
+contract VotingEscrowSidechain is VotingEscrowTokenBase, MsgReceiverAppUpd, Ownable {
     error VEReceiveOldSupply(uint128 msgTime);
+
+    event SetNewDelegator(address delegator, address receiver);
+    event SetNewTotalSupply(VeBalance totalSupply);
+    event SetNewUserPosition(LockedPosition position);
 
     uint256 public lastTotalSupplyReceivedAt;
 
     mapping(address => address) internal delegatorOf;
 
-    event SetNewDelegator(address delegator, address receiver);
-
-    event SetNewTotalSupply(VeBalance totalSupply);
-
-    event SetNewUserPosition(LockedPosition position);
-
     constructor(
         address _msgReceiveEndpoint
-    ) MsgReceiverApp(_msgReceiveEndpoint) Ownable(msg.sender) {}
+    ) MsgReceiverAppUpd(_msgReceiveEndpoint) Ownable(msg.sender) {}
 
     function totalSupplyCurrent() public view virtual override returns (uint128) {
         return totalSupplyStored();
