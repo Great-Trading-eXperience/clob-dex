@@ -52,11 +52,11 @@ contract VotingEscrowMainchain is VotingEscrowTokenBase, IVotingEscrowMainchain,
     mapping(address => Checkpoints.History) internal userHistory;
 
     constructor(
-        IERC20 _mainToken,
+        address _mainToken,
         address _msgSendEndpoint,
         uint256 initialApproxDestinationGas
     ) MsgSenderAppUpd(_msgSendEndpoint) {
-        mainToken = _mainToken;
+        mainToken = IERC20(_mainToken);
         lastSlopeChangeAppliedAt = WeekMath.getCurrentWeekStart();
         __MsgSenderAppUpd_init(initialApproxDestinationGas);
     }
