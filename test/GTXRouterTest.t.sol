@@ -1057,7 +1057,7 @@ contract GTXRouterTest is Test {
             // For buy orders, quantity is in base asset (ETH)
             uint128 buyQuantity = 5e18; // 5 ETH
 
-            gtxRouter.placeOrderWithDeposit(pool, price, buyQuantity, IOrderBook.Side.BUY, alice);
+            gtxRouter.placeOrderWithDeposit(pool, price, buyQuantity, IOrderBook.Side.BUY, traders[i]);
             vm.stopPrank();
         }
 
