@@ -6,13 +6,13 @@ import {PoolId, PoolKey} from "../libraries/Pool.sol";
 import {IOrderBook} from "./IOrderBook.sol";
 
 interface IPoolManager {
-    error InvalidRouter();
-
     struct Pool {
         Currency baseCurrency;
         Currency quoteCurrency;
         IOrderBook orderBook;
     }
+
+    error InvalidRouter();
 
     event PoolCreated(PoolId indexed poolId, address orderBook, Currency baseCurrency, Currency quoteCurrency);
     event CurrencyAdded(Currency currency);

@@ -24,17 +24,20 @@ contract DeployBeaconProxies is Script {
 
         vm.startBroadcast(deployerPrivateKey);
 
+        // Deploy beacons
+        console.log("========== DEPLOYING BEACONS ==========");
         address balanceManagerBeacon = Upgrades.deployBeacon("BalanceManager.sol", beaconOwner);
         address poolManagerBeacon = Upgrades.deployBeacon("PoolManager.sol", beaconOwner);
         address routerBeacon = Upgrades.deployBeacon("GTXRouter.sol", beaconOwner);
         address orderBookBeacon = Upgrades.deployBeacon("OrderBook.sol", beaconOwner);
 
-        console.log("BalanceManager Beacon deployed at:", balanceManagerBeacon);
-        console.log("PoolManager Beacon deployed at:", poolManagerBeacon);
-        console.log("Router Beacon deployed at:", routerBeacon);
-        console.log("OrderBook Beacon deployed at:", orderBookBeacon);
+        console.log("BEACON_BALANCEMANAGER=%s", balanceManagerBeacon);
+        console.log("BEACON_POOLMANAGER=%s", poolManagerBeacon);
+        console.log("BEACON_ROUTER=%s", routerBeacon);
+        console.log("BEACON_ORDERBOOK=%s", orderBookBeacon);
 
         // Deploy proxies for each contract
+        console.log("\n========== DEPLOYING PROXIES ==========");
         address balanceManagerProxy = Upgrades.deployBeaconProxy(
             balanceManagerBeacon,
             abi.encodeCall(
@@ -42,26 +45,38 @@ contract DeployBeaconProxies is Script {
                 (beaconOwner, feeReceiver, 1, 5) // owner, feeReceiver, feeMaker (0.1%), feeTaker (0.5%)
             )
         );
-        console.log("BalanceManager Proxy deployed at:", balanceManagerProxy);
+        console.log("PROXY_BALANCEMANAGER=%s", balanceManagerProxy);
 
         address poolManagerProxy = Upgrades.deployBeaconProxy(
             poolManagerBeacon,
             abi.encodeCall(PoolManager.initialize, (beaconOwner, balanceManagerProxy, orderBookBeacon))
         );
-        console.log("PoolManager Proxy deployed at:", poolManagerProxy);
+        console.log("PROXY_POOLMANAGER=%s", poolManagerProxy);
 
         address routerProxy = Upgrades.deployBeaconProxy(
             routerBeacon, abi.encodeCall(GTXRouter.initialize, (poolManagerProxy, balanceManagerProxy))
         );
-        console.log("Router Proxy deployed at:", routerProxy);
+        console.log("PROXY_ROUTER=%s", routerProxy);
 
-        // Connect contracts
+        // Setting up authorizations
+        console.log("\n========== CONFIGURING AUTHORIZATIONS ==========");
         BalanceManager balanceManager = BalanceManager(balanceManagerProxy);
-        PoolManager poolManager = PoolManager(poolManagerProxy);
 
-        balanceManager.setAuthorizedOperator(address(poolManager), true);
-        balanceManager.transferOwnership(address(poolManager));
-        poolManager.setRouter(address(routerProxy));
+        balanceManager.setAuthorizedOperator(address(poolManagerProxy), true);
+        console.log("Authorized PoolManager as operator in BalanceManager");
+
+        balanceManager.setAuthorizedOperator(address(routerProxy), true);
+        console.log("Authorized Router as operator in BalanceManager");
+
+        console.log("\n========== DEPLOYMENT SUMMARY ==========");
+        console.log("# Add these to your .env file:");
+        console.log("BEACON_BALANCEMANAGER=%s", balanceManagerBeacon);
+        console.log("BEACON_POOLMANAGER=%s", poolManagerBeacon);
+        console.log("BEACON_ROUTER=%s", routerBeacon);
+        console.log("BEACON_ORDERBOOK=%s", orderBookBeacon);
+        console.log("PROXY_BALANCEMANAGER=%s", balanceManagerProxy);
+        console.log("PROXY_POOLMANAGER=%s", poolManagerProxy);
+        console.log("PROXY_ROUTER=%s", routerProxy);
 
         vm.stopBroadcast();
     }
