@@ -63,10 +63,9 @@ contract DeployMocks is DeployHelpers {
 
         loadCoreContracts();
 
-        //TODO: Check failed create pools
-        //        if (shouldCreatePools) {
-        //            createTradingPools();
-        //        }
+        if (shouldCreatePools) {
+            createTradingPools();
+        }
 
         vm.stopBroadcast();
 

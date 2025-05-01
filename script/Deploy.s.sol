@@ -6,6 +6,7 @@ import "../src/GTXRouter.sol";
 import "../src/PoolManager.sol";
 import "./DeployHelpers.s.sol";
 
+import {PoolManagerResolver} from "../src/resolvers/PoolManagerResolver.sol";
 import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
 
 contract Deploy is DeployHelpers {
@@ -35,13 +36,12 @@ contract Deploy is DeployHelpers {
         deployments.push(Deployment("BEACON_ROUTER", routerBeacon));
         deployed["BEACON_ROUTER"] = DeployedContract(routerBeacon, true);
 
-        deployments.push(Deployment("BEACON_ORDERBOOK", orderBookBeacon));
-        deployed["BEACON_ORDERBOOK"] = DeployedContract(orderBookBeacon, true);
+        // Deploy the PoolManagerResolver contract
+        console.log("\n========== DEPLOYING RESOLVER ==========");
+        address poolManagerResolver = address(new PoolManagerResolver());
 
-        console.log("BEACON_BALANCEMANAGER=%s", balanceManagerBeacon);
-        console.log("BEACON_POOLMANAGER=%s", poolManagerBeacon);
-        console.log("BEACON_ROUTER=%s", routerBeacon);
-        console.log("BEACON_ORDERBOOK=%s", orderBookBeacon);
+        deployments.push(Deployment("RESOLVER_POOLMANAGER", poolManagerResolver));
+        deployed["RESOLVER_POOLMANAGER"] = DeployedContract(poolManagerResolver, true);
 
         // Deploy proxies for each contract
         console.log("\n========== DEPLOYING PROXIES ==========");
