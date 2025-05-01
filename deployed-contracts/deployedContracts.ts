@@ -18,7 +18,7 @@ interface DeployedContracts {
 export const deployedContracts: DeployedContracts = {
   31337: {
     BalanceManager: {
-      address: "0x99bba657f2bbc93c02d617f8ba121cb8fc104acf",
+      address: "0x5fbdb2315678afecb367f032d93f642f64180aa3",
       abi: [
         {
           type: "constructor",
@@ -797,7 +797,7 @@ export const deployedContracts: DeployedContracts = {
       },
     },
     UpgradeableBeacon: {
-      address: "0x4c5859f0f772848b2d91f1d83e2fe57935348029",
+      address: "0xa513e6e4b8f2a923d98304ec87f64353c4d5c853",
       abi: [
         {
           type: "constructor",
@@ -952,7 +952,7 @@ export const deployedContracts: DeployedContracts = {
       },
     },
     PoolManager: {
-      address: "0x8f86403a4de0bb5791fa46b8e795c547942fe4cf",
+      address: "0x9fe46736679d2d9a65f0992f2272de9f3c7fa6e0",
       abi: [
         {
           type: "function",
@@ -1500,7 +1500,7 @@ export const deployedContracts: DeployedContracts = {
       },
     },
     GTXRouter: {
-      address: "0x5eb3bc0a489c5a8288765d2336659ebca68fcd00",
+      address: "0xdc64a140aa3e981100a9beca4e685f962f0cf6c9",
       abi: [
         {
           type: "constructor",
@@ -2358,7 +2358,7 @@ export const deployedContracts: DeployedContracts = {
       },
     },
     OrderBook: {
-      address: "0x809d550fca64d94bd9f66e60752a544199cfac3d",
+      address: "0x0165878a594ca255338adfa4d48449f69242eb8f",
       abi: [
         {
           type: "constructor",
@@ -3230,90 +3230,8 @@ export const deployedContracts: DeployedContracts = {
         setTradingRules: "src/interfaces/IOrderBook.sol",
       },
     },
-    BeaconProxy: {
-      address: "0xb7278a61aa25c888815afc32ad3cc52ff24fe575",
-      abi: [
-        {
-          type: "constructor",
-          inputs: [
-            {
-              name: "beacon",
-              type: "address",
-              internalType: "address",
-            },
-            {
-              name: "data",
-              type: "bytes",
-              internalType: "bytes",
-            },
-          ],
-          stateMutability: "payable",
-        },
-        {
-          type: "fallback",
-          stateMutability: "payable",
-        },
-        {
-          type: "event",
-          name: "BeaconUpgraded",
-          inputs: [
-            {
-              name: "beacon",
-              type: "address",
-              indexed: true,
-              internalType: "address",
-            },
-          ],
-          anonymous: false,
-        },
-        {
-          type: "error",
-          name: "AddressEmptyCode",
-          inputs: [
-            {
-              name: "target",
-              type: "address",
-              internalType: "address",
-            },
-          ],
-        },
-        {
-          type: "error",
-          name: "ERC1967InvalidBeacon",
-          inputs: [
-            {
-              name: "beacon",
-              type: "address",
-              internalType: "address",
-            },
-          ],
-        },
-        {
-          type: "error",
-          name: "ERC1967InvalidImplementation",
-          inputs: [
-            {
-              name: "implementation",
-              type: "address",
-              internalType: "address",
-            },
-          ],
-        },
-        {
-          type: "error",
-          name: "ERC1967NonPayable",
-          inputs: [],
-        },
-        {
-          type: "error",
-          name: "FailedCall",
-          inputs: [],
-        },
-      ],
-      inheritedFunctions: {},
-    },
     PoolManagerResolver: {
-      address: "0xcd8a1c3ba11cf5ecfa6267617243239504a98d90",
+      address: "0x2279b7a0a67db372996a5fab50d91eaa73d2ebe6",
       abi: [
         {
           type: "constructor",
@@ -3406,6 +3324,88 @@ export const deployedContracts: DeployedContracts = {
             },
           ],
           stateMutability: "pure",
+        },
+      ],
+      inheritedFunctions: {},
+    },
+    BeaconProxy: {
+      address: "0xb7f8bc63bbcad18155201308c8f3540b07f84f5e",
+      abi: [
+        {
+          type: "constructor",
+          inputs: [
+            {
+              name: "beacon",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "data",
+              type: "bytes",
+              internalType: "bytes",
+            },
+          ],
+          stateMutability: "payable",
+        },
+        {
+          type: "fallback",
+          stateMutability: "payable",
+        },
+        {
+          type: "event",
+          name: "BeaconUpgraded",
+          inputs: [
+            {
+              name: "beacon",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "error",
+          name: "AddressEmptyCode",
+          inputs: [
+            {
+              name: "target",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "ERC1967InvalidBeacon",
+          inputs: [
+            {
+              name: "beacon",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "ERC1967InvalidImplementation",
+          inputs: [
+            {
+              name: "implementation",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "ERC1967NonPayable",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "FailedCall",
+          inputs: [],
         },
       ],
       inheritedFunctions: {},

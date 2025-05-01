@@ -232,6 +232,15 @@ To deploy and verify mock contracts:
 make deploy-mocks-verify network=<network_name>
 ```
 
+### Mock Order Book Generation
+
+After deploying the contracts and mock tokens, you can automatically fill the order book with sample orders to simulate a live market.
+
+### Fill Mock Order Book
+To populate the ETH/USDC order book with sample orders:
+```bash
+make fill-orderbook network=<network_name>
+
 ---
 
 ## Contract Upgrades

@@ -17,6 +17,8 @@
     "deploy:verify": "make deploy-verify",
     "deploy:mocks": "make deploy-mocks",
     "deploy:mocks:verify": "make deploy-mocks-verify",
+    "fill:orderbook": "make fill-orderbook",
+    "fill:orderbook:verify": "make fill-orderbook-verify",
     "upgrade": "make upgrade",
     "upgrade:verify": "make upgrade-verify",
     "fork": "anvil --fork-url ${0:-mainnet} --chain-id 31337 --config-out localhost.json",

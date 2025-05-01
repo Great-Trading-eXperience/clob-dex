@@ -25,6 +25,10 @@ define forge_deploy_mocks
 	forge script script/DeployMocks.s.sol:DeployMocks --rpc-url $(network) -vvvv --broadcast --via-ir --force
 endef
 
+define forge_fill_mock_orderbook
+	forge script script/FillMockOrderBook.s.sol:FillMockOrderBook --rpc-url $(network) --broadcast --via-ir --force
+endef
+
 # Define a target to deploy using the specified network
 deploy:
 	$(call forge_script,)
@@ -53,6 +57,9 @@ deploy-mocks:
 deploy-mocks-verify:
 	$(call forge_deploy_mocks,--verify)
 
+# Define a target to fill mock order book
+fill-orderbook:
+	$(call forge_fill_mock_orderbook,)
 
 # Define a target to verify contracts using the specified network
 verify:
@@ -83,6 +90,9 @@ help:
 	@echo "Makefile targets:"
 	@echo "  deploy          - Deploy contracts using the specified network"
 	@echo "  deploy-verify   - Deploy and verify contracts using the specified network"
+	@echo "  deploy-mocks    - Deploy mock contracts"
+	@echo "  deploy-mocks-verify - Deploy and verify mock contracts"
+	@echo "  fill-orderbook  - Fill mock order book"
 	@echo "  upgrade         - Upgrade contracts using the specified network"
 	@echo "  upgrade-verify  - Upgrade and verify contracts using the specified network"
 	@echo "  verify          - Verify contracts using the specified network"
