@@ -21,134 +21,146 @@ The CLOB DEX system consists of four main components:
 
 ## 💎 Core Features
 
-### 🔄 Advanced Order Types
-- 📊 Limit Orders with precision pricing
-- ⚡ Instant Market Orders
-- 🎯 Smart order routing
+### 🗃️ Optimized Order Management
 
-### ⚙️ High-Performance Engine
-- 🏃‍♂️ O(log n) matching algorithm
-- 📈 Price-time priority execution
-- 🔍 Real-time order book updates
-- 🔒 Atomic settlements
-
-### 🏗️ Architecture Highlights
-
-#### 🌳 Red-Black Tree Price Levels
-- O(log n) operations for inserting/removing price levels
-- Quick access to best bid/ask prices
-- Ordered iteration through price levels
-
-#### 📜 Order Queues
-- Double-linked list for order storage at each price level
-- FIFO (First In, First Out) execution within same price level
-- Efficient order removal and updates
-
-### 🗃️ Data Storage Optimization
-- **Order Packing**: Compact order storage using bit manipulation
+- **Packed Order Structure**
   ```solidity
-  Side (1 bytes) | Price (64 bytes) | OrderId (48 bytes)
+  struct Order {
+      address user;         // User who placed the order
+      uint48 id;            // Unique identifier
+      uint48 next;          // Next order in queue
+      uint128 quantity;     // Total order quantity
+      uint128 filled;       // Filled amount
+      uint128 price;        // Order price
+      uint48 prev;          // Previous order in queue
+      uint48 expiry;        // Expiration timestamp
+      Status status;        // Current status
+      OrderType orderType;  // LIMIT or MARKET
+      Side side;            // BUY or SELL
+  }
   ```
-- **Active Order Tracking**: Per-user order tracking using EnumerableSet
-- **Price Level Management**: Automatic cleanup of empty price levels
 
-### 🔑 Key Data Structures
+- **Order Queue Management**: Double-linked list implementation for FIFO order execution
+  ```solidity
+  struct OrderQueue {
+      uint256 totalVolume;  // Total volume at price level
+      uint48 orderCount;    // Number of orders
+      uint48 head;          // First order in queue
+      uint48 tail;          // Last order in queue
+  }
+  ```
 
-```solidity
-// Price Tree Mapping
-mapping(Side => RBTree.Tree) private priceTrees;
+### 🔑 Efficient Data Structures
 
-// Order Queues at Each Price Level
-mapping(Side => mapping(Price => OrderQueueLib.OrderQueue)) private orderQueues;
-```
+- **Price Level Indexing**: Red-Black Tree for O(log n) price lookup
+  ```solidity
+  mapping(Side => RedBlackTreeLib.Tree) private priceTrees;
+  ```
 
-### 👀 View Functions
-- Get best bid/ask prices
-- View order queue status at any price level
-- Retrieve user's active orders
-- Get next best price levels with volumes
+- **Order Storage**: Optimized for gas efficiency and quick access
+  ```solidity
+  mapping(uint48 => Order) private orders;
+  mapping(Side => mapping(uint128 => OrderQueue)) private orderQueues;
+  ```
+
+### 💰 Sophisticated Balance Management
+
+- **Balance Tracking**: Per-user balance tracking for multiple currencies
+  ```solidity
+  mapping(address => mapping(uint256 => uint256)) private balanceOf;
+  ```
+
+- **Order Lock System**: Balance locking prevents double-spending
+  ```solidity
+  mapping(address => mapping(address => mapping(uint256 => uint256))) private lockedBalanceOf;
+  ```
+
+- **Operator Authorization**: Controlled access to manage user funds
+  ```solidity
+  mapping(address => bool) private authorizedOperators;
+  ```
 
 ## ⛽ Gas Optimization Techniques
 
-1. **Efficient Storage**
-   - Minimal storage operations
-   - Packed order data
-   - Optimized mappings
+1. **Optimized Storage Access**
+    - Packed struct layouts reduce storage operations
+    - Minimized SSTOREs through strategic updates
+    - Efficient order data retrieval patterns
 
-2. **Smart Data Structures**
-   - Red-Black Tree for price levels (O(log n) operations)
-   - Double-linked lists for order management
-   - EnumerableSet for tracking active orders
+2. **Advanced Data Structures**
+    - Red-Black Tree for price levels (O(log n) operations)
+    - Double-linked list for order queue management
+    - Automatic price level cleanup for unused levels
 
-3. **Memory Management**
-   - Strategic use of memory vs storage
-   - Optimized array operations
-   - Efficient event emission
+3. **Balance Management**
+    - Lock-and-execute pattern prevents unnecessary transfers
+    - Direct balance transfers between users within the contract
 
 ## 🔒 Security Features
 
-1. **Access Control**
-   - Order cancellation restricted to order owner
-   - Reentrancy protection on all state-modifying functions
+1. **Balance Protection**
+    - Order amount locking before placement
+    - Atomicity in balance operations
+    - Authorization checks for operators
 
-2. **Input Validation**
-   - Price and quantity validation
-   - Order existence checks
-   - Price level integrity checks
+2. **Order Integrity**
+    - Order ownership validation
+    - Expiration handling
+    - Time-in-force constraints enforcement
 
-3. **State Management**
-   - Atomic operations
-   - Consistent state updates
-   - Automatic cleanup of empty states
+3. **Access Control**
+    - Router authorization for order operations
+    - Owner-only configuration changes
+    - Operator-limited permissions
 
-# 🔗 Links to contracts on RiseLabs Testnet Explorer
+## 📊 Market Order Execution
 
-## Contract Addresses and Links
+1. **Efficient Matching**
+    - Best price traversal using Red-Black Tree
+    - Volume-based execution across price levels
+    - Auto-cancellation of unfilled IOC/FOK orders
 
-Here are the deployed contract addresses and their corresponding links on the RiseLabs Testnet Explorer:
+2. **Multi-Currency Support**
+    - Automatic currency conversion for trades
+    - Multi-hop swap routing
+    - Intermediary currency support
 
-- **OrderBook Contract**
-  - **Address:** `0x92D8387421fe5205051C82E4a6473E0aC5cc636b`
-  - **Explorer Link:** [View on RiseLabs Testnet Explorer](https://testnet-explorer.riselabs.xyz/address/0x92D8387421fe5205051C82E4a6473E0aC5cc636b)
+## 🔄 Order Lifecycle Management
 
-- **BalanceManager Contract**
-  - **Address:** `0xf997fBd9747841513d26d895072a7f35e5125cfc`
-  - **Explorer Link:** [View on RiseLabs Testnet Explorer](https://testnet-explorer.riselabs.xyz/address/0xf997fBd9747841513d26d895072a7f35e5125cfc)
+1. **Order Placement**
+    - Validation of parameters (price, quantity, trading rules)
+    - Balance locking
+    - Insertion into appropriate price level queue
 
-- **PoolManager Contract**
-  - **Address:** `0x2A61148905eA1cf87f352249DD92215C8eA0fdD5`
-  - **Explorer Link:** [View on RiseLabs Testnet Explorer](https://testnet-explorer.riselabs.xyz/address/0x2A61148905eA1cf87f352249DD92215C8eA0fdD5)
+2. **Order Matching**
+    - FIFO execution against opposite side orders
+    - Partial fills tracking
+    - Balance transfers between counterparties
 
-- **GTXRouter Contract**
-  - **Address:** `0xe0eCBC144f924bD5bA7C7D9b373795EFA2F3589B`
-  - **Explorer Link:** [View on RiseLabs Testnet Explorer](https://testnet-explorer.riselabs.xyz/address/0xe0eCBC144f924bD5bA7C7D9b373795EFA2F3589B)
+3. **Order Cancellation/Expiration**
+    - Removal from order queue
+    - Balance unlocking
+    - Automatic price level cleanup
 
-The following mock token addresses are used for creating pools in the OrderBook.
+The implementation ensures efficient order management while maintaining robust security measures and optimizing for gas usage across all operations.
 
-- **Mock USDC Contract**
-  - **Address:** `0x02950119C4CCD1993f7938A55B8Ab8384C3CcE4F`
-  - **Purpose:** This is a mock USDC token used for testing the OrderBook functionalities.
-  - **Explorer Link:** [View on RiseLabs Testnet Explorer](https://testnet-explorer.riselabs.xyz/address/0x02950119C4CCD1993f7938A55B8Ab8384C3CcE4F)
+## 📜 Contract Addresses
 
-- **Mock WETH Contract**
-  - **Address:** `0xb2e9Eabb827b78e2aC66bE17327603778D117d18`
-  - **Purpose:** This is a mock WETH token used for testing the OrderBook functionalities.
-  - **Explorer Link:** [View on RiseLabs Testnet Explorer](https://testnet-explorer.riselabs.xyz/address/0xb2e9Eabb827b78e2aC66bE17327603778D117d18)
+The contract addresses are stored in JSON files under the `deployments/<chain_id>.json`. Example folder:
 
-- **Mock WBTC Contract**
-  - **Address:** `0xc2CC2835219A55a27c5184EaAcD9b8fCceF00F85`
-  - **Purpose:** This is a mock WBTC token used for testing the OrderBook functionalities.
-  - **Explorer Link:** [View on RiseLabs Testnet Explorer](https://testnet-explorer.riselabs.xyz/address/0xc2CC2835219A55a27c5184EaAcD9b8fCceF00F85)
+- 🔗 **Local Development**: `deployments/31337.json` (Anvil network)
+- 🚀 **Rise Network**: `deployments/7565164.json` (Rise Sepolia)
 
-- **Mock Chainlink Contract**
-  - **Address:** `0x24b1ca69816247Ef9666277714FADA8B1F2D901E`
-  - **Purpose:** This is a mock Chainlink token used for testing the OrderBook functionalities.
-  - **Explorer Link:** [View on RiseLabs Testnet Explorer](https://testnet-explorer.riselabs.xyz/address/0x24b1ca69816247Ef9666277714FADA8B1F2D901E)
+To access contract addresses for a specific network:
+1. Locate the appropriate JSON file for your target network
+2. Parse the JSON to find the contract you need (e.g., `GTXRouter`, `PoolManager`)
+3. Use the address in your frontend or for contract interactions
 
-- **Mock PEPE Contract**
-  - **Address:** `0x7FB2a815Fa88c2096960999EC8371BccDF147874`
-  - **Purpose:** This is a mock PEPE token used for testing the OrderBook functionalities.
-  - **Explorer Link:** [View on RiseLabs Testnet Explorer](https://testnet-explorer.riselabs.xyz/address/0x7FB2a815Fa88c2096960999EC8371BccDF147874)
+## 📜 Contract ABIs
+
+The contract ABIs are stored in the `deployed-contracts/deployedContracts.ts` file.
+
+**Note**: This file is automatically generated using the `generate-abi` target in the `Makefile`. Ensure you run the appropriate Makefile command to update or regenerate the ABIs when needed.
 
 ## Foundry Smart Contract Setup Guide
 
