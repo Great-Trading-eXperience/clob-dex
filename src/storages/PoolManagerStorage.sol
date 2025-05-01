@@ -15,6 +15,7 @@ abstract contract PoolManagerStorage {
         address router;
         address orderBookBeacon;
         mapping(PoolId => IPoolManager.Pool) pools;
+        mapping(address => bool) registeredPools;
         mapping(Currency => bool) registeredCurrencies;
         Currency[] allCurrencies;
         Currency[] commonIntermediaries;
