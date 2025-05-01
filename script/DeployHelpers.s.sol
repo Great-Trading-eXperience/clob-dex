@@ -97,6 +97,9 @@ contract DeployHelpers is Script {
         chain = Chain({name: "Pharos", chainId: 50_002, chainAlias: "pharos", rpcUrl: ""});
         setChain("pharos", chain);
 
+        chain = Chain({name: "GTX", chainId: 31_338, chainAlias: "gtxSepolia", rpcUrl: ""});
+        setChain("gtxSepolia", chain);
+
         // fetch already existing contracts
         root = vm.projectRoot();
         path = string.concat(root, "/deployments/");
