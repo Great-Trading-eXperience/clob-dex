@@ -9,6 +9,7 @@ abstract contract BalanceManagerStorage {
         mapping(address => mapping(uint256 => uint256)) balanceOf;
         mapping(address => mapping(address => mapping(uint256 => uint256))) lockedBalanceOf;
         mapping(address => bool) authorizedOperators;
+        address poolManager;
         address feeReceiver;
         uint256 feeMaker;
         uint256 feeTaker;

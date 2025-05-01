@@ -120,7 +120,7 @@ function main() {
 					inheritedFunctions: getInheritedFunctions(artifact),
 				};
 
-				console.log(`Successfully processed ${contractKey}`);
+				console.log(`Successfully processed ABIs ${contractKey}`);
 			} catch (error) {
 				console.error(
 					`Error processing contract ${transaction.contractName}: ${error.message}`

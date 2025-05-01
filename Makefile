@@ -12,7 +12,7 @@ network ?= $(DEFAULT_NETWORK)
 
 # Helper function to run forge script
 define forge_script
-	forge script script/DeployBeaconProxies.s.sol:DeployBeaconProxies --rpc-url $(network) -vvvv --broadcast --via-ir --force
+	forge script script/Deploy.s.sol:Deploy --rpc-url $(network) -vvvv --broadcast --via-ir --force
 endef
 
 # Helper function to run upgrade script
@@ -20,28 +20,42 @@ define forge_upgrade_script
  forge script script/UpgradeBeaconProxies.s.sol:UpgradeBeaconProxies --rpc-url $(network) -vvvv --broadcast --via-ir --force
 endef
 
+# Helper function to run mock deployment script
+define forge_deploy_mocks
+	forge script script/DeployMocks.s.sol:DeployMocks --rpc-url $(network) -vvvv --broadcast --via-ir --force
+endef
+
 # Define a target to deploy using the specified network
-deploy: build
+deploy:
 	$(call forge_script,)
 	$(MAKE) generate-abi
 
 # Define a target to verify deployment using the specified network
-deploy-verify: build
+deploy-verify:
 	$(call forge_script,--verify)
 	$(MAKE) generate-abi
 
 # Define a target to upgrade contracts using the specified network
-upgrade: build
+upgrade:
 	 $(call forge_upgrade_script,)
 	 $(MAKE) generate-abi
 
 # Define a target to upgrade and verify contracts using the specified network
-upgrade-verify: build
+upgrade-verify:
 	 $(call forge_upgrade_script,--verify)
 	 $(MAKE) generate-abi
 
+# Define a target to deploy mock contracts
+deploy-mocks:
+	$(call forge_deploy_mocks,)
+
+# Define a target to deploy and verify mock contracts
+deploy-mocks-verify:
+	$(call forge_deploy_mocks,--verify)
+
+
 # Define a target to verify contracts using the specified network
-verify: build
+verify:
 	forge script script/VerifyAll.s.sol --ffi --rpc-url $(network)
 
 # Define a target to compile the contracts

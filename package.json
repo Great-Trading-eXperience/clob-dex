@@ -15,6 +15,8 @@
     "compile": "make compile",
     "deploy": "make deploy",
     "deploy:verify": "make deploy-verify",
+    "deploy:mocks": "make deploy-mocks",
+    "deploy:mocks:verify": "make deploy-mocks-verify",
     "upgrade": "make upgrade",
     "upgrade:verify": "make upgrade-verify",
     "fork": "anvil --fork-url ${0:-mainnet} --chain-id 31337 --config-out localhost.json",

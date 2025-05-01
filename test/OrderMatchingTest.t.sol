@@ -103,8 +103,9 @@ contract OrderMatchingTest is Test {
         router = GTXRouter(address(routerProxy));
 
         vm.startPrank(owner);
+        balanceManager.setPoolManager(address(poolManager));
         balanceManager.setAuthorizedOperator(address(poolManager), true);
-        balanceManager.transferOwnership(address(poolManager));
+        balanceManager.setAuthorizedOperator(address(routerProxy), true);
         poolManager.setRouter(address(router));
         vm.stopPrank();
 

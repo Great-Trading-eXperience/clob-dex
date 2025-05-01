@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.26;
 
+import {PoolKey} from "../libraries/Pool.sol";
+
 interface IOrderBook {
     enum Side {
         BUY,
@@ -96,6 +98,13 @@ interface IOrderBook {
     event UpdateOrder(uint48 indexed orderId, uint48 timestamp, uint128 filled, IOrderBook.Status status);
 
     event OrderCancelled(uint48 indexed orderId, address indexed user, uint48 timestamp, Status status);
+
+    function initialize(
+        address poolManager,
+        address balanceManager,
+        TradingRules calldata tradingRules,
+        PoolKey calldata poolKey
+    ) external;
 
     function setRouter(
         address router

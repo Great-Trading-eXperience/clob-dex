@@ -13,6 +13,7 @@ import {PoolManagerStorage} from "./storages/PoolManagerStorage.sol";
 
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts/proxy/beacon/BeaconProxy.sol";
 
 contract PoolManager is Initializable, OwnableUpgradeable, PoolManagerStorage, IPoolManager {
     function initialize(address _owner, address _balanceManager, address _orderBookBeacon) public initializer {
@@ -41,7 +42,6 @@ contract PoolManager is Initializable, OwnableUpgradeable, PoolManagerStorage, I
             revert InvalidRouter();
         }
         Storage storage $ = getStorage();
-        IBalanceManager($.balanceManager).setAuthorizedOperator(_router, true);
         $.router = _router;
     }
 
@@ -58,23 +58,18 @@ contract PoolManager is Initializable, OwnableUpgradeable, PoolManagerStorage, I
         PoolKey memory key = createPoolKey(_baseCurrency, _quoteCurrency);
         PoolId id = key.toId();
 
-        address orderBookProxy = Upgrades.deployBeaconProxy(
-            $.orderBookBeacon,
-            abi.encodeCall(OrderBook.initialize, (address(this), $.balanceManager, _tradingRules, key))
-        );
+        bytes memory initData =
+            abi.encodeWithSelector(IOrderBook.initialize.selector, address(this), $.balanceManager, _tradingRules, key);
 
-        IOrderBook orderBookInterface = IOrderBook(orderBookProxy);
+        BeaconProxy orderBookProxy = new BeaconProxy($.orderBookBeacon, initData);
+        IOrderBook orderbook = IOrderBook(address(orderBookProxy));
 
-        IPoolManager.Pool memory pool = Pool({
-            orderBook: IOrderBook(orderBookProxy),
-            baseCurrency: key.baseCurrency,
-            quoteCurrency: key.quoteCurrency
-        });
+        IPoolManager.Pool memory pool =
+            Pool({orderBook: orderbook, baseCurrency: key.baseCurrency, quoteCurrency: key.quoteCurrency});
 
         $.pools[id] = pool;
 
-        $.pools[id] =
-            Pool({orderBook: orderBookInterface, baseCurrency: key.baseCurrency, quoteCurrency: key.quoteCurrency});
+        $.pools[id] = Pool({orderBook: orderbook, baseCurrency: key.baseCurrency, quoteCurrency: key.quoteCurrency});
 
         if (!$.registeredCurrencies[key.baseCurrency]) {
             $.registeredCurrencies[key.baseCurrency] = true;
@@ -90,7 +85,7 @@ contract PoolManager is Initializable, OwnableUpgradeable, PoolManagerStorage, I
 
         $.poolLiquidity[id] = 1;
 
-        orderBookInterface.setRouter($.router);
+        orderbook.setRouter($.router);
         IBalanceManager($.balanceManager).setAuthorizedOperator(address(orderBookProxy), true);
 
         emit PoolCreated(id, address(orderBookProxy), key.baseCurrency, key.quoteCurrency);

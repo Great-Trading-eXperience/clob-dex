@@ -114,8 +114,9 @@ contract BalanceAndFeeTest is Test, PoolHelper {
 
         // Set up permissions and connections
         vm.startPrank(owner);
+        balanceManager.setPoolManager(address(poolManagerProxy));
         balanceManager.setAuthorizedOperator(address(poolManager), true);
-        balanceManager.transferOwnership(address(poolManager));
+        balanceManager.setAuthorizedOperator(address(router), true);
         poolManager.setRouter(address(router));
         vm.stopPrank();
 

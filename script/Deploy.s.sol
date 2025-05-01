@@ -1,152 +1,118 @@
-/*
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.26;
 
-import "forge-std/Script.sol";
 import "../src/BalanceManager.sol";
-import "../src/PoolManager.sol";
 import "../src/GTXRouter.sol";
-import {Swap} from "./Swap.s.sol";
-import {IOrderBook} from "../src/interfaces/IOrderBook.sol";
-import {MockToken} from "../src/mocks/MockToken.sol";
-import {CreateMockPools} from "./CreateMockPools.s.sol";
+import "../src/PoolManager.sol";
+import "./DeployHelpers.s.sol";
 
-contract Deploy is Script {
-    // Contract instances
-    BalanceManager public balanceManager;
-    PoolManager public poolManager;
-    GTXRouter public router;
+import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
 
-    // Deployment parameters
-    address public owner;
-    string public chainId;
-    uint256 private deployerPrivateKey;
-
-    // Environment flags
-    bool public shouldCreatePools;
-    bool public shouldRunSwap;
-
+contract Deploy is DeployHelpers {
     function run() public {
-        // Setup common parameters
-        chainId = vm.envString("CHAIN_ID");
-        deployerPrivateKey = vm.envUint("PRIVATE_KEY");
-        owner = vm.addr(deployerPrivateKey);
+        loadDeployments();
 
-        // Read environment flags
-        shouldCreatePools = vm.envOr("CREATE_POOLS", false);
-        shouldRunSwap = vm.envOr("RUN_SWAP", false);
+        uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
+        address beaconOwner = getDeployedAddress("OWNER_ADDRESS");
+        address feeReceiver = getDeployedAddress("FEE_RECEIVER_ADDRESS");
 
-        // Deploy is always executed
-        deployContracts();
-
-        //NOTE: Remove existing .env for create new tokens
-
-        if (shouldCreatePools) {
-            runCreatePools();
-        }
-
-        if (shouldRunSwap) {
-            runSwapTest();
-        }
-    }
-
-    function runCreatePools() public {
-        vm.setEnv("POOL_MANAGER_ADDRESS", vm.toString(address(poolManager)));
-        CreateMockPools poolCreator = new CreateMockPools();
-        poolCreator.run();
-    }
-
-    function deployContracts() public {
-        console.log("Deploying core contracts...");
-
-        // Begin deployment
         vm.startBroadcast(deployerPrivateKey);
 
-        // Contract deployment parameters
-        uint256 feeMaker = 1; // Example fee maker value
-        uint256 feeTaker = 3; // Example fee taker value
+        // Deploy beacons
+        console.log("========== DEPLOYING BEACONS ==========");
+        address balanceManagerBeacon = Upgrades.deployBeacon("BalanceManager.sol", beaconOwner);
+        address poolManagerBeacon = Upgrades.deployBeacon("PoolManager.sol", beaconOwner);
+        address routerBeacon = Upgrades.deployBeacon("GTXRouter.sol", beaconOwner);
+        address orderBookBeacon = Upgrades.deployBeacon("OrderBook.sol", beaconOwner);
 
-        // Deploy core contracts
-        balanceManager = new BalanceManager(owner, owner, feeMaker, feeTaker);
-        console.log("BalanceManager deployed at:", address(balanceManager));
+        // Store beacon addresses in deployments array and mapping
+        deployments.push(Deployment("BEACON_BALANCEMANAGER", balanceManagerBeacon));
+        deployed["BEACON_BALANCEMANAGER"] = DeployedContract(balanceManagerBeacon, true);
 
-        poolManager = new PoolManager(owner, address(balanceManager));
-        console.log("PoolManager deployed at:", address(poolManager));
+        deployments.push(Deployment("BEACON_POOLMANAGER", poolManagerBeacon));
+        deployed["BEACON_POOLMANAGER"] = DeployedContract(poolManagerBeacon, true);
 
-        router = new GTXRouter(address(poolManager), address(balanceManager));
-        console.log("GTXRouter deployed at:", address(router));
+        deployments.push(Deployment("BEACON_ROUTER", routerBeacon));
+        deployed["BEACON_ROUTER"] = DeployedContract(routerBeacon, true);
 
-        // Configure contracts
-        balanceManager.setAuthorizedOperator(address(poolManager), true);
-        balanceManager.transferOwnership(address(poolManager));
-        poolManager.setRouter(address(router));
+        deployments.push(Deployment("BEACON_ORDERBOOK", orderBookBeacon));
+        deployed["BEACON_ORDERBOOK"] = DeployedContract(orderBookBeacon, true);
 
+        console.log("BEACON_BALANCEMANAGER=%s", balanceManagerBeacon);
+        console.log("BEACON_POOLMANAGER=%s", poolManagerBeacon);
+        console.log("BEACON_ROUTER=%s", routerBeacon);
+        console.log("BEACON_ORDERBOOK=%s", orderBookBeacon);
+
+        // Deploy proxies for each contract
+        console.log("\n========== DEPLOYING PROXIES ==========");
+        address balanceManagerProxy = Upgrades.deployBeaconProxy(
+            balanceManagerBeacon,
+            abi.encodeCall(
+                BalanceManager.initialize,
+                (beaconOwner, feeReceiver, 1, 2) // owner, feeReceiver, feeMaker (0.1%), feeTaker (0.2%)
+            )
+        );
+        address poolManagerProxy = Upgrades.deployBeaconProxy(
+            poolManagerBeacon,
+            abi.encodeCall(PoolManager.initialize, (beaconOwner, balanceManagerProxy, orderBookBeacon))
+        );
+        address routerProxy = Upgrades.deployBeaconProxy(
+            routerBeacon, abi.encodeCall(GTXRouter.initialize, (poolManagerProxy, balanceManagerProxy))
+        );
+
+        // Store proxy addresses in deployments array and mapping
+        deployments.push(Deployment("PROXY_BALANCEMANAGER", balanceManagerProxy));
+        deployed["PROXY_BALANCEMANAGER"] = DeployedContract(balanceManagerProxy, true);
+
+        deployments.push(Deployment("PROXY_POOLMANAGER", poolManagerProxy));
+        deployed["PROXY_POOLMANAGER"] = DeployedContract(poolManagerProxy, true);
+
+        deployments.push(Deployment("PROXY_ROUTER", routerProxy));
+        deployed["PROXY_ROUTER"] = DeployedContract(routerProxy, true);
+
+        console.log("PROXY_BALANCEMANAGER=%s", balanceManagerProxy);
+        console.log("PROXY_POOLMANAGER=%s", poolManagerProxy);
+        console.log("PROXY_ROUTER=%s", routerProxy);
+
+        // Setting up authorizations
+        console.log("\n========== CONFIGURING AUTHORIZATIONS ==========");
+        BalanceManager balanceManager = BalanceManager(balanceManagerProxy);
+
+        balanceManager.setPoolManager(address(poolManagerProxy));
+        console.log("Set PoolManager in BalanceManager");
+
+        balanceManager.setAuthorizedOperator(address(poolManagerProxy), true);
+        console.log("Authorized PoolManager as operator in BalanceManager");
+
+        balanceManager.setAuthorizedOperator(address(routerProxy), true);
+        console.log("Authorized Router as operator in BalanceManager");
+
+        PoolManager poolManager = PoolManager(poolManagerProxy);
+        poolManager.setRouter(routerProxy);
+        console.log("Set router in PoolManager");
+
+        console.log("\n========== DEPLOYMENT SUMMARY ==========");
+        console.log("# Deployment addresses saved to JSON file:");
+        console.log("PROXY_BALANCEMANAGER=%s", balanceManagerProxy);
+        console.log("PROXY_POOLMANAGER=%s", poolManagerProxy);
+        console.log("PROXY_ROUTER=%s", routerProxy);
+        console.log("BEACON_ORDERBOOK=%s", orderBookBeacon);
         vm.stopBroadcast();
-        console.log("Core contracts deployed and configured successfully");
 
-        // Set environment variables for core contracts
-        string memory envPrefix = string.concat(chainId, "_");
-        vm.setEnv(string.concat(envPrefix, "BALANCE_MANAGER"), vm.toString(address(balanceManager)));
-        vm.setEnv(string.concat(envPrefix, "POOL_MANAGER"), vm.toString(address(poolManager)));
-        vm.setEnv(string.concat(envPrefix, "ROUTER"), vm.toString(address(router)));
-
-        updateEnvFile();
+        // Export deployments to JSON file
+        exportDeployments();
     }
 
-    function updateEnvFile() internal {
-        string memory envPath = ".env";
-
-        // Check if .env file exists and read its content
-        string memory existingEnv = "";
-        if (vm.exists(envPath)) {
-            existingEnv = vm.readFile(envPath);
-            // Check if the file ends with a newline
-            bytes memory existingEnvBytes = bytes(existingEnv);
-            if (
-                existingEnvBytes.length > 0 && existingEnvBytes[existingEnvBytes.length - 1] != 0x0A
-            ) {
-                existingEnv = string.concat(existingEnv, "\n");
-            }
+    // Helper function to get deployed addresses from mapping or fallback to env var
+    function getDeployedAddress(
+        string memory key
+    ) private view returns (address) {
+        // Check if address exists in deployments
+        if (deployed[key].isSet) {
+            return deployed[key].addr;
         }
 
-        // Create a comment for the added variables
-        string memory comment = string.concat(
-            "\n# Core contract addresses for chain ",
-            chainId,
-            " - Added on ",
-            vm.toString(block.timestamp),
-            "\n"
-        );
-
-        // Prepare contract address variables
-        string memory envUpdates = string.concat(
-            chainId,
-            "_BALANCE_MANAGER=",
-            vm.toString(address(balanceManager)),
-            "\n",
-            chainId,
-            "_POOL_MANAGER=",
-            vm.toString(address(poolManager)),
-            "\n",
-            chainId,
-            "_ROUTER=",
-            vm.toString(address(router)),
-            "\n"
-        );
-
-        // Write back the updated content
-        vm.writeFile(envPath, string.concat(existingEnv, comment, envUpdates));
-        console.log("Updated .env file with core contract addresses");
-    }
-
-    function runSwapTest() public {
-        console.log("Running swap test...");
-
-        // Execute swap script to test engine functionality
-        Swap swap = new Swap(address(balanceManager), address(poolManager), address(router));
-        swap.run();
-
-        console.log("Swap test completed");
+        // Fall back to env var
+        return vm.envOr(key, address(0));
     }
 }
-*/

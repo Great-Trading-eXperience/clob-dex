@@ -36,9 +36,22 @@ contract BalanceManager is IBalanceManager, BalanceManagerStorage, OwnableUpgrad
         $.feeTaker = _feeTaker;
     }
 
+    function setPoolManager(
+        address _poolManager
+    ) external onlyOwner {
+        getStorage().poolManager = _poolManager;
+        emit PoolManagerSet(_poolManager);
+    }
+
     // Allow owner to set authorized operators (e.g., Router)
-    function setAuthorizedOperator(address operator, bool approved) external onlyOwner {
-        getStorage().authorizedOperators[operator] = approved;
+    function setAuthorizedOperator(address operator, bool approved) external {
+        Storage storage $ = getStorage();
+
+        if (msg.sender != owner() && msg.sender != $.poolManager) {
+            revert UnauthorizedCaller(msg.sender);
+        }
+
+        $.authorizedOperators[operator] = approved;
         emit OperatorSet(operator, approved);
     }
 

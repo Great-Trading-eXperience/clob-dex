@@ -92,10 +92,11 @@ contract GTXRouterTest is Test {
             minPriceMovement: 1e4 // 0.01 USDC with 6 decimals
         });
 
-        // Transfer ownership of BalanceManager to PoolManager
+        // Use the actual owner address
         vm.startPrank(owner);
+        balanceManager.setPoolManager(address(poolManager));
         balanceManager.setAuthorizedOperator(address(poolManager), true);
-        balanceManager.transferOwnership(address(poolManager));
+        balanceManager.setAuthorizedOperator(address(routerProxy), true);
         poolManager.setRouter(address(gtxRouter));
         poolManager.addCommonIntermediary(usdc);
         poolManager.createPool(weth, usdc, defaultTradingRules);
