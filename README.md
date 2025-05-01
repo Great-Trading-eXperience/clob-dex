@@ -60,9 +60,6 @@ mapping(Side => RBTree.Tree) private priceTrees;
 
 // Order Queues at Each Price Level
 mapping(Side => mapping(Price => OrderQueueLib.OrderQueue)) private orderQueues;
-
-// User's Active Orders
-mapping(address => EnumerableSet.UintSet) private activeUserOrders;
 ```
 
 ### 👀 View Functions
@@ -152,3 +149,128 @@ The following mock token addresses are used for creating pools in the OrderBook.
   - **Address:** `0x7FB2a815Fa88c2096960999EC8371BccDF147874`
   - **Purpose:** This is a mock PEPE token used for testing the OrderBook functionalities.
   - **Explorer Link:** [View on RiseLabs Testnet Explorer](https://testnet-explorer.riselabs.xyz/address/0x7FB2a815Fa88c2096960999EC8371BccDF147874)
+
+## Foundry Smart Contract Setup Guide
+
+This document provides a comprehensive guide for setting up, deploying, and upgrading smart contracts using Foundry. Follow the instructions below to get started.
+
+---
+
+## Prerequisites
+
+Before proceeding, ensure you have the following installed:
+
+- [Foundry](https://book.getfoundry.sh/)
+- Node.js (required for generating ABI files)
+- A compatible Ethereum wallet for broadcasting transactions
+- A `.env` file to configure network and wallet details
+
+---
+
+## Installation and Setup
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/Great-Trading-eXperience/clob-dex.git
+   cd clob-dex
+   ```
+
+2. Install dependencies:
+   ```bash
+   forge install
+   ```
+
+3. Duplicate the `.env.example` file in the root directory, rename it to `.env`, and set the required variables.
+
+---
+
+## Deployment Guide
+
+### Deploying Contracts
+To deploy contracts, use the following command:
+```bash
+make deploy network=<network_name>
+```
+- Example:
+  ```bash
+  make deploy network=riseSepolia
+  ```
+
+### Deploying and Verifying Contracts
+To deploy and verify contracts:
+```bash
+make deploy-verify network=<network_name>
+```
+
+---
+
+## Mock Contracts Deployment
+
+### Deploying Mocks
+To deploy mock contracts, use:
+```bash
+make deploy-mocks network=<network_name>
+```
+
+### Deploying and Verifying Mocks
+To deploy and verify mock contracts:
+```bash
+make deploy-mocks-verify network=<network_name>
+```
+
+---
+
+## Contract Upgrades
+
+### Upgrading Contracts
+To upgrade contracts:
+```bash
+make upgrade network=<network_name>
+```
+
+### Upgrading and Verifying Contracts
+To upgrade and verify contracts:
+```bash
+make upgrade-verify network=<network_name>
+```
+
+---
+
+## Additional Commands
+
+- **Compile Contracts**
+  ```bash
+  make compile
+  ```
+
+- **Run Tests**
+  ```bash
+  make test
+  ```
+
+- **Lint Code**
+  ```bash
+  make lint
+  ```
+
+- **Generate ABI Files**
+  ```bash
+  make generate-abi
+  ```
+
+- **Help**
+  Display all Makefile targets:
+  ```bash
+  make help
+  ```
+
+---
+
+## Notes
+
+- Replace `<network_name>` with the desired network (e.g., `arbitrumSepolia`, `mainnet`).
+- Ensure your `.env` file is correctly configured to avoid deployment errors.
+- Use the `help` target to quickly review all available commands:
+  ```bash
+  make help
+  ```

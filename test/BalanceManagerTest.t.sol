@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.26;
 
-import {Test, console} from "forge-std/Test.sol";
 import "../src/BalanceManager.sol";
 import "../src/mocks/MockUSDC.sol";
 import "../src/mocks/MockWETH.sol";
+import {Test, console} from "forge-std/Test.sol";
 
-import "@openzeppelin/contracts/proxy/beacon/UpgradeableBeacon.sol";
-import "@openzeppelin/contracts/proxy/beacon/BeaconProxy.sol";
-import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
 import {BeaconDeployer} from "./helpers/BeaconDeployer.t.sol";
+import "@openzeppelin/contracts/proxy/beacon/BeaconProxy.sol";
+import "@openzeppelin/contracts/proxy/beacon/UpgradeableBeacon.sol";
+import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
 
 contract BalanceManagerTest is Test {
     BalanceManager private balanceManager;

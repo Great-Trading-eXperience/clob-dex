@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
+import "../src/libraries/Currency.sol";
+import "../src/libraries/Pool.sol";
 import "forge-std/Test.sol";
-import "../src/types/Pool.sol";
-import "../src/types/Currency.sol";
 
 contract TypeTest is Test {
     function testPoolKeyToIdSameInput() public pure {
@@ -19,9 +19,7 @@ contract TypeTest is Test {
 
         // Assert
         assertEq(
-            PoolId.unwrap(id1),
-            PoolId.unwrap(id2),
-            "PoolKey.toId() should result in the same ID for identical inputs"
+            PoolId.unwrap(id1), PoolId.unwrap(id2), "PoolKey.toId() should result in the same ID for identical inputs"
         );
     }
 
@@ -54,9 +52,7 @@ contract TypeTest is Test {
 
         // Act & Assert
         assertTrue(currency1 == currency2, "Currencies with the same address should be equal");
-        assertFalse(
-            currency1 == currency3, "Currencies with different addresses should not be equal"
-        );
+        assertFalse(currency1 == currency3, "Currencies with different addresses should not be equal");
     }
 
     function testCurrencyToIdAndFromId() public pure {

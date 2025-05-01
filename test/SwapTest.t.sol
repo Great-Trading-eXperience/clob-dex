@@ -1,24 +1,26 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import {Test, console} from "forge-std/Test.sol";
-import {MockToken} from "../src/mocks/MockToken.sol";
-import {Currency} from "../src/types/Currency.sol";
-import {PoolKey} from "../src/types/Pool.sol";
-import {Price} from "../src/libraries/BokkyPooBahsRedBlackTreeLibrary.sol";
-import {Quantity, Side} from "../src/types/Types.sol";
-import {GTXRouter} from "../src/GTXRouter.sol";
 import {BalanceManager} from "../src/BalanceManager.sol";
-import {PoolManager} from "../src/PoolManager.sol";
-import {OrderBook} from "../src/OrderBook.sol";
-import {IOrderBook} from "../src/interfaces/IOrderBook.sol";
-import {Swap} from "../script/Swap.s.sol";
-import "@openzeppelin/contracts/proxy/beacon/UpgradeableBeacon.sol";
-import "@openzeppelin/contracts/proxy/beacon/BeaconProxy.sol";
-import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
-import {BeaconDeployer} from "./helpers/BeaconDeployer.t.sol";
+import {GTXRouter} from "../src/GTXRouter.sol";
 
-contract SwapTest is Test {
+import {OrderBook} from "../src/OrderBook.sol";
+import {PoolManager} from "../src/PoolManager.sol";
+import {IOrderBook} from "../src/interfaces/IOrderBook.sol";
+import {Currency} from "../src/libraries/Currency.sol";
+import {PoolKey} from "../src/libraries/Pool.sol";
+import {MockToken} from "../src/mocks/MockToken.sol";
+
+import {BeaconDeployer} from "./helpers/BeaconDeployer.t.sol";
+import "@openzeppelin/contracts/proxy/beacon/BeaconProxy.sol";
+import "@openzeppelin/contracts/proxy/beacon/UpgradeableBeacon.sol";
+import {Test, console} from "forge-std/Test.sol";
+
+import {IPoolManager} from "../src/interfaces/IPoolManager.sol";
+import {PoolHelper} from "./helpers/PoolHelper.sol";
+import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
+
+contract SwapTest is Test, PoolHelper {
     // Contracts
     BalanceManager public balanceManager;
     PoolManager public poolManager;
@@ -53,6 +55,7 @@ contract SwapTest is Test {
 
     // Pool-related variables
     mapping(string => address) poolOrderBooks;
+    mapping(string => IPoolManager.Pool) pools;
 
     function setUp() public {
         // Deploy mock tokens
@@ -76,11 +79,10 @@ contract SwapTest is Test {
 
         // Set up trading rules
         rules = IOrderBook.TradingRules({
-            minTradeAmount: Quantity.wrap(uint128(1e14)), // 0.0001 ETH (18 decimals)
-            minAmountMovement: Quantity.wrap(uint128(1e13)), // 0.00001 ETH (18 decimals)
-            minOrderSize: Quantity.wrap(uint128(1e4)), // 0.01 USDC (6 decimals)
-            minPriceMovement: Quantity.wrap(uint128(1e4)), // 0.01 USDC (6 decimals)
-            slippageTreshold: 20 // 20%
+            minTradeAmount: 1e14, // 0.0001 ETH (18 decimals)
+            minAmountMovement: 1e13, // 0.00001 ETH (18 decimals)
+            minOrderSize: 1e4, // 0.01 USDC (6 decimals)
+            minPriceMovement: 1e4 // 0.01 USDC (6 decimals)
         });
 
         BeaconDeployer beaconDeployer = new BeaconDeployer();
@@ -111,8 +113,9 @@ contract SwapTest is Test {
 
         // Set up permissions and connections
         vm.startPrank(owner);
+        balanceManager.setPoolManager(address(poolManager));
         balanceManager.setAuthorizedOperator(address(poolManager), true);
-        balanceManager.transferOwnership(address(poolManager));
+        balanceManager.setAuthorizedOperator(address(router), true);
         poolManager.setRouter(address(router));
         vm.stopPrank();
 
@@ -123,7 +126,7 @@ contract SwapTest is Test {
         users[2] = charlie;
         users[3] = david;
 
-        for (uint i = 0; i < users.length; i++) {
+        for (uint256 i = 0; i < users.length; i++) {
             vm.startPrank(users[i]);
             weth.approve(address(balanceManager), type(uint256).max);
             wbtc.approve(address(balanceManager), type(uint256).max);
@@ -138,77 +141,51 @@ contract SwapTest is Test {
     function createAllPools() internal {
         vm.startPrank(owner);
 
-        rules.minTradeAmount = Quantity.wrap(
-            uint128(10 ** (weth.decimals() / 2))
-        );
-        rules.minAmountMovement = Quantity.wrap(
-            uint128(10 ** (weth.decimals() / 2))
-        );
-        rules.minOrderSize = Quantity.wrap(
-            uint128(10 ** (weth.decimals() / 2))
-        );
+        rules.minTradeAmount = uint128(10 ** (weth.decimals() / 2));
+        rules.minAmountMovement = uint128(10 ** (weth.decimals() / 2));
+        rules.minOrderSize = uint128(10 ** (weth.decimals() / 2));
 
         // Create WETH/USDC pool
-        poolManager.createPool(
-            Currency.wrap(address(weth)),
-            Currency.wrap(address(usdc)),
-            rules
-        );
+        poolManager.createPool(Currency.wrap(address(weth)), Currency.wrap(address(usdc)), rules);
 
         // Get the orderbook address for WETH/USDC pool
-        PoolKey memory wethUsdcKey = poolManager.createPoolKey(
-            Currency.wrap(address(weth)),
-            Currency.wrap(address(usdc))
-        );
-        address wethUsdcOrderBook = address(
-            poolManager.getPool(wethUsdcKey).orderBook
-        );
+        PoolKey memory wethUsdcKey =
+            poolManager.createPoolKey(Currency.wrap(address(weth)), Currency.wrap(address(usdc)));
+        address wethUsdcOrderBook = address(poolManager.getPool(wethUsdcKey).orderBook);
         poolOrderBooks["WETH/USDC"] = wethUsdcOrderBook;
+        pools["WETH/USDC"] = _getPool(poolManager, Currency.wrap(address(weth)), Currency.wrap(address(usdc)));
 
-        rules.minTradeAmount = Quantity.wrap(
-            uint128(10 ** (wbtc.decimals() / 2))
-        );
-        rules.minAmountMovement = Quantity.wrap(
-            uint128(10 ** (wbtc.decimals() / 2))
-        );
-        rules.minOrderSize = Quantity.wrap(
-            uint128(10 ** (wbtc.decimals() / 2))
-        );
+        rules.minTradeAmount = uint128(10 ** (weth.decimals() / 2));
+        rules.minAmountMovement = uint128(10 ** (weth.decimals() / 2));
+        rules.minOrderSize = uint128(10 ** (weth.decimals() / 2));
 
         // Create WBTC/USDC pool
         poolManager.createPool(
             Currency.wrap(address(wbtc)),
             Currency.wrap(address(usdc)),
-            rules
+            IOrderBook.TradingRules({
+                minTradeAmount: 1e3, // 0.00001 BTC (8 decimals)
+                minAmountMovement: 1e3, // 0.00001 BTC (8 decimals)
+                minOrderSize: 1e4, // 0.01 USDC (6 decimals)
+                minPriceMovement: 1e4 // 0.01 USDC with 6 decimals
+            })
         );
 
         // Get the orderbook address for WBTC/USDC pool
-        PoolKey memory wbtcUsdcKey = poolManager.createPoolKey(
-            Currency.wrap(address(wbtc)),
-            Currency.wrap(address(usdc))
-        );
-        address wbtcUsdcOrderBook = address(
-            poolManager.getPool(wbtcUsdcKey).orderBook
-        );
+        PoolKey memory wbtcUsdcKey =
+            poolManager.createPoolKey(Currency.wrap(address(wbtc)), Currency.wrap(address(usdc)));
+        address wbtcUsdcOrderBook = address(poolManager.getPool(wbtcUsdcKey).orderBook);
         poolOrderBooks["WBTC/USDC"] = wbtcUsdcOrderBook;
+        pools["WBTC/USDC"] = _getPool(poolManager, Currency.wrap(address(wbtc)), Currency.wrap(address(usdc)));
 
         // Try to create WETH/WBTC pool (might not be needed depending on your tests)
-        try
-            poolManager.createPool(
-                Currency.wrap(address(weth)),
-                Currency.wrap(address(wbtc)),
-                rules
-            )
-        {
+        try poolManager.createPool(Currency.wrap(address(weth)), Currency.wrap(address(wbtc)), rules) {
             // Get the orderbook address for WETH/WBTC pool
-            PoolKey memory wethWbtcKey = poolManager.createPoolKey(
-                Currency.wrap(address(weth)),
-                Currency.wrap(address(wbtc))
-            );
-            address wethWbtcOrderBook = address(
-                poolManager.getPool(wethWbtcKey).orderBook
-            );
+            PoolKey memory wethWbtcKey =
+                poolManager.createPoolKey(Currency.wrap(address(weth)), Currency.wrap(address(wbtc)));
+            address wethWbtcOrderBook = address(poolManager.getPool(wethWbtcKey).orderBook);
             poolOrderBooks["WETH/WBTC"] = wethWbtcOrderBook;
+            pools["WETH/WBTC"] = _getPool(poolManager, Currency.wrap(address(weth)), Currency.wrap(address(wbtc)));
             console.log("Created WETH/WBTC pool");
         } catch {
             console.log("WETH/WBTC pool creation failed or already exists");
@@ -217,7 +194,9 @@ contract SwapTest is Test {
         vm.stopPrank();
     }
 
-    function dealTokens(address user) private {
+    function dealTokens(
+        address user
+    ) private {
         vm.startPrank(user);
         weth.mint(user, INITIAL_BALANCE);
         wbtc.mint(user, INITIAL_BALANCE);
@@ -230,74 +209,41 @@ contract SwapTest is Test {
         console.log("  WETH: %s", weth.balanceOf(user));
         console.log("  WBTC: %s", wbtc.balanceOf(user));
         console.log("  USDC: %s", usdc.balanceOf(user));
-        console.log(
-            "  WETH (protocol): %s",
-            balanceManager.getBalance(user, Currency.wrap(address(weth)))
-        );
-        console.log(
-            "  WBTC (protocol): %s",
-            balanceManager.getBalance(user, Currency.wrap(address(wbtc)))
-        );
-        console.log(
-            "  USDC (protocol): %s",
-            balanceManager.getBalance(user, Currency.wrap(address(usdc)))
-        );
+        console.log("  WETH (protocol): %s", balanceManager.getBalance(user, Currency.wrap(address(weth))));
+        console.log("  WBTC (protocol): %s", balanceManager.getBalance(user, Currency.wrap(address(wbtc))));
+        console.log("  USDC (protocol): %s", balanceManager.getBalance(user, Currency.wrap(address(usdc))));
 
         // Log locked balances for all pools if orderbook exists
         if (poolOrderBooks["WETH/USDC"] != address(0)) {
             console.log(
                 "  WETH locked (WETH/USDC): %s",
-                balanceManager.getLockedBalance(
-                    user,
-                    poolOrderBooks["WETH/USDC"],
-                    Currency.wrap(address(weth))
-                )
+                balanceManager.getLockedBalance(user, poolOrderBooks["WETH/USDC"], Currency.wrap(address(weth)))
             );
             console.log(
                 "  USDC locked (WETH/USDC): %s",
-                balanceManager.getLockedBalance(
-                    user,
-                    poolOrderBooks["WETH/USDC"],
-                    Currency.wrap(address(usdc))
-                )
+                balanceManager.getLockedBalance(user, poolOrderBooks["WETH/USDC"], Currency.wrap(address(usdc)))
             );
         }
 
         if (poolOrderBooks["WBTC/USDC"] != address(0)) {
             console.log(
                 "  WBTC locked (WBTC/USDC): %s",
-                balanceManager.getLockedBalance(
-                    user,
-                    poolOrderBooks["WBTC/USDC"],
-                    Currency.wrap(address(wbtc))
-                )
+                balanceManager.getLockedBalance(user, poolOrderBooks["WBTC/USDC"], Currency.wrap(address(wbtc)))
             );
             console.log(
                 "  USDC locked (WBTC/USDC): %s",
-                balanceManager.getLockedBalance(
-                    user,
-                    poolOrderBooks["WBTC/USDC"],
-                    Currency.wrap(address(usdc))
-                )
+                balanceManager.getLockedBalance(user, poolOrderBooks["WBTC/USDC"], Currency.wrap(address(usdc)))
             );
         }
 
         if (poolOrderBooks["WETH/WBTC"] != address(0)) {
             console.log(
                 "  WETH locked (WETH/WBTC): %s",
-                balanceManager.getLockedBalance(
-                    user,
-                    poolOrderBooks["WETH/WBTC"],
-                    Currency.wrap(address(weth))
-                )
+                balanceManager.getLockedBalance(user, poolOrderBooks["WETH/WBTC"], Currency.wrap(address(weth)))
             );
             console.log(
                 "  WBTC locked (WETH/WBTC): %s",
-                balanceManager.getLockedBalance(
-                    user,
-                    poolOrderBooks["WETH/WBTC"],
-                    Currency.wrap(address(wbtc))
-                )
+                balanceManager.getLockedBalance(user, poolOrderBooks["WETH/WBTC"], Currency.wrap(address(wbtc)))
             );
         }
     }
@@ -322,22 +268,20 @@ contract SwapTest is Test {
         // For WETH -> USDC, we need a SELL order to provide WETH
         console.log("--- Alice places sell order at 2000 USDC per WETH ---");
         router.placeOrderWithDeposit(
-            Currency.wrap(address(weth)),
-            Currency.wrap(address(usdc)),
-            Price.wrap(2000e6), // 1 ETH = 2000 USDC
-            Quantity.wrap(10e18), // 10 ETH
-            Side.SELL,
+            pools["WETH/USDC"],
+            2000e6, // 1 ETH = 2000 USDC
+            10e18, // 10 ETH
+            IOrderBook.Side.SELL,
             alice
         );
 
         // For USDC -> WBTC, we need a SELL order to provide WBTC
         console.log("--- Alice places sell order at 30000 USDC per WBTC ---");
         router.placeOrderWithDeposit(
-            Currency.wrap(address(wbtc)),
-            Currency.wrap(address(usdc)),
-            Price.wrap(30_000e6), // 1 BTC = 30,000 USDC
-            Quantity.wrap(1e8), // 1 BTC
-            Side.SELL,
+            pools["WBTC/USDC"],
+            30_000e6, // 1 BTC = 30,000 USDC
+            1e8, // 1 BTC
+            IOrderBook.Side.SELL,
             alice
         );
         vm.stopPrank();
@@ -347,19 +291,13 @@ contract SwapTest is Test {
         logBalance("Alice", alice);
 
         // Verify Alice's WETH was locked
-        uint256 aliceLockedWeth = balanceManager.getLockedBalance(
-            alice,
-            poolOrderBooks["WETH/USDC"],
-            Currency.wrap(address(weth))
-        );
+        uint256 aliceLockedWeth =
+            balanceManager.getLockedBalance(alice, poolOrderBooks["WETH/USDC"], Currency.wrap(address(weth)));
         assertEq(aliceLockedWeth, 10e18, "Alice's locked WETH incorrect");
 
         // Verify Alice's WBTC was locked
-        uint256 aliceLockedWbtc = balanceManager.getLockedBalance(
-            alice,
-            poolOrderBooks["WBTC/USDC"],
-            Currency.wrap(address(wbtc))
-        );
+        uint256 aliceLockedWbtc =
+            balanceManager.getLockedBalance(alice, poolOrderBooks["WBTC/USDC"], Currency.wrap(address(wbtc)));
         assertEq(aliceLockedWbtc, 1e8, "Alice's locked WBTC incorrect");
 
         // Bob performs a swap WETH -> WBTC
@@ -389,31 +327,13 @@ contract SwapTest is Test {
         uint256 expectedWbtc = (expectedUsdc * 1e8) / 30_000e6; // Convert to WBTC
 
         // Verify Bob's balances
-        uint256 bobFinalWethBalance = weth.balanceOf(bob) +
-            balanceManager.getBalance(bob, Currency.wrap(address(weth)));
-        uint256 bobFinalWbtcBalance = wbtc.balanceOf(bob) +
-            balanceManager.getBalance(bob, Currency.wrap(address(wbtc)));
+        uint256 bobFinalWethBalance = weth.balanceOf(bob) + balanceManager.getBalance(bob, Currency.wrap(address(weth)));
+        uint256 bobFinalWbtcBalance = wbtc.balanceOf(bob) + balanceManager.getBalance(bob, Currency.wrap(address(wbtc)));
 
-        assertEq(
-            bobFinalWethBalance,
-            bobInitialWethBalance - wethToSwap,
-            "Bob's WETH not deducted correctly"
-        );
-        assertEq(
-            bobFinalWbtcBalance,
-            bobInitialWbtcBalance + received,
-            "Bob's WBTC not received correctly"
-        );
-        assertApproxEqAbs(
-            received,
-            expectedWbtc,
-            100,
-            "Bob received unexpected amount of WBTC"
-        );
-        assertTrue(
-            received >= minWbtcReceived,
-            "Received less than minimum required"
-        );
+        assertEq(bobFinalWethBalance, bobInitialWethBalance - wethToSwap, "Bob's WETH not deducted correctly");
+        assertEq(bobFinalWbtcBalance, bobInitialWbtcBalance + received, "Bob's WBTC not received correctly");
+        assertApproxEqAbs(received, expectedWbtc, 100, "Bob received unexpected amount of WBTC");
+        assertTrue(received >= minWbtcReceived, "Received less than minimum required");
 
         console.log("\n--- Swap Results ---");
         console.log("Bob spent: %s WETH", wethToSwap);
@@ -438,23 +358,19 @@ contract SwapTest is Test {
         vm.startPrank(alice);
         console.log("--- Alice places BUY order at 2000 USDC per WETH ---");
         router.placeOrderWithDeposit(
-            Currency.wrap(address(weth)),
-            Currency.wrap(address(usdc)),
-            Price.wrap(2000e6), // 1 ETH = 2000 USDC
-            Quantity.wrap(10e18), // 10 ETH
-            Side.BUY,
+            pools["WETH/USDC"],
+            2000e6, // 1 ETH = 2000 USDC
+            10e18, // 10 ETH
+            IOrderBook.Side.BUY,
             alice
         );
         vm.stopPrank();
 
         // Check locked balances after liquidity provision
-        uint256 aliceLockedUsdc = balanceManager.getLockedBalance(
-            alice,
-            poolOrderBooks["WETH/USDC"],
-            Currency.wrap(address(usdc))
-        );
+        uint256 aliceLockedUsdc =
+            balanceManager.getLockedBalance(alice, poolOrderBooks["WETH/USDC"], Currency.wrap(address(usdc)));
 
-        assertEq(aliceLockedUsdc, 20000e6, "Alice's locked USDC incorrect"); // 10 ETH * 2000 USDC/ETH
+        assertEq(aliceLockedUsdc, 20_000e6, "Alice's locked USDC incorrect"); // 10 ETH * 2000 USDC/ETH
 
         console.log("\n--- Balances After Liquidity Provision ---");
         logBalance("Alice", alice);
@@ -481,36 +397,17 @@ contract SwapTest is Test {
         logBalance("Bob", bob);
 
         // Verify Bob's balances
-        uint256 bobFinalWethBalance = weth.balanceOf(bob) +
-            balanceManager.getBalance(bob, Currency.wrap(address(weth)));
-        uint256 bobFinalUsdcBalance = usdc.balanceOf(bob) +
-            balanceManager.getBalance(bob, Currency.wrap(address(usdc)));
+        uint256 bobFinalWethBalance = weth.balanceOf(bob) + balanceManager.getBalance(bob, Currency.wrap(address(weth)));
+        uint256 bobFinalUsdcBalance = usdc.balanceOf(bob) + balanceManager.getBalance(bob, Currency.wrap(address(usdc)));
 
-        assertEq(
-            bobFinalWethBalance,
-            bobInitialWethBalance - wethToSwap,
-            "Bob's WETH not deducted correctly"
-        );
-        assertEq(
-            bobFinalUsdcBalance,
-            bobInitialUsdcBalance + received,
-            "Bob's USDC not received correctly"
-        );
+        assertEq(bobFinalWethBalance, bobInitialWethBalance - wethToSwap, "Bob's WETH not deducted correctly");
+        assertEq(bobFinalUsdcBalance, bobInitialUsdcBalance + received, "Bob's USDC not received correctly");
 
         // Expected amount should be around 2000 USDC (may be affected by fees)
         uint256 expectedUsdcReceived = 2000e6;
-        uint256 expectedWithTakerFee = (expectedUsdcReceived *
-            (feeUnit - feeTaker)) / feeUnit;
-        assertApproxEqAbs(
-            received,
-            expectedWithTakerFee,
-            100,
-            "Bob received unexpected amount of USDC"
-        );
-        assertTrue(
-            received >= minUsdcReceived,
-            "Received less than minimum required"
-        );
+        uint256 expectedWithTakerFee = (expectedUsdcReceived * (feeUnit - feeTaker)) / feeUnit;
+        assertApproxEqAbs(received, expectedWithTakerFee, 100, "Bob received unexpected amount of USDC");
+        assertTrue(received >= minUsdcReceived, "Received less than minimum required");
 
         console.log("\n--- Swap Results ---");
         console.log("Bob spent: %s WETH", wethToSwap);
@@ -537,21 +434,17 @@ contract SwapTest is Test {
         // For USDC -> WETH, we need a SELL order to provide WETH
         console.log("--- Alice places sell order at 2000 USDC per WETH ---");
         router.placeOrderWithDeposit(
-            Currency.wrap(address(weth)),
-            Currency.wrap(address(usdc)),
-            Price.wrap(2000e6), // 1 ETH = 2000 USDC
-            Quantity.wrap(10e18), // 10 ETH
-            Side.SELL,
+            pools["WETH/USDC"],
+            2000e6, // 1 ETH = 2000 USDC
+            10e18, // 10 ETH
+            IOrderBook.Side.SELL,
             alice
         );
         vm.stopPrank();
 
         // Check locked balances after liquidity provision
-        uint256 aliceLockedWeth = balanceManager.getLockedBalance(
-            alice,
-            poolOrderBooks["WETH/USDC"],
-            Currency.wrap(address(weth))
-        );
+        uint256 aliceLockedWeth =
+            balanceManager.getLockedBalance(alice, poolOrderBooks["WETH/USDC"], Currency.wrap(address(weth)));
 
         assertEq(aliceLockedWeth, 10e18, "Alice's locked WETH incorrect");
 
@@ -580,36 +473,21 @@ contract SwapTest is Test {
         logBalance("Charlie", charlie);
 
         // Verify Charlie's balances
-        uint256 charlieFinalUsdcBalance = usdc.balanceOf(charlie) +
-            balanceManager.getBalance(charlie, Currency.wrap(address(usdc)));
-        uint256 charlieFinalWethBalance = weth.balanceOf(charlie) +
-            balanceManager.getBalance(charlie, Currency.wrap(address(weth)));
+        uint256 charlieFinalUsdcBalance =
+            usdc.balanceOf(charlie) + balanceManager.getBalance(charlie, Currency.wrap(address(usdc)));
+        uint256 charlieFinalWethBalance =
+            weth.balanceOf(charlie) + balanceManager.getBalance(charlie, Currency.wrap(address(weth)));
 
         assertEq(
-            charlieFinalUsdcBalance,
-            charlieInitialUsdcBalance - usdcToSwap,
-            "Charlie's USDC not deducted correctly"
+            charlieFinalUsdcBalance, charlieInitialUsdcBalance - usdcToSwap, "Charlie's USDC not deducted correctly"
         );
-        assertEq(
-            charlieFinalWethBalance,
-            charlieInitialWethBalance + received,
-            "Charlie's WETH not received correctly"
-        );
+        assertEq(charlieFinalWethBalance, charlieInitialWethBalance + received, "Charlie's WETH not received correctly");
 
         // Expected amount should be around 1.5 ETH (3000 USDC / 2000 USDC/ETH)
         uint256 expectedWethReceived = (usdcToSwap * 1e18) / 2000e6;
-        uint256 expectedWithTakerFee = (expectedWethReceived *
-            (feeUnit - feeTaker)) / feeUnit;
-        assertApproxEqAbs(
-            received,
-            expectedWithTakerFee,
-            100,
-            "Charlie received unexpected amount of WETH"
-        );
-        assertTrue(
-            received >= minWethReceived,
-            "Received less than minimum required"
-        );
+        uint256 expectedWithTakerFee = (expectedWethReceived * (feeUnit - feeTaker)) / feeUnit;
+        assertApproxEqAbs(received, expectedWithTakerFee, 100, "Charlie received unexpected amount of WETH");
+        assertTrue(received >= minWethReceived, "Received less than minimum required");
 
         console.log("\n--- Swap Results ---");
         console.log("Charlie spent: %s USDC", usdcToSwap);
@@ -641,11 +519,10 @@ contract SwapTest is Test {
         vm.startPrank(alice);
         console.log("--- Alice places sell order at 2000 USDC per WETH ---");
         router.placeOrderWithDeposit(
-            Currency.wrap(address(weth)),
-            Currency.wrap(address(usdc)),
-            Price.wrap(2000e6), // 1 ETH = 2000 USDC
-            Quantity.wrap(5e18), // 5 ETH
-            Side.SELL,
+            pools["WETH/USDC"],
+            2000e6, // 1 ETH = 2000 USDC
+            5e18, // 5 ETH
+            IOrderBook.Side.SELL,
             alice
         );
         vm.stopPrank();
@@ -654,11 +531,10 @@ contract SwapTest is Test {
         vm.startPrank(bob);
         console.log("--- Bob places sell order at 2010 USDC per WETH ---");
         router.placeOrderWithDeposit(
-            Currency.wrap(address(weth)),
-            Currency.wrap(address(usdc)),
-            Price.wrap(2010e6), // 1 ETH = 2010 USDC (slightly different price)
-            Quantity.wrap(5e18), // 5 ETH
-            Side.SELL,
+            pools["WETH/USDC"],
+            2010e6, // 1 ETH = 2010 USDC (slightly different price)
+            5e18, // 5 ETH
+            IOrderBook.Side.SELL,
             bob
         );
         vm.stopPrank();
@@ -675,12 +551,7 @@ contract SwapTest is Test {
         uint256 minWethReceived = 1.9e18; // 1.9 ETH (expecting ~2 ETH)
 
         uint256 charlieReceived = router.swap(
-            Currency.wrap(address(usdc)),
-            Currency.wrap(address(weth)),
-            usdcToSwap,
-            minWethReceived,
-            1,
-            charlie
+            Currency.wrap(address(usdc)), Currency.wrap(address(weth)), usdcToSwap, minWethReceived, 1, charlie
         );
         vm.stopPrank();
 
@@ -691,12 +562,7 @@ contract SwapTest is Test {
         uint256 minUsdcReceived = 3900e6; // 3900 USDC (expecting ~4000-4020)
 
         uint256 davidReceived = router.swap(
-            Currency.wrap(address(weth)),
-            Currency.wrap(address(usdc)),
-            wethToSwap,
-            minUsdcReceived,
-            1,
-            david
+            Currency.wrap(address(weth)), Currency.wrap(address(usdc)), wethToSwap, minUsdcReceived, 1, david
         );
         vm.stopPrank();
 
@@ -708,15 +574,13 @@ contract SwapTest is Test {
         logBalance("David", david);
 
         // Verify Charlie's balances
-        uint256 charlieFinalUsdcBalance = usdc.balanceOf(charlie) +
-            balanceManager.getBalance(charlie, Currency.wrap(address(usdc)));
-        uint256 charlieFinalWethBalance = weth.balanceOf(charlie) +
-            balanceManager.getBalance(charlie, Currency.wrap(address(weth)));
+        uint256 charlieFinalUsdcBalance =
+            usdc.balanceOf(charlie) + balanceManager.getBalance(charlie, Currency.wrap(address(usdc)));
+        uint256 charlieFinalWethBalance =
+            weth.balanceOf(charlie) + balanceManager.getBalance(charlie, Currency.wrap(address(weth)));
 
         assertEq(
-            charlieFinalUsdcBalance,
-            charlieInitialUsdcBalance - usdcToSwap,
-            "Charlie's USDC not deducted correctly"
+            charlieFinalUsdcBalance, charlieInitialUsdcBalance - usdcToSwap, "Charlie's USDC not deducted correctly"
         );
         assertApproxEqAbs(
             charlieFinalWethBalance,
@@ -726,21 +590,14 @@ contract SwapTest is Test {
         );
 
         // Verify David's balances
-        uint256 davidFinalWethBalance = weth.balanceOf(david) +
-            balanceManager.getBalance(david, Currency.wrap(address(weth)));
-        uint256 davidFinalUsdcBalance = usdc.balanceOf(david) +
-            balanceManager.getBalance(david, Currency.wrap(address(usdc)));
+        uint256 davidFinalWethBalance =
+            weth.balanceOf(david) + balanceManager.getBalance(david, Currency.wrap(address(weth)));
+        uint256 davidFinalUsdcBalance =
+            usdc.balanceOf(david) + balanceManager.getBalance(david, Currency.wrap(address(usdc)));
 
-        assertEq(
-            davidFinalWethBalance,
-            davidInitialWethBalance - wethToSwap,
-            "David's WETH not deducted correctly"
-        );
+        assertEq(davidFinalWethBalance, davidInitialWethBalance - wethToSwap, "David's WETH not deducted correctly");
         assertApproxEqAbs(
-            davidFinalUsdcBalance,
-            davidInitialUsdcBalance + davidReceived,
-            100,
-            "David's USDC not received correctly"
+            davidFinalUsdcBalance, davidInitialUsdcBalance + davidReceived, 100, "David's USDC not received correctly"
         );
 
         // Expected amounts calculation
@@ -778,55 +635,46 @@ contract SwapTest is Test {
 
         // Define order parameters for multiple users at different price levels
         // For selling ETH (receiving USDC), we need to place buy orders
-        Price alicePrice = Price.wrap(2505e6); // Highest price (most generous to taker)
-        Price charliePrice = Price.wrap(2502e6); // Middle price
-        Price davidPrice = Price.wrap(2500e6); // Lowest price
+        uint128 alicePrice = 2505e6; // Highest price (most generous to taker)
+        uint128 charliePrice = 2502e6; // Middle price
+        uint128 davidPrice = 2500e6; // Lowest price
 
-        Quantity aliceQuantity = Quantity.wrap(uint128(1e18)); // 1 ETH
-        Quantity charlieQuantity = Quantity.wrap(uint128(1e18)); // 1 ETH
-        Quantity davidQuantity = Quantity.wrap(uint128(1e18)); // 1 ETH
+        uint128 aliceQuantity = 1e18; // 1 ETH
+        uint128 charlieQuantity = 1e18; // 1 ETH
+        uint128 davidQuantity = 1e18; // 1 ETH
 
         // Create a series of buy orders at different price levels from multiple users
         // Since Bob will be selling WETH to get USDC, these are BUY orders
         // to provide liquidity to receive WETH
         vm.startPrank(alice);
-        console.log(
-            "--- Alice places BUY order at 2505 USDC per WETH (1 ETH) ---"
-        );
+        console.log("--- Alice places BUY order at 2505 USDC per WETH (1 ETH) ---");
         router.placeOrderWithDeposit(
-            Currency.wrap(address(weth)),
-            Currency.wrap(address(usdc)),
+            pools["WETH/USDC"],
             alicePrice,
             aliceQuantity,
-            Side.BUY, // BUY order to receive WETH
+            IOrderBook.Side.BUY, // BUY order to receive WETH
             alice
         );
         vm.stopPrank();
 
         vm.startPrank(charlie);
-        console.log(
-            "--- Charlie places BUY order at 2502 USDC per WETH (1 ETH) ---"
-        );
+        console.log("--- Charlie places BUY order at 2502 USDC per WETH (1 ETH) ---");
         router.placeOrderWithDeposit(
-            Currency.wrap(address(weth)),
-            Currency.wrap(address(usdc)),
+            pools["WETH/USDC"],
             charliePrice,
             charlieQuantity,
-            Side.BUY, // BUY order to receive WETH
+            IOrderBook.Side.BUY, // BUY order to receive WETH,
             charlie
         );
         vm.stopPrank();
 
         vm.startPrank(david);
-        console.log(
-            "--- David places BUY order at 2500 USDC per WETH (1 ETH) ---"
-        );
+        console.log("--- David places BUY order at 2500 USDC per WETH (1 ETH) ---");
         router.placeOrderWithDeposit(
-            Currency.wrap(address(weth)),
-            Currency.wrap(address(usdc)),
+            pools["WETH/USDC"],
             davidPrice,
             davidQuantity,
-            Side.BUY, // BUY order to receive WETH
+            IOrderBook.Side.BUY, // BUY order to receive WETH
             david
         );
         vm.stopPrank();
@@ -838,61 +686,29 @@ contract SwapTest is Test {
         logBalance("David", david);
 
         // Calculate expected values for each maker - they're providing USDC
-        uint256 aliceExpectedLocked = (uint256(Price.unwrap(alicePrice)) *
-            uint256(Quantity.unwrap(aliceQuantity))) / 1e18;
-        uint256 charlieExpectedLocked = (uint256(Price.unwrap(charliePrice)) *
-            uint256(Quantity.unwrap(charlieQuantity))) / 1e18;
-        uint256 davidExpectedLocked = (uint256(Price.unwrap(davidPrice)) *
-            uint256(Quantity.unwrap(davidQuantity))) / 1e18;
+        uint256 aliceExpectedLocked = (uint256(alicePrice) * uint256(aliceQuantity)) / 1e18;
+        uint256 charlieExpectedLocked = (uint256(charliePrice) * uint256(charlieQuantity)) / 1e18;
+        uint256 davidExpectedLocked = (uint256(davidPrice) * uint256(davidQuantity)) / 1e18;
 
         // Verify locked USDC for each maker's buy order
-        uint256 aliceLockedUsdc = balanceManager.getLockedBalance(
-            alice,
-            poolOrderBooks["WETH/USDC"],
-            Currency.wrap(address(usdc))
-        );
-        uint256 charlieLockedUsdc = balanceManager.getLockedBalance(
-            charlie,
-            poolOrderBooks["WETH/USDC"],
-            Currency.wrap(address(usdc))
-        );
-        uint256 davidLockedUsdc = balanceManager.getLockedBalance(
-            david,
-            poolOrderBooks["WETH/USDC"],
-            Currency.wrap(address(usdc))
-        );
+        uint256 aliceLockedUsdc =
+            balanceManager.getLockedBalance(alice, poolOrderBooks["WETH/USDC"], Currency.wrap(address(usdc)));
+        uint256 charlieLockedUsdc =
+            balanceManager.getLockedBalance(charlie, poolOrderBooks["WETH/USDC"], Currency.wrap(address(usdc)));
+        uint256 davidLockedUsdc =
+            balanceManager.getLockedBalance(david, poolOrderBooks["WETH/USDC"], Currency.wrap(address(usdc)));
 
-        assertApproxEqAbs(
-            aliceLockedUsdc,
-            aliceExpectedLocked,
-            100,
-            "Alice's locked USDC incorrect"
-        );
-        assertApproxEqAbs(
-            charlieLockedUsdc,
-            charlieExpectedLocked,
-            100,
-            "Charlie's locked USDC incorrect"
-        );
-        assertApproxEqAbs(
-            davidLockedUsdc,
-            davidExpectedLocked,
-            100,
-            "David's locked USDC incorrect"
-        );
+        assertApproxEqAbs(aliceLockedUsdc, aliceExpectedLocked, 100, "Alice's locked USDC incorrect");
+        assertApproxEqAbs(charlieLockedUsdc, charlieExpectedLocked, 100, "Charlie's locked USDC incorrect");
+        assertApproxEqAbs(davidLockedUsdc, davidExpectedLocked, 100, "David's locked USDC incorrect");
 
         // Bob performs a market swap to sell WETH for USDC
         // This will match against the buy orders at the best prices first (Alice, then Charlie, then David)
         uint256 wethToSwap = 2e18; // 2 ETH - enough to match multiple orders
-        uint256 expectedAliceTradeValue = (uint256(Price.unwrap(alicePrice)) *
-            uint256(Quantity.unwrap(aliceQuantity))) / (10 ** 18);
-        uint256 expectedCharlieTradeValue = (uint256(
-            Price.unwrap(charliePrice)
-        ) * uint256(Quantity.unwrap(charlieQuantity))) / (10 ** 18);
-        uint256 totalExpectedTradeValue = expectedAliceTradeValue +
-            expectedCharlieTradeValue;
-        uint256 minUsdcReceived = (totalExpectedTradeValue *
-            (feeUnit - feeTaker)) / feeUnit; // Minimum USDC expected (slightly less than 5000 due to fees)
+        uint256 expectedAliceTradeValue = (uint256(alicePrice) * uint256(aliceQuantity)) / (10 ** 18);
+        uint256 expectedCharlieTradeValue = (uint256(charliePrice) * uint256(charlieQuantity)) / (10 ** 18);
+        uint256 totalExpectedTradeValue = expectedAliceTradeValue + expectedCharlieTradeValue;
+        uint256 minUsdcReceived = (totalExpectedTradeValue * (feeUnit - feeTaker)) / feeUnit; // Minimum USDC expected (slightly less than 5000 due to fees)
         vm.startPrank(bob);
 
         console.log("\n--- Bob swaps 2 WETH for USDC (market order) ---");
@@ -914,48 +730,32 @@ contract SwapTest is Test {
         logBalance("David", david);
 
         // Verify Bob's balances - he should have spent WETH and received USDC
-        uint256 bobFinalWethBalance = weth.balanceOf(bob) +
-            balanceManager.getBalance(bob, Currency.wrap(address(weth)));
-        uint256 bobFinalUsdcBalance = usdc.balanceOf(bob) +
-            balanceManager.getBalance(bob, Currency.wrap(address(usdc)));
+        uint256 bobFinalWethBalance = weth.balanceOf(bob) + balanceManager.getBalance(bob, Currency.wrap(address(weth)));
+        uint256 bobFinalUsdcBalance = usdc.balanceOf(bob) + balanceManager.getBalance(bob, Currency.wrap(address(usdc)));
 
         uint256 bobWethDecrease = bobInitialWethBalance - bobFinalWethBalance;
         uint256 bobUsdcIncrease = bobFinalUsdcBalance - bobInitialUsdcBalance;
 
-        assertEq(
-            bobWethDecrease,
-            wethToSwap,
-            "Bob should have spent exactly 2 WETH"
-        );
+        assertEq(bobWethDecrease, wethToSwap, "Bob should have spent exactly 2 WETH");
 
         console.log("bobUsdcIncrease", bobUsdcIncrease);
         console.log("minUsdcReceived", minUsdcReceived);
 
-        assertTrue(
-            bobUsdcIncrease >= minUsdcReceived,
-            "Bob should have received at least minimum USDC"
-        );
+        assertTrue(bobUsdcIncrease >= minUsdcReceived, "Bob should have received at least minimum USDC");
 
         // Assuming orders are matched in price-time priority, better prices get matched first
         // So Alice's order should be fully matched
-        uint256 aliceFinalWethBalance = weth.balanceOf(alice) +
-            balanceManager.getBalance(alice, Currency.wrap(address(weth)));
-        uint256 aliceWethIncrease = aliceFinalWethBalance -
-            aliceInitialWethBalance;
+        uint256 aliceFinalWethBalance =
+            weth.balanceOf(alice) + balanceManager.getBalance(alice, Currency.wrap(address(weth)));
+        uint256 aliceWethIncrease = aliceFinalWethBalance - aliceInitialWethBalance;
 
         // Alice should have received some WETH
         assertTrue(aliceWethIncrease > 0, "Alice should have received WETH");
 
         // If Alice's order was fully matched, her locked USDC should be reduced
-        uint256 aliceFinalLockedUsdc = balanceManager.getLockedBalance(
-            alice,
-            poolOrderBooks["WETH/USDC"],
-            Currency.wrap(address(usdc))
-        );
-        assertTrue(
-            aliceFinalLockedUsdc < aliceLockedUsdc,
-            "Alice's locked USDC should have decreased"
-        );
+        uint256 aliceFinalLockedUsdc =
+            balanceManager.getLockedBalance(alice, poolOrderBooks["WETH/USDC"], Currency.wrap(address(usdc)));
+        assertTrue(aliceFinalLockedUsdc < aliceLockedUsdc, "Alice's locked USDC should have decreased");
 
         console.log("\n--- Swap Results ---");
         console.log("Bob spent: %s WETH", bobWethDecrease);
@@ -963,13 +763,11 @@ contract SwapTest is Test {
         console.log("Alice WETH received: %s", aliceWethIncrease);
 
         // Check if other orders were matched
-        uint256 charlieWethReceived = weth.balanceOf(charlie) +
-            balanceManager.getBalance(charlie, Currency.wrap(address(weth))) -
-            charlieInitialWethBalance;
+        uint256 charlieWethReceived = weth.balanceOf(charlie)
+            + balanceManager.getBalance(charlie, Currency.wrap(address(weth))) - charlieInitialWethBalance;
 
-        uint256 davidWethReceived = weth.balanceOf(david) +
-            balanceManager.getBalance(david, Currency.wrap(address(weth))) -
-            davidInitialWethBalance;
+        uint256 davidWethReceived = weth.balanceOf(david)
+            + balanceManager.getBalance(david, Currency.wrap(address(weth))) - davidInitialWethBalance;
 
         if (charlieWethReceived > 0) {
             console.log("Charlie received: %s WETH", charlieWethReceived);
@@ -1012,11 +810,10 @@ contract SwapTest is Test {
         // For WETH/USDC pool: Alice provides buy order for WETH at 2000 USDC/ETH
         console.log("--- Alice places buy order at 2000 USDC per WETH ---");
         router.placeOrderWithDeposit(
-            Currency.wrap(address(weth)),
-            Currency.wrap(address(usdc)),
-            Price.wrap(2000e6), // 1 ETH = 2000 USDC
-            Quantity.wrap(5e18), // 5 ETH
-            Side.BUY,
+            pools["WETH/USDC"],
+            2000e6, // 1 ETH = 2000 USDC
+            5e18, // 5 ETH
+            IOrderBook.Side.BUY,
             alice
         );
         vm.stopPrank();
@@ -1025,11 +822,10 @@ contract SwapTest is Test {
         // For WBTC/USDC pool: Bob provides sell order for WBTC at 30000 USDC/BTC
         console.log("--- Bob places sell order at 30000 USDC per WBTC ---");
         router.placeOrderWithDeposit(
-            Currency.wrap(address(wbtc)),
-            Currency.wrap(address(usdc)),
-            Price.wrap(30000e6), // 1 BTC = 30000 USDC
-            Quantity.wrap(1e8), // 1 BTC
-            Side.SELL,
+            pools["WBTC/USDC"],
+            30_000e6, // 1 BTC = 30000 USDC
+            1e8, // 1 BTC
+            IOrderBook.Side.SELL,
             bob
         );
         vm.stopPrank();
@@ -1040,51 +836,35 @@ contract SwapTest is Test {
         logBalance("Bob", bob);
 
         // Verify Alice's USDC was locked for ETH buy order
-        uint256 aliceLockedUsdc = balanceManager.getLockedBalance(
-            alice,
-            poolOrderBooks["WETH/USDC"],
-            Currency.wrap(address(usdc))
-        );
-        assertEq(aliceLockedUsdc, 10000e6, "Alice's locked USDC incorrect"); // 5 ETH * 2000 USDC/ETH
+        uint256 aliceLockedUsdc =
+            balanceManager.getLockedBalance(alice, poolOrderBooks["WETH/USDC"], Currency.wrap(address(usdc)));
+        assertEq(aliceLockedUsdc, 10_000e6, "Alice's locked USDC incorrect"); // 5 ETH * 2000 USDC/ETH
 
         // Verify Bob's WBTC was locked for BTC sell order
-        uint256 bobLockedWbtc = balanceManager.getLockedBalance(
-            bob,
-            poolOrderBooks["WBTC/USDC"],
-            Currency.wrap(address(wbtc))
-        );
+        uint256 bobLockedWbtc =
+            balanceManager.getLockedBalance(bob, poolOrderBooks["WBTC/USDC"], Currency.wrap(address(wbtc)));
         assertEq(bobLockedWbtc, 1e8, "Bob's locked WBTC incorrect"); // 1 BTC
 
         // Charlie performs a 2-hop swap: WETH -> USDC -> WBTC
         vm.startPrank(charlie);
-        console.log(
-            "\n--- Charlie swaps 1 WETH for WBTC via USDC (2-hop swap) ---"
-        );
+        console.log("\n--- Charlie swaps 1 WETH for WBTC via USDC (2-hop swap) ---");
         uint256 wethToSwap = 1e18; // 1 ETH
 
         // Calculate expected outcome:
         // 1 ETH = 2000 USDC, 30000 USDC = 1 BTC, so 1 ETH ≈ 0.0667 BTC
         uint256 expectedUsdcIntermediate = 2000e6; // From 1 ETH
-        uint256 expectedFinalWbtc = (expectedUsdcIntermediate * 1e8) / 30000e6; // Convert to WBTC
+        uint256 expectedFinalWbtc = (expectedUsdcIntermediate * 1e8) / 30_000e6; // Convert to WBTC
 
         // Apply taker fee twice (once for each hop)
-        uint256 expectedUsdcAfterFee = (expectedUsdcIntermediate *
-            (feeUnit - feeTaker)) / feeUnit;
-        uint256 expectedWbtcAfterFees = (expectedFinalWbtc *
-            (feeUnit - feeTaker)) / feeUnit;
+        uint256 expectedUsdcAfterFee = (expectedUsdcIntermediate * (feeUnit - feeTaker)) / feeUnit;
+        uint256 expectedWbtcAfterFees = (expectedFinalWbtc * (feeUnit - feeTaker)) / feeUnit;
 
         // Set minimum amount to receive accounting for fees (with some additional slippage buffer)
         uint256 minWbtcReceived = (expectedWbtcAfterFees * 90) / 100; // 10% additional slippage buffer
 
-        console.log(
-            "Expected USDC intermediate (before fees): %s",
-            expectedUsdcIntermediate
-        );
+        console.log("Expected USDC intermediate (before fees): %s", expectedUsdcIntermediate);
         console.log("Expected WBTC final (before fees): %s", expectedFinalWbtc);
-        console.log(
-            "Expected WBTC final (after fees): %s",
-            expectedWbtcAfterFees
-        );
+        console.log("Expected WBTC final (after fees): %s", expectedWbtcAfterFees);
         console.log("Minimum WBTC required: %s", minWbtcReceived);
 
         uint256 received = router.swap(
@@ -1104,33 +884,25 @@ contract SwapTest is Test {
         logBalance("Charlie", charlie);
 
         // Verify Charlie's balances
-        uint256 charlieFinalWethBalance = weth.balanceOf(charlie) +
-            balanceManager.getBalance(charlie, Currency.wrap(address(weth)));
-        uint256 charlieFinalWbtcBalance = wbtc.balanceOf(charlie) +
-            balanceManager.getBalance(charlie, Currency.wrap(address(wbtc)));
+        uint256 charlieFinalWethBalance =
+            weth.balanceOf(charlie) + balanceManager.getBalance(charlie, Currency.wrap(address(weth)));
+        uint256 charlieFinalWbtcBalance =
+            wbtc.balanceOf(charlie) + balanceManager.getBalance(charlie, Currency.wrap(address(wbtc)));
 
         assertEq(
-            charlieFinalWethBalance,
-            charlieInitialWethBalance - wethToSwap,
-            "Charlie's WETH not deducted correctly"
+            charlieFinalWethBalance, charlieInitialWethBalance - wethToSwap, "Charlie's WETH not deducted correctly"
         );
-        assertEq(
-            charlieFinalWbtcBalance,
-            charlieInitialWbtcBalance + received,
-            "Charlie's WBTC not received correctly"
-        );
+        assertEq(charlieFinalWbtcBalance, charlieInitialWbtcBalance + received, "Charlie's WBTC not received correctly");
 
         // Verify Alice received some WETH (from the first hop)
-        uint256 aliceFinalWethBalance = weth.balanceOf(alice) +
-            balanceManager.getBalance(alice, Currency.wrap(address(weth)));
-        uint256 aliceWethIncrease = aliceFinalWethBalance -
-            aliceInitialWethBalance;
+        uint256 aliceFinalWethBalance =
+            weth.balanceOf(alice) + balanceManager.getBalance(alice, Currency.wrap(address(weth)));
+        uint256 aliceWethIncrease = aliceFinalWethBalance - aliceInitialWethBalance;
 
         assertTrue(aliceWethIncrease > 0, "Alice should have received WETH");
 
         // Verify Bob received some USDC (from the second hop)
-        uint256 bobFinalUsdcBalance = usdc.balanceOf(bob) +
-            balanceManager.getBalance(bob, Currency.wrap(address(usdc)));
+        uint256 bobFinalUsdcBalance = usdc.balanceOf(bob) + balanceManager.getBalance(bob, Currency.wrap(address(usdc)));
         uint256 bobUsdcIncrease = bobFinalUsdcBalance - bobInitialUsdcBalance;
 
         assertTrue(bobUsdcIncrease > 0, "Bob should have received USDC");
@@ -1142,10 +914,7 @@ contract SwapTest is Test {
             1e6, // Allow small difference due to rounding
             "Charlie received unexpected amount of WBTC"
         );
-        assertTrue(
-            received >= minWbtcReceived,
-            "Received less than minimum required"
-        );
+        assertTrue(received >= minWbtcReceived, "Received less than minimum required");
 
         console.log("\n--- 2-Hop Swap Results ---");
         console.log("Charlie spent: %s WETH", wethToSwap);
@@ -1172,7 +941,9 @@ contract SwapTest is Test {
         return string(str);
     }
 
-    function uint256ToString(uint256 _i) internal pure returns (string memory) {
+    function uint256ToString(
+        uint256 _i
+    ) internal pure returns (string memory) {
         if (_i == 0) {
             return "0";
         }

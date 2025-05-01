@@ -12,7 +12,9 @@ contract MockWETH is ERC20 {
         _mint(account, amount);
     }
 
-    function withdraw(uint256 amount) external {
+    function withdraw(
+        uint256 amount
+    ) external {
         require(balanceOf(msg.sender) >= amount, "Insufficient balance");
         _burn(msg.sender, amount);
         payable(msg.sender).transfer(amount);
