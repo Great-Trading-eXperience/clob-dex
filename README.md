@@ -149,7 +149,9 @@ The implementation ensures efficient order management while maintaining robust s
 The contract addresses are stored in JSON files under the `deployments/<chain_id>.json`. Example folder:
 
 - 🔗 **Local Development**: `deployments/31337.json` (Anvil network)
-- 🚀 **Rise Network**: `deployments/7565164.json` (Rise Sepolia)
+- 🌐 **GTX Dev Network**: `deployments/31338.json` (GTX Development)
+- 🚀 **Rise Network**: `deployments/11155931.json` (Rise Sepolia)
+- 🌟 **Pharos Network**: `deployments/50002.json` (Pharos Devnet)
 
 To access contract addresses for a specific network:
 1. Locate the appropriate JSON file for your target network
