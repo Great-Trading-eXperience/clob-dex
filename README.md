@@ -240,8 +240,7 @@ After deploying the contracts and mock tokens, you can automatically fill the or
 To populate the ETH/USDC order book with sample orders:
 ```bash
 make fill-orderbook network=<network_name>
-
----
+```
 
 ## Contract Upgrades
 
