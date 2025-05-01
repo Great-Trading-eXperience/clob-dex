@@ -33,6 +33,13 @@ contract PoolManager is Initializable, OwnableUpgradeable, PoolManagerStorage, I
     ) external pure returns (PoolId) {
         return key.toId();
     }
+    
+    function isValidPool(
+        address pool
+    ) external view returns (bool) {
+        Storage storage $ = getStorage();
+        return $.registeredPools[pool];
+    }
 
     function setRouter(
         address _router
@@ -61,7 +68,7 @@ contract PoolManager is Initializable, OwnableUpgradeable, PoolManagerStorage, I
             $.orderBookBeacon,
             abi.encodeCall(OrderBook.initialize, (address(this), $.balanceManager, _tradingRules, key))
         );
-        isValidPool[orderBookProxy] = true;
+        $.registeredPools[orderBookProxy] = true;
 
         BeaconProxy orderBookProxy = new BeaconProxy($.orderBookBeacon, initData);
         IOrderBook orderbook = IOrderBook(address(orderBookProxy));
