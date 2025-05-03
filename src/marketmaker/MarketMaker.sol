@@ -39,7 +39,6 @@ contract MarketMaker is ERC20, Gauge {
     function _stakedBalance(
         address user
     ) internal view override returns (uint256) {
-        console.log("stakedBalance inside mm contract", user, balanceOf(user));
         return balanceOf(user);
     }
 
