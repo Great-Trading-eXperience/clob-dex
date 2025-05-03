@@ -166,7 +166,7 @@ contract GTXRouter is IGTXRouter, Initializable, OwnableUpgradeable, IOrderBookE
         if (quantity == 0) {
             revert InvalidQuantity();
         }
-        return pool.orderBook.placeMarketOrder(quantity, side, user);
+        return placeMarketOrder(pool, quantity, side, user);
     }
 
     function placeMarketOrderWithDeposit(

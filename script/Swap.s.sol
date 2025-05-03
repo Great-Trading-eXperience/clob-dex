@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import {Script, console} from "forge-std/Script.sol";
+import "../script/DeployHelpers.s.sol";
 import {MockToken} from "../src/mocks/MockToken.sol";
 import {GTXRouter} from "../src/GTXRouter.sol";
 import {BalanceManager} from "../src/BalanceManager.sol";
@@ -11,72 +11,77 @@ import {IOrderBook} from "../src/interfaces/IOrderBook.sol";
 import {Currency} from "../src/libraries/Currency.sol";
 import {PoolKey} from "../src/libraries/Pool.sol";
 
-contract Swap is Script {
-    string chainId;
+contract Swap is Script, DeployHelpers {
+    // Contract address keys
+    string constant BALANCE_MANAGER_ADDRESS = "PROXY_BALANCEMANAGER";
+    string constant POOL_MANAGER_ADDRESS = "PROXY_POOLMANAGER";
+    string constant GTX_ROUTER_ADDRESS = "PROXY_ROUTER";
+    string constant WETH_ADDRESS = "MOCK_TOKEN_WETH";
+    string constant WBTC_ADDRESS = "MOCK_TOKEN_WBTC";
+    string constant USDC_ADDRESS = "MOCK_TOKEN_USDC";
 
-    address balanceManager;
-    address poolManager;
-    address gtxRouter;
-    address weth;
-    address wbtc;
-    address usdc;
+    // Core contracts
+    BalanceManager balanceManager;
+    PoolManager poolManager;
+    GTXRouter gtxRouter;
 
-    // constructor(address _balanceManager, address _poolManager, address _gtxRouter) {
-    //     balanceManager = _balanceManager;
-    //     poolManager = _poolManager;
-    //     gtxRouter = _gtxRouter;
-
-    //     setUp();
-    // }
+    // Mock tokens
+    MockToken weth;
+    MockToken wbtc;
+    MockToken usdc;
 
     function setUp() public {
-        // Get deployed contract addresses from environment
-        chainId = vm.envString("CHAIN_ID");
-        // balanceManager = vm.envAddress(string.concat("BALANCE_MANAGER_", chainId, "_ADDRESS"));
-        // poolManager = vm.envAddress(string.concat("POOL_MANAGER_", chainId, "_ADDRESS"));
-        // gtxRouter = vm.envAddress(string.concat("ROUTER_", chainId, "_ADDRESS"));
+        loadDeployments();
+        loadContracts();
+    }
 
-        // Get token addresses
-        wbtc = vm.envAddress(string.concat("WBTC_", chainId, "_ADDRESS"));
-        weth = vm.envAddress(string.concat("WETH_", chainId, "_ADDRESS"));
-        usdc = vm.envAddress(string.concat("USDC_", chainId, "_ADDRESS"));
+    function loadContracts() private {
+        // Load core contracts
+        balanceManager = BalanceManager(deployed[BALANCE_MANAGER_ADDRESS].addr);
+        poolManager = PoolManager(deployed[POOL_MANAGER_ADDRESS].addr);
+        gtxRouter = GTXRouter(deployed[GTX_ROUTER_ADDRESS].addr);
 
-        // wbtc = address(new MockToken("WBTC", "WBTC", 18));
-        // weth = address(new MockToken("WETH", "WETH", 18));
-        // usdc = address(new MockToken("USDC", "USDC", 18));
+        // Load mock tokens
+        weth = MockToken(deployed[WETH_ADDRESS].addr);
+        wbtc = MockToken(deployed[WBTC_ADDRESS].addr);
+        usdc = MockToken(deployed[USDC_ADDRESS].addr);
     }
 
     function run() external {
-        uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
-        uint256 deployerPrivateKey2 = vm.envUint("PRIVATE_KEY_2");
+        uint256 deployerPrivateKey = getDeployerKey();
+        uint256 deployerPrivateKey2 = getDeployerKey2();
         address owner = vm.addr(deployerPrivateKey);
         address owner2 = vm.addr(deployerPrivateKey2);
 
         vm.startBroadcast(deployerPrivateKey);
 
-        console.log("wbtc", wbtc);
-        console.log("weth", weth);
-        console.log("usdc", usdc);
+        console.log("wbtc", address(wbtc));
+        console.log("weth", address(weth));
+        console.log("usdc", address(usdc));
 
         // 1. Mint and approve tokens
-        MockToken(wbtc).mint(owner, 1_000_000_000_000e18);
-        MockToken(weth).mint(owner, 1_000_000_000_000e18);
-        MockToken(usdc).mint(owner, 1_000_000_000_000e18);
-        MockToken(wbtc).mint(owner2, 1_000_000_000_000e18);
-        MockToken(weth).mint(owner2, 1_000_000_000_000e18);
-        MockToken(usdc).mint(owner2, 1_000_000_000_000e18);
+        wbtc.mint(owner, 1_000_000_000_000e18);
+        weth.mint(owner, 1_000_000_000_000e18);
+        usdc.mint(owner, 1_000_000_000_000e18);
+        wbtc.mint(owner2, 1_000_000_000_000e18);
+        weth.mint(owner2, 1_000_000_000_000e18);
+        usdc.mint(owner2, 1_000_000_000_000e18);
 
-        MockToken(weth).approve(balanceManager, type(uint256).max);
-        MockToken(usdc).approve(balanceManager, type(uint256).max);
-        MockToken(wbtc).approve(balanceManager, type(uint256).max);
+        weth.approve(address(balanceManager), type(uint256).max);
+        usdc.approve(address(balanceManager), type(uint256).max);
+        wbtc.approve(address(balanceManager), type(uint256).max);
 
         // WETH -> WBTC
-        address source = weth;
-        address destination = wbtc;
+        // address source = address(weth);
+        // address destination = address(wbtc);
 
         // WETH -> USDC
-        // address source = weth;
-        // address destination = wbtc;
+        // address source = address(weth);
+        // address destination = address(usdc);
+
+        // USDC -> WETH
+        address source = address(usdc);
+        address destination = address(weth);
 
         console.log("\nInitial balances:");
         console.log("%s owner:", MockToken(source).symbol(), MockToken(source).balanceOf(owner));
@@ -89,81 +94,80 @@ contract Swap is Script {
         );
 
         // Provide liquidity
-
         IPoolManager.Pool memory wethUsdcPool = IPoolManager(poolManager).getPool(
             PoolKey({
-                baseCurrency: Currency.wrap(weth),
-                quoteCurrency: Currency.wrap(usdc)
+                baseCurrency: Currency.wrap(address(weth)),
+                quoteCurrency: Currency.wrap(address(usdc))
             })
         );
 
         IPoolManager.Pool memory wbtcUsdcPool = IPoolManager(poolManager).getPool(
             PoolKey({
-                baseCurrency: Currency.wrap(wbtc),
-                quoteCurrency: Currency.wrap(usdc)
+                baseCurrency: Currency.wrap(address(wbtc)),
+                quoteCurrency: Currency.wrap(address(usdc))
             })
         );
 
         // Add liquidity to test WETH/WBTC where the exist pairs are WETH/USDC and WBTC/USDC
-        GTXRouter(gtxRouter).placeOrderWithDeposit{gas: 1_000_000}(
-            wethUsdcPool,
-            uint128(2000e6),
-            uint128(1e18),
-            IOrderBook.Side.BUY,
-            owner
-        );
-        GTXRouter(gtxRouter).placeOrderWithDeposit{gas: 1_000_000}(
-            wbtcUsdcPool,
-            uint128(30_000e6),
-            uint128(1e8),
-            IOrderBook.Side.SELL,
-            owner
-        );
+        // gtxRouter.placeOrderWithDeposit{gas: 1_000_000}(
+        //     wethUsdcPool,
+        //     uint128(2000e6),
+        //     uint128(1e18),
+        //     IOrderBook.Side.BUY,
+        //     owner
+        // );
+        // gtxRouter.placeOrderWithDeposit{gas: 1_000_000}(
+        //     wbtcUsdcPool,
+        //     uint128(30_000e6),
+        //     uint128(1e8),
+        //     IOrderBook.Side.SELL,
+        //     owner
+        // );
 
         // Add liquidity to test WETH/USDC
-        // GTXRouter(gtxRouter).placeOrderWithDeposit{gas: 1000000}(
-        //     Currency.wrap(weth),
-        //     Currency.wrap(usdc),
-        //     Price.wrap(2000e8),
-        //     Quantity.wrap(3_000_000_000e6),
-        //     Side.BUY,
+        // gtxRouter.placeOrderWithDeposit{gas: 1000000}(
+        //     wethUsdcPool,
+        //     uint128(2000e8),
+        //     uint128(3_000_000_000e6),
+        //     IOrderBook.Side.BUY,
         //     owner
         // );
 
         // Add liquidity to test USDC/WETH
-        // GTXRouter(gtxRouter).placeOrderWithDeposit{gas: 1000000}(
-        //     Currency.wrap(weth),
-        //     Currency.wrap(usdc),
-        //     Price.wrap(2000e8),
-        //     Quantity.wrap(3_000_000_000e18),
-        //     Side.SELL,
-        //     owner
-        // );
+        gtxRouter.placeOrderWithDeposit{gas: 1000000}(
+            wethUsdcPool,
+            uint128(2000e8),
+            uint128(3_000_000_000e18),
+            IOrderBook.Side.SELL,
+            owner
+        );
 
         vm.stopBroadcast();
 
         vm.startBroadcast(deployerPrivateKey2);
 
-        if (keccak256(abi.encodePacked(chainId)) != keccak256(abi.encodePacked("GTX"))) {
-            MockToken(wbtc).approve(balanceManager, type(uint256).max);
-            MockToken(usdc).approve(balanceManager, type(uint256).max);
-            MockToken(weth).approve(balanceManager, type(uint256).max);
-        }
+        // Approve tokens for second user
+        MockToken(source).approve(address(balanceManager), type(uint256).max);
 
         // Swap WETH -> WBTC
-        uint256 amountToSwap = 1 * (10 ** MockToken(source).decimals());
-        uint256 minReceived = (6 * (10 ** MockToken(destination).decimals())) / 100;
+        // uint256 amountToSwap = 1 * (10 ** MockToken(source).decimals());
+        // uint256 minReceived = (6 * (10 ** MockToken(destination).decimals())) / 100;
 
         // Swap WETH -> USDC
         // uint256 amountToSwap = 1 * (10 ** MockToken(source).decimals());
         // uint256 minReceived = 1800 * (10 ** MockToken(destination).decimals());
 
         // Swap USDC -> WETH
-        // uint256 amountToSwap = 3000 * (10 ** MockToken(source).decimals());
-        // uint256 minReceived = 1 * (10 ** MockToken(destination).decimals());
+        uint256 amountToSwap = 3000 * (10 ** MockToken(source).decimals());
+        uint256 minReceived = 1 * (10 ** MockToken(destination).decimals());
 
-        uint256 received = GTXRouter(gtxRouter).swap{gas: 10_000_000}(
-            Currency.wrap(source), Currency.wrap(destination), amountToSwap, minReceived, 2, owner2
+        uint256 received = gtxRouter.swap{gas: 10_000_000}(
+            Currency.wrap(source),
+            Currency.wrap(destination),
+            amountToSwap,
+            minReceived,
+            2,
+            owner2
         );
 
         console.log("\nSwap complete!");

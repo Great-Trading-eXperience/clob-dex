@@ -15,7 +15,7 @@ import "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.so
 import "../../src/marketmaker/MarketMaker.sol";
 import "../../src/marketmaker/MarketMakerFactory.sol";
 
-contract PendleIncentiveSystemTest is Test {
+contract GTXIncentiveSystemTest is Test {
     GTXToken public token;
     VotingEscrowMainchain public veToken;
     VotingControllerUpg public votingController;

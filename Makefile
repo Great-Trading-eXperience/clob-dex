@@ -8,7 +8,7 @@ FORK_NETWORK := mainnet
 # Custom network can be set via make network=<network_name>
 network ?= $(DEFAULT_NETWORK)
 
-.PHONY: account chain compile deploy deploy-verify flatten fork format generate lint test verify upgrade upgrade-verify full-integration
+.PHONY: account chain compile deploy deploy-verify flatten fork format generate lint test verify upgrade upgrade-verify full-integration swap
 
 # Helper function to run forge script
 define forge_script
@@ -31,6 +31,10 @@ endef
 
 define forge_place_market_mock_orderbook
 	forge script script/PlaceMarketMockOrderBook.s.sol:PlaceMarketMockOrderBook --rpc-url $(network) -vvvv --broadcast --via-ir --force
+endef
+
+define forge_swap
+	forge script script/Swap.s.sol:Swap --rpc-url $(network) -vvvv --broadcast --via-ir --force
 endef
 
 # Define a target to deploy using the specified network
@@ -69,6 +73,10 @@ fill-orderbook:
 market-orderbook:
 	$(call forge_place_market_mock_orderbook,)
 
+# Define a target to execute swaps
+swap:
+	$(call forge_swap,)
+
 # Define a target to run full integration (deploy everything and test)
 full-integration:
 	@echo "=========================================="
@@ -89,6 +97,11 @@ full-integration:
 	@echo "\nStep 4: Placing market orders..."
 	$(MAKE) market-orderbook
 	@echo "\n✓ Market orders placed and executed"
+	@sleep 2
+	@echo "\nStep 5: Executing swaps..."
+	$(MAKE) swap
+	@echo "\n✓ Swaps executed"
+	@sleep 2
 	@echo "\n=========================================="
 	@echo "Full Integration Test Complete!"
 	@echo "=========================================="
@@ -126,6 +139,7 @@ help:
 	@echo "  deploy-mocks-verify - Deploy and verify mock contracts"
 	@echo "  fill-orderbook  - Fill mock order book"
 	@echo "  market-orderbook - Place market orders in mock order book"
+	@echo "  swap            - Execute token swaps"
 	@echo "  full-integration - Run full deployment and testing sequence"
 	@echo "  upgrade         - Upgrade contracts using the specified network"
 	@echo "  upgrade-verify  - Upgrade and verify contracts using the specified network"
