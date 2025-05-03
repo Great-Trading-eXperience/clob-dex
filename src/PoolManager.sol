@@ -13,7 +13,6 @@ import {PoolManagerStorage} from "./storages/PoolManagerStorage.sol";
 
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import "@openzeppelin/contracts/proxy/beacon/BeaconProxy.sol";
 
 contract PoolManager is Initializable, OwnableUpgradeable, PoolManagerStorage, IPoolManager {
     function initialize(address _owner, address _balanceManager, address _orderBookBeacon) public initializer {
@@ -33,6 +32,13 @@ contract PoolManager is Initializable, OwnableUpgradeable, PoolManagerStorage, I
         PoolKey calldata key
     ) external pure returns (PoolId) {
         return key.toId();
+    }
+    
+    function isValidPool(
+        address pool
+    ) external view returns (bool) {
+        Storage storage $ = getStorage();
+        return $.registeredPools[pool];
     }
 
     function setRouter(
@@ -58,8 +64,11 @@ contract PoolManager is Initializable, OwnableUpgradeable, PoolManagerStorage, I
         PoolKey memory key = createPoolKey(_baseCurrency, _quoteCurrency);
         PoolId id = key.toId();
 
-        bytes memory initData =
-            abi.encodeWithSelector(IOrderBook.initialize.selector, address(this), $.balanceManager, _tradingRules, key);
+        address orderBookProxy = Upgrades.deployBeaconProxy(
+            $.orderBookBeacon,
+            abi.encodeCall(OrderBook.initialize, (address(this), $.balanceManager, _tradingRules, key))
+        );
+        $.registeredPools[orderBookProxy] = true;
 
         BeaconProxy orderBookProxy = new BeaconProxy($.orderBookBeacon, initData);
         IOrderBook orderbook = IOrderBook(address(orderBookProxy));

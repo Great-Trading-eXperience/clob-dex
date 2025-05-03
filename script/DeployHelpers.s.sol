@@ -36,9 +36,18 @@ contract DeployHelpers is Script {
             return vm.envUint("PRIVATE_KEY");
         }
     }
-
+    
     function getDeployerKey() internal returns (uint256 deployerPrivateKey) {
         deployerPrivateKey = setupLocalhostEnv();
+        if (deployerPrivateKey == 0) {
+            revert InvalidPrivateKey(
+                "You don't have a deployer account. Make sure you have set PRIVATE_KEY in .env or use `yarn generate` to generate a new random account"
+            );
+        }
+    }
+
+    function getDeployerKey2() internal returns (uint256 deployerPrivateKey) {
+        deployerPrivateKey =  vm.envUint("PRIVATE_KEY_2");
         if (deployerPrivateKey == 0) {
             revert InvalidPrivateKey(
                 "You don't have a deployer account. Make sure you have set PRIVATE_KEY in .env or use `yarn generate` to generate a new random account"
@@ -116,13 +125,13 @@ contract DeployHelpers is Script {
             vm.serializeString(jsonWrite, deployments[i].name, vm.toString(deployments[i].addr));
         }
 
-        string memory chainName;
+        string memory chainName = "default_network";
 
-        try this.getChain() returns (Chain memory chain) {
-            chainName = chain.name;
-        } catch {
-            chainName = findChainName();
-        }
+        // try this.getChain() returns (Chain memory chain) {
+        //     chainName = chain.name;
+        // } catch {
+        //     chainName = findChainName();
+        // }
 
         jsonWrite = vm.serializeString(jsonWrite, "networkName", chainName);
         vm.writeJson(jsonWrite, path);

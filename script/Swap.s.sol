@@ -1,16 +1,15 @@
-/*
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
 import {Script, console} from "forge-std/Script.sol";
 import {MockToken} from "../src/mocks/MockToken.sol";
-import {Currency} from "../src/types/Currency.sol";
-import {PoolKey} from "../src/types/Pool.sol";
-import {Price} from "../src/libraries/BokkyPooBahsRedBlackTreeLibrary.sol";
-import {Quantity, Side} from "../src/types/Types.sol";
 import {GTXRouter} from "../src/GTXRouter.sol";
 import {BalanceManager} from "../src/BalanceManager.sol";
 import {PoolManager} from "../src/PoolManager.sol";
+import {IPoolManager} from "../src/interfaces/IPoolManager.sol";
+import {IOrderBook} from "../src/interfaces/IOrderBook.sol";
+import {Currency} from "../src/libraries/Currency.sol";
+import {PoolKey} from "../src/libraries/Pool.sol";
 
 contract Swap is Script {
     string chainId;
@@ -22,13 +21,13 @@ contract Swap is Script {
     address wbtc;
     address usdc;
 
-    constructor(address _balanceManager, address _poolManager, address _gtxRouter) {
-        balanceManager = _balanceManager;
-        poolManager = _poolManager;
-        gtxRouter = _gtxRouter;
+    // constructor(address _balanceManager, address _poolManager, address _gtxRouter) {
+    //     balanceManager = _balanceManager;
+    //     poolManager = _poolManager;
+    //     gtxRouter = _gtxRouter;
 
-        setUp();
-    }
+    //     setUp();
+    // }
 
     function setUp() public {
         // Get deployed contract addresses from environment
@@ -41,6 +40,10 @@ contract Swap is Script {
         wbtc = vm.envAddress(string.concat("WBTC_", chainId, "_ADDRESS"));
         weth = vm.envAddress(string.concat("WETH_", chainId, "_ADDRESS"));
         usdc = vm.envAddress(string.concat("USDC_", chainId, "_ADDRESS"));
+
+        // wbtc = address(new MockToken("WBTC", "WBTC", 18));
+        // weth = address(new MockToken("WETH", "WETH", 18));
+        // usdc = address(new MockToken("USDC", "USDC", 18));
     }
 
     function run() external {
@@ -48,29 +51,32 @@ contract Swap is Script {
         uint256 deployerPrivateKey2 = vm.envUint("PRIVATE_KEY_2");
         address owner = vm.addr(deployerPrivateKey);
         address owner2 = vm.addr(deployerPrivateKey2);
+
         vm.startBroadcast(deployerPrivateKey);
 
-        // 1. Mint and approve tokens
-        if (keccak256(abi.encodePacked(chainId)) != keccak256(abi.encodePacked("GTX"))) {
-            MockToken(wbtc).mint(owner, 1_000_000_000_000_000_000e18);
-            MockToken(weth).mint(owner, 1_000_000_000_000_000_000e18);
-            MockToken(usdc).mint(owner, 1_000_000_000_000_000_000e18);
-            MockToken(wbtc).mint(owner2, 1_000_000_000_000_000_000e18);
-            MockToken(weth).mint(owner2, 1_000_000_000_000_000_000e18);
-            MockToken(usdc).mint(owner2, 1_000_000_000_000_000_000e18);
+        console.log("wbtc", wbtc);
+        console.log("weth", weth);
+        console.log("usdc", usdc);
 
-            MockToken(weth).approve(balanceManager, type(uint256).max);
-            MockToken(usdc).approve(balanceManager, type(uint256).max);
-            MockToken(wbtc).approve(balanceManager, type(uint256).max);
-        }
+        // 1. Mint and approve tokens
+        MockToken(wbtc).mint(owner, 1_000_000_000_000e18);
+        MockToken(weth).mint(owner, 1_000_000_000_000e18);
+        MockToken(usdc).mint(owner, 1_000_000_000_000e18);
+        MockToken(wbtc).mint(owner2, 1_000_000_000_000e18);
+        MockToken(weth).mint(owner2, 1_000_000_000_000e18);
+        MockToken(usdc).mint(owner2, 1_000_000_000_000e18);
+
+        MockToken(weth).approve(balanceManager, type(uint256).max);
+        MockToken(usdc).approve(balanceManager, type(uint256).max);
+        MockToken(wbtc).approve(balanceManager, type(uint256).max);
 
         // WETH -> WBTC
-        // address source = weth;
-        // address destination = wbtc;
-
-        // WETH -> USDC
         address source = weth;
         address destination = wbtc;
+
+        // WETH -> USDC
+        // address source = weth;
+        // address destination = wbtc;
 
         console.log("\nInitial balances:");
         console.log("%s owner:", MockToken(source).symbol(), MockToken(source).balanceOf(owner));
@@ -84,21 +90,33 @@ contract Swap is Script {
 
         // Provide liquidity
 
+        IPoolManager.Pool memory wethUsdcPool = IPoolManager(poolManager).getPool(
+            PoolKey({
+                baseCurrency: Currency.wrap(weth),
+                quoteCurrency: Currency.wrap(usdc)
+            })
+        );
+
+        IPoolManager.Pool memory wbtcUsdcPool = IPoolManager(poolManager).getPool(
+            PoolKey({
+                baseCurrency: Currency.wrap(wbtc),
+                quoteCurrency: Currency.wrap(usdc)
+            })
+        );
+
         // Add liquidity to test WETH/WBTC where the exist pairs are WETH/USDC and WBTC/USDC
         GTXRouter(gtxRouter).placeOrderWithDeposit{gas: 1_000_000}(
-            Currency.wrap(weth),
-            Currency.wrap(usdc),
-            Price.wrap(2000e6),
-            Quantity.wrap(1e18),
-            Side.BUY,
+            wethUsdcPool,
+            uint128(2000e6),
+            uint128(1e18),
+            IOrderBook.Side.BUY,
             owner
         );
         GTXRouter(gtxRouter).placeOrderWithDeposit{gas: 1_000_000}(
-            Currency.wrap(wbtc),
-            Currency.wrap(usdc),
-            Price.wrap(30_000e6),
-            Quantity.wrap(1e8),
-            Side.SELL,
+            wbtcUsdcPool,
+            uint128(30_000e6),
+            uint128(1e8),
+            IOrderBook.Side.SELL,
             owner
         );
 
@@ -165,4 +183,3 @@ contract Swap is Script {
         vm.stopBroadcast();
     }
 }
-*/

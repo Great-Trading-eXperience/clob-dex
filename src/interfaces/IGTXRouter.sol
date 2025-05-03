@@ -64,4 +64,13 @@ interface IGTXRouter {
         uint128 price,
         uint8 count
     ) external view returns (IOrderBook.PriceVolume[] memory);
+
+    function swap(
+        Currency srcCurrency,
+        Currency dstCurrency,
+        uint256 srcAmount,
+        uint256 minDstAmount,
+        uint8 maxHops,
+        address user
+    ) external returns (uint256 receivedAmount);
 }
