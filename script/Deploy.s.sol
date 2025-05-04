@@ -36,6 +36,9 @@ contract Deploy is DeployHelpers {
         deployments.push(Deployment("BEACON_ROUTER", routerBeacon));
         deployed["BEACON_ROUTER"] = DeployedContract(routerBeacon, true);
 
+        deployments.push(Deployment("BEACON_ROUTER", routerBeacon));
+        deployed["BEACON_ORDERBOOK"] = DeployedContract(orderBookBeacon, true);
+
         // Deploy the PoolManagerResolver contract
         console.log("\n========== DEPLOYING RESOLVER ==========");
         address poolManagerResolver = address(new PoolManagerResolver());
