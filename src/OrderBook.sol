@@ -204,6 +204,8 @@ contract OrderBook is
 
         _addOrderToQueue(newOrder);
 
+        emit OrderPlaced(orderId, user, side, price, quantity, newOrder.expiry, false, Status.OPEN);
+
         _handleTimeInForce(newOrder, side, user, timeInForce);
 
         unchecked {
@@ -290,13 +292,13 @@ contract OrderBook is
             side: side
         });
 
+        emit OrderPlaced(orderId, user, side, 0, quantity, marketOrder.expiry, true, Status.OPEN);
+
         _matchOrder(marketOrder, side, user, true);
 
         unchecked {
             $.nextOrderId++;
         }
-
-        emit OrderPlaced(orderId, user, side, 0, quantity, marketOrder.expiry, true, Status.OPEN);
 
         return orderId;
     }
