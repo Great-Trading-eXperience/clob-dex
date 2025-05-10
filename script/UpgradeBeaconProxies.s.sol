@@ -14,9 +14,9 @@ contract UpgradeBeaconProxies is DeployHelpers {
 
         // Uncomment the functions you want to execute
         upgradeOrderBook();
-        // upgradeBalanceManager();
-        // upgradePoolManager();
-        // upgradeRouter();
+        upgradeBalanceManager();
+        upgradePoolManager();
+        upgradeRouter();
 
         vm.stopBroadcast();
     }
