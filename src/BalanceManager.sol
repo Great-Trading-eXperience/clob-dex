@@ -14,8 +14,6 @@ import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Ini
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract BalanceManager is IBalanceManager, BalanceManagerStorage, OwnableUpgradeable, ReentrancyGuardUpgradeable {
-    uint256 public constant FEE_UNIT = 1000;
-
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
         _disableInitializers();
@@ -34,6 +32,7 @@ contract BalanceManager is IBalanceManager, BalanceManagerStorage, OwnableUpgrad
         $.feeReceiver = _feeReceiver;
         $.feeMaker = _feeMaker;
         $.feeTaker = _feeTaker;
+        $.feeUnit = 1000;
     }
 
     function setPoolManager(
@@ -201,6 +200,8 @@ contract BalanceManager is IBalanceManager, BalanceManagerStorage, OwnableUpgrad
 
         $.balanceOf[user][currency.toId()] -= amount;
         $.lockedBalanceOf[user][locker][currency.toId()] += amount;
+
+        emit Lock(user, currency.toId(), amount);
     }
 
     function unlock(address user, Currency currency, uint256 amount) external {
@@ -218,6 +219,8 @@ contract BalanceManager is IBalanceManager, BalanceManagerStorage, OwnableUpgrad
 
         $.lockedBalanceOf[user][msg.sender][currency.toId()] -= amount;
         $.balanceOf[user][currency.toId()] += amount;
+
+        emit Unlock(user, currency.toId(), amount);
     }
 
     function transferOut(address sender, address receiver, Currency currency, uint256 amount) external {
@@ -245,28 +248,18 @@ contract BalanceManager is IBalanceManager, BalanceManagerStorage, OwnableUpgrad
             );
         }
 
-        // Check if sender is a market maker vault (exempt from fees)
-        uint256 feeAmount = 0;
-        uint256 amountAfterFee = amount;
-        
-        // Only apply fees if the sender is not a market maker vault
-        if (!isMarketMakerVault(sender)) {
-            // Determine fee based on the role (maker/taker)
-            feeAmount = amount * $.feeTaker / FEE_UNIT;
-            require(feeAmount <= amount, "Fee exceeds the transfer amount");
-            amountAfterFee = amount - feeAmount;
-            
-            // Transfer the fee to the feeReceiver if non-zero
-            if (feeAmount > 0) {
-                $.balanceOf[$.feeReceiver][currency.toId()] += feeAmount;
-            }
-        }
+        // Determine fee based on the role (maker/taker)
+        uint256 feeAmount = amount * $.feeTaker / _feeUnit();
+        require(feeAmount <= amount, "Fee exceeds the transfer amount");
 
         // Deduct fee and update balances
         $.lockedBalanceOf[sender][msg.sender][currency.toId()] -= amount;
         $.balanceOf[receiver][currency.toId()] += amountAfterFee;
 
-        emit TransferFrom(msg.sender, sender, receiver, currency.toId(), amount, feeAmount);
+        // Transfer the fee to the feeReceiver
+        $.balanceOf[$.feeReceiver][currency.toId()] += feeAmount;
+
+        emit TransferLockedFrom(msg.sender, sender, receiver, currency.toId(), amount, feeAmount);
     }
 
     function transferFrom(address sender, address receiver, Currency currency, uint256 amount) external {
@@ -278,22 +271,9 @@ contract BalanceManager is IBalanceManager, BalanceManagerStorage, OwnableUpgrad
             revert InsufficientBalance(sender, currency.toId(), amount, $.balanceOf[sender][currency.toId()]);
         }
 
-        // Check if sender is a market maker vault (exempt from fees)
-        uint256 feeAmount = 0;
-        uint256 amountAfterFee = amount;
-        
-        // Only apply fees if the sender is not a market maker vault
-        if (!isMarketMakerVault(sender)) {
-            // Determine fee based on the role (maker/taker)
-            feeAmount = amount * $.feeMaker / FEE_UNIT;
-            require(feeAmount <= amount, "Fee exceeds the transfer amount");
-            amountAfterFee = amount - feeAmount;
-            
-            // Transfer the fee to the feeReceiver if non-zero
-            if (feeAmount > 0) {
-                $.balanceOf[$.feeReceiver][currency.toId()] += feeAmount;
-            }
-        }
+        // Determine fee based on the role (maker/taker)
+        uint256 feeAmount = amount * $.feeMaker / _feeUnit();
+        require(feeAmount <= amount, "Fee exceeds the transfer amount");
 
         // Deduct fee and update balances
         $.balanceOf[sender][currency.toId()] -= amount;
@@ -313,5 +293,13 @@ contract BalanceManager is IBalanceManager, BalanceManagerStorage, OwnableUpgrad
 
     function feeReceiver() external view returns (address) {
         return getStorage().feeReceiver;
+    }
+
+    function getFeeUnit() external view returns (uint256) {
+        return _feeUnit();
+    }
+
+    function _feeUnit() private view returns (uint256) {
+        return getStorage().feeUnit;
     }
 }

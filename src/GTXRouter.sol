@@ -20,11 +20,9 @@ import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Ini
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import {IGTXRouter} from "./interfaces/IGTXRouter.sol";
+import {GTXRouterStorage} from "./storages/GTXRouterStorage.sol";
 
-contract GTXRouter is IGTXRouter, Initializable, OwnableUpgradeable, IOrderBookErrors {
-    IPoolManager public poolManager;
-    IBalanceManager public balanceManager;
-
+contract GTXRouter is IGTXRouter, GTXRouterStorage, Initializable, OwnableUpgradeable, IOrderBookErrors {
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
         _disableInitializers();
@@ -32,8 +30,9 @@ contract GTXRouter is IGTXRouter, Initializable, OwnableUpgradeable, IOrderBookE
 
     function initialize(address _poolManager, address _balanceManager) public initializer {
         __Ownable_init(msg.sender);
-        poolManager = IPoolManager(_poolManager);
-        balanceManager = IBalanceManager(_balanceManager);
+        Storage storage $ = getStorage();
+        $.poolManager = _poolManager;
+        $.balanceManager = _balanceManager;
     }
 
     function placeOrder(
@@ -86,6 +85,9 @@ contract GTXRouter is IGTXRouter, Initializable, OwnableUpgradeable, IOrderBookE
             requiredBalance = _quantity;
         }
 
+        Storage storage $ = getStorage();
+        IBalanceManager balanceManager = IBalanceManager($.balanceManager);
+
         // Check balance in the balance manager or wallet
         uint256 currentBalance = _isWalletDeposit
             ? IERC20(Currency.unwrap(depositCurrency)).balanceOf(_caller)
@@ -111,8 +113,11 @@ contract GTXRouter is IGTXRouter, Initializable, OwnableUpgradeable, IOrderBookE
         (Currency depositCurrency, uint256 requiredBalance) =
             _validateCallerBalance(pool, _user, _side, _quantity, _price, false, depositTokens);
 
+        Storage storage $ = getStorage();
+        IBalanceManager balanceManager = IBalanceManager($.balanceManager);
+
         if (depositTokens) {
-            IBalanceManager(balanceManager).deposit(depositCurrency, requiredBalance, _user, _user);
+            balanceManager.deposit(depositCurrency, requiredBalance, _user, _user);
         }
 
         orderId = pool.orderBook.placeOrder(_price, _quantity, _side, _user, IOrderBook.TimeInForce.GTC);
@@ -151,6 +156,8 @@ contract GTXRouter is IGTXRouter, Initializable, OwnableUpgradeable, IOrderBookE
         IOrderBook.Side side,
         address user
     ) internal returns (uint48 orderId) {
+        Storage storage $ = getStorage();
+        IPoolManager poolManager = IPoolManager($.poolManager);
         IPoolManager.Pool memory pool = poolManager.getPool(key);
         uint128 quantity;
         if (side == IOrderBook.Side.SELL) {
@@ -178,7 +185,10 @@ contract GTXRouter is IGTXRouter, Initializable, OwnableUpgradeable, IOrderBookE
         (Currency depositCurrency, uint256 requiredBalance) =
             _validateCallerBalance(pool, _user, _side, _quantity, 0, true, true);
 
-        IBalanceManager(balanceManager).deposit(depositCurrency, requiredBalance, _user, _user);
+        Storage storage $ = getStorage();
+        IBalanceManager balanceManager = IBalanceManager($.balanceManager);
+
+        balanceManager.deposit(depositCurrency, requiredBalance, _user, _user);
         //
         return _placeMarketOrder(pool, _quantity, _side, _user);
     }
@@ -192,6 +202,8 @@ contract GTXRouter is IGTXRouter, Initializable, OwnableUpgradeable, IOrderBookE
         Currency _quoteCurrency,
         IOrderBook.Side side
     ) external view returns (IOrderBook.PriceVolume memory) {
+        Storage storage $ = getStorage();
+        IPoolManager poolManager = IPoolManager($.poolManager);
         PoolKey memory key = poolManager.createPoolKey(_baseCurrency, _quoteCurrency);
         IPoolManager.Pool memory pool = poolManager.getPool(key);
         return pool.orderBook.getBestPrice(side);
@@ -203,6 +215,8 @@ contract GTXRouter is IGTXRouter, Initializable, OwnableUpgradeable, IOrderBookE
         IOrderBook.Side side,
         uint128 price
     ) external view returns (uint48 orderCount, uint256 totalVolume) {
+        Storage storage $ = getStorage();
+        IPoolManager poolManager = IPoolManager($.poolManager);
         PoolKey memory key = poolManager.createPoolKey(_baseCurrency, _quoteCurrency);
         IPoolManager.Pool memory pool = poolManager.getPool(key);
         return IOrderBook(pool.orderBook).getOrderQueue(side, price);
@@ -213,6 +227,8 @@ contract GTXRouter is IGTXRouter, Initializable, OwnableUpgradeable, IOrderBookE
         Currency _quoteCurrency,
         uint48 orderId
     ) external view returns (IOrderBook.Order memory) {
+        Storage storage $ = getStorage();
+        IPoolManager poolManager = IPoolManager($.poolManager);
         PoolKey memory key = poolManager.createPoolKey(_baseCurrency, _quoteCurrency);
         IPoolManager.Pool memory pool = poolManager.getPool(key);
         return IOrderBook(pool.orderBook).getOrder(orderId);
@@ -247,6 +263,9 @@ contract GTXRouter is IGTXRouter, Initializable, OwnableUpgradeable, IOrderBookE
     ) external returns (uint256 receivedAmount) {
         require(Currency.unwrap(srcCurrency) != Currency.unwrap(dstCurrency), "Same currency");
         require(maxHops <= 3, "Too many hops");
+        Storage storage $ = getStorage();
+        IPoolManager poolManager = IPoolManager($.poolManager);
+        IBalanceManager balanceManager = IBalanceManager($.balanceManager);
         // Try direct swap first (most efficient)
         if (poolManager.poolExists(srcCurrency, dstCurrency)) {
             receivedAmount =
@@ -313,6 +332,9 @@ contract GTXRouter is IGTXRouter, Initializable, OwnableUpgradeable, IOrderBookE
         uint256 minDstAmount,
         address user
     ) internal returns (uint256 receivedAmount) {
+        Storage storage $ = getStorage();
+        IPoolManager poolManager = IPoolManager($.poolManager);
+        IBalanceManager balanceManager = IBalanceManager($.balanceManager);
         // Determine the pool key and side
         PoolKey memory key = poolManager.createPoolKey(baseCurrency, quoteCurrency);
         IOrderBook.Side side;
@@ -348,6 +370,9 @@ contract GTXRouter is IGTXRouter, Initializable, OwnableUpgradeable, IOrderBookE
         uint256 minDstAmount,
         address user
     ) internal returns (uint256 receivedAmount) {
+        Storage storage $ = getStorage();
+        IBalanceManager balanceManager = IBalanceManager($.balanceManager);
+        IPoolManager poolManager = IPoolManager($.poolManager);
         // Deposit the source currency to the protocol
         balanceManager.deposit(srcCurrency, srcAmount, msg.sender, user);
         uint256 intermediateAmount;
@@ -397,6 +422,9 @@ contract GTXRouter is IGTXRouter, Initializable, OwnableUpgradeable, IOrderBookE
         address user,
         IOrderBook.Side side
     ) internal returns (uint256 receivedAmount) {
+        Storage storage $ = getStorage();
+        IPoolManager poolManager = IPoolManager($.poolManager);
+        IBalanceManager balanceManager = IBalanceManager($.balanceManager);
         PoolKey memory key = poolManager.createPoolKey(baseCurrency, quoteCurrency);
         // Record balance before swap to calculate actual received amount
         uint256 balanceBefore = balanceManager.getBalance(user, dstCurrency);
@@ -432,6 +460,9 @@ contract GTXRouter is IGTXRouter, Initializable, OwnableUpgradeable, IOrderBookE
         uint256 minDstAmount,
         address user
     ) internal returns (uint256 receivedAmount) {
+        Storage storage $ = getStorage();
+        IBalanceManager balanceManager = IBalanceManager($.balanceManager);
+        IPoolManager poolManager = IPoolManager($.poolManager);
         // Deposit the source currency to the protocol
         balanceManager.deposit(srcCurrency, srcAmount, msg.sender, user);
         // Execute first swap (srcCurrency -> intermediary)

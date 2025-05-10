@@ -6,10 +6,20 @@ import {Currency} from "../libraries/Currency.sol";
 interface IBalanceManager {
     event Deposit(address indexed user, uint256 indexed id, uint256 amount);
     event Withdrawal(address indexed user, uint256 indexed id, uint256 amount);
+    event Lock(address indexed user, uint256 indexed id, uint256 amount);
+    event Unlock(address indexed user, uint256 indexed id, uint256 amount);
     event OperatorSet(address indexed operator, bool approved);
     event PoolManagerSet(address indexed poolManager);
     event MarketMakerFactorySet(address indexed factory);
     event TransferFrom(
+        address indexed operator,
+        address indexed sender,
+        address indexed receiver,
+        uint256 id,
+        uint256 amount,
+        uint256 feeAmount
+    );
+    event TransferLockedFrom(
         address indexed operator,
         address indexed sender,
         address indexed receiver,

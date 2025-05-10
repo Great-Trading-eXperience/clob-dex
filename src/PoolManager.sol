@@ -16,6 +16,11 @@ import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Ini
 import "@openzeppelin/contracts/proxy/beacon/BeaconProxy.sol";
 
 contract PoolManager is Initializable, OwnableUpgradeable, PoolManagerStorage, IPoolManager {
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
     function initialize(address _owner, address _balanceManager, address _orderBookBeacon) public initializer {
         __Ownable_init(_owner);
         Storage storage $ = getStorage();
