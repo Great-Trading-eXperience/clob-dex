@@ -18,7 +18,7 @@ interface DeployedContracts {
 export const deployedContracts: DeployedContracts = {
   31337: {
     BalanceManager: {
-      address: "0x5fbdb2315678afecb367f032d93f642f64180aa3",
+      address: "0xccf1769d8713099172642eb55ddffc0c5a444fe9",
       abi: [
         {
           type: "constructor",
