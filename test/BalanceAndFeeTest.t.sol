@@ -524,7 +524,7 @@ contract BalanceAndFeeTest is Test, PoolHelper {
         uint256 totalFilledQuantityInQuote = totalFilledQuantity * (10 ** quoteDecimals) * alicePriceUnwrapped
             / (10 ** quoteDecimals) / (10 ** baseDecimals);
 
-        uint256 feeUnit = balanceManager.FEE_UNIT();
+        uint256 feeUnit = balanceManager.getFeeUnit();
 
         // Taker fees (for buyers)
         uint256 bobTakerFee = (bobTradeValue * feeTaker) / feeUnit;
@@ -806,7 +806,7 @@ contract BalanceAndFeeTest is Test, PoolHelper {
         uint256 expectedMatchVolumeInBase = bobQuantityUnwrapped;
         uint256 expectedMatchVolumeInQuote = (bobQuantityUnwrapped * alicePriceUnwrapped) / (10 ** baseDecimals);
 
-        uint256 feeUnit = balanceManager.FEE_UNIT();
+        uint256 feeUnit = balanceManager.getFeeUnit();
         uint256 bobTakerFee = (expectedMatchVolumeInQuote * feeTaker) / feeUnit;
         uint256 aliceMakerFee = (expectedMatchVolumeInBase * feeMaker) / feeUnit;
 
@@ -1068,7 +1068,7 @@ contract BalanceAndFeeTest is Test, PoolHelper {
 
         console.log("total trade value:", totalTradeValue);
 
-        uint256 feeUnit = balanceManager.FEE_UNIT();
+        uint256 feeUnit = balanceManager.getFeeUnit();
 
         // Calculate maker fees
         uint256 aliceMakerFee = (aliceQuantityUnwrapped * feeMaker) / feeUnit;

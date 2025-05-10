@@ -13,6 +13,7 @@ abstract contract BalanceManagerStorage {
         address feeReceiver;
         uint256 feeMaker;
         uint256 feeTaker;
+        uint256 feeUnit;
     }
 
     function getStorage() internal pure returns (Storage storage $) {
