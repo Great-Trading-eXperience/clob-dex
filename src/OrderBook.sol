@@ -212,8 +212,6 @@ contract OrderBook is
             $.nextOrderId++;
         }
 
-        emit OrderPlaced(orderId, user, side, price, quantity, newOrder.expiry, false, Status.OPEN);
-
         return orderId;
     }
 
