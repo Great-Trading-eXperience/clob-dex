@@ -10,6 +10,7 @@
   },
   "scripts": {
     "chain": "anvil --config-out localhost.json",
+    "local": "anvil --disable-code-size-limit",
     "build": "make build",
     "lite": "FOUNDRY_PROFILE=lite forge build",
     "compile": "make compile",

@@ -5,6 +5,9 @@
 DEFAULT_NETWORK := default_network
 FORK_NETWORK := mainnet
 
+# Custom flag can be set via make flag=<flag> e.g. make flag="-vvvv --force"
+flag ?=
+
 # Custom network can be set via make network=<network_name>
 network ?= $(DEFAULT_NETWORK)
 
@@ -12,29 +15,29 @@ network ?= $(DEFAULT_NETWORK)
 
 # Helper function to run forge script
 define forge_script
-	forge script script/Deploy.s.sol:Deploy --rpc-url $(network) -vvvv --broadcast --via-ir --force
+	forge script script/Deploy.s.sol:Deploy --rpc-url $(network) --broadcast $(flag)
 endef
 
 # Helper function to run upgrade script
 define forge_upgrade_script
- forge script script/UpgradeBeaconProxies.s.sol:UpgradeBeaconProxies --rpc-url $(network) -vvvv --broadcast --via-ir --force
+ forge script script/UpgradeBeaconProxies.s.sol:UpgradeBeaconProxies --rpc-url $(network) --broadcast $(flag)
 endef
 
 # Helper function to run mock deployment script
 define forge_deploy_mocks
-	forge script script/DeployMocks.s.sol:DeployMocks --rpc-url $(network) -vvvv --broadcast --via-ir --force
+	forge script script/DeployMocks.s.sol:DeployMocks --rpc-url $(network) --broadcast $(flag)
 endef
 
 define forge_fill_mock_orderbook
-	forge script script/FillMockOrderBook.s.sol:FillMockOrderBook --rpc-url $(network) --broadcast --via-ir --force
+	forge script script/FillMockOrderBook.s.sol:FillMockOrderBook --rpc-url $(network) --broadcast $(flag)
 endef
 
 define forge_place_market_mock_orderbook
-	forge script script/PlaceMarketMockOrderBook.s.sol:PlaceMarketMockOrderBook --rpc-url $(network) -vvvv --broadcast --via-ir --force
+	forge script script/PlaceMarketMockOrderBook.s.sol:PlaceMarketMockOrderBook --rpc-url $(network) --broadcast $(flag)
 endef
 
 define forge_swap
-	forge script script/Swap.s.sol:Swap --rpc-url $(network) -vvvv --broadcast --via-ir --force
+	forge script script/Swap.s.sol:Swap --rpc-url $(network) --broadcast $(flag)
 endef
 
 # Define a target to deploy using the specified network
@@ -128,7 +131,8 @@ generate-abi:
 
 # Define a target to build the project
 build:
-	forge build --build-info --build-info-path out/build-info/
+	forge clean && forge build --build-info --build-info-path out/build-info/
+
 
 # Define a target to display help information
 help:

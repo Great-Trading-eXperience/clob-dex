@@ -24,7 +24,6 @@ src = "src"
 out = "out"
 libs = ["lib"]
 optimizer = false
-optimizer_runs = 0
 via-ir = true
 debug = true
 gas_reports = ["OrderBook", "GTXRouter", "PoolManager", "BalanceManager"]
