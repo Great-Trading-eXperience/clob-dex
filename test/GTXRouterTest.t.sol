@@ -131,10 +131,8 @@ contract GTXRouterTest is Test {
 
         IPoolManager.Pool memory pool = _getPool(weth, usdc);
 
-        vm.startSnapshotGas("OrderBook", "PlaceLimitOrder");
         uint48 orderId = gtxRouter.placeOrderWithDeposit(pool, price, quantity, IOrderBook.Side.SELL, alice);
         vm.stopPrank();
-        vm.stopSnapshotGas();
 
         (uint48 orderCount, uint256 totalVolume) = gtxRouter.getOrderQueue(weth, usdc, IOrderBook.Side.SELL, price);
 
@@ -1264,5 +1262,55 @@ contract GTXRouterTest is Test {
         assertEq(received, expectedWbtc, "WBTC amount should match the calculated value");
 
         vm.stopPrank();
+    }
+
+    function testImmediateMatchWhenCrossingOrderBook() public {
+        IPoolManager.Pool memory pool = _getPool(weth, usdc);
+
+        // Scenario 1: Buy order price > best sell price
+        // Place a sell order at 1500 USDC/ETH
+        vm.startPrank(alice);
+        mockWETH.mint(alice, 1e18);
+        IERC20(Currency.unwrap(weth)).approve(address(balanceManager), 1e18);
+        gtxRouter.placeOrderWithDeposit(pool, 1500e6, 1e18, IOrderBook.Side.SELL, alice);
+        vm.stopPrank();
+
+        // Place a buy order at 2000 USDC/ETH (should match at 1500)
+        vm.startPrank(bob);
+        mockUSDC.mint(bob, 2000e6);
+        IERC20(Currency.unwrap(usdc)).approve(address(balanceManager), 2000e6);
+        gtxRouter.placeOrderWithDeposit(pool, 2000e6, 1e18, IOrderBook.Side.BUY, bob);
+        vm.stopPrank();
+
+        // Order book should be empty at both price levels
+        (uint48 sellCount, uint256 sellVol) = gtxRouter.getOrderQueue(weth, usdc, IOrderBook.Side.SELL, 1500e6);
+        (uint48 buyCount, uint256 buyVol) = gtxRouter.getOrderQueue(weth, usdc, IOrderBook.Side.BUY, 2000e6);
+        assertEq(sellCount, 0, "Sell order should be matched and removed");
+        assertEq(buyCount, 0, "Buy order should be matched and removed");
+        assertEq(sellVol, 0, "Sell volume should be zero");
+        assertEq(buyVol, 0, "Buy volume should be zero");
+
+        // Scenario 2: Sell order price < best buy price
+        // Place a buy order at 3000 USDC/ETH
+        vm.startPrank(charlie);
+        mockUSDC.mint(charlie, 3000e6);
+        IERC20(Currency.unwrap(usdc)).approve(address(balanceManager), 3000e6);
+        gtxRouter.placeOrderWithDeposit(pool, 3000e6, 1e18, IOrderBook.Side.BUY, charlie);
+        vm.stopPrank();
+
+        // Place a sell order at 2000 USDC/ETH (should match at 3000)
+        vm.startPrank(alice);
+        mockWETH.mint(alice, 1e18);
+        IERC20(Currency.unwrap(weth)).approve(address(balanceManager), 1e18);
+        gtxRouter.placeOrderWithDeposit(pool, 2000e6, 1e18, IOrderBook.Side.SELL, alice);
+        vm.stopPrank();
+
+        // Order book should be empty at both price levels
+        (sellCount, sellVol) = gtxRouter.getOrderQueue(weth, usdc, IOrderBook.Side.SELL, 2000e6);
+        (buyCount, buyVol) = gtxRouter.getOrderQueue(weth, usdc, IOrderBook.Side.BUY, 3000e6);
+        assertEq(sellCount, 0, "Sell order should be matched and removed");
+        assertEq(buyCount, 0, "Buy order should be matched and removed");
+        assertEq(sellVol, 0, "Sell volume should be zero");
+        assertEq(buyVol, 0, "Buy volume should be zero");
     }
 }

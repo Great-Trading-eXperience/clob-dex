@@ -526,15 +526,11 @@ contract OrderBook is
         bytes32 pricePtr = side == IOrderBook.Side.BUY ? priceTree.last() : priceTree.first();
         uint128 bestPrice = uint128(RedBlackTreeLib.value(pricePtr));
 
-        if (isMarketOrder) {
+        if (bestPrice > 0) {
             return bestPrice;
         }
 
-        if (priceTree.exists(orderPrice)) {
-            return orderPrice;
-        }
-
-        return 0;
+        return priceTree.exists(orderPrice) ? orderPrice : 0;
     }
 
     function transferBalances(
