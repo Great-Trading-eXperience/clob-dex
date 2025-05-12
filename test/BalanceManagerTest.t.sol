@@ -164,4 +164,114 @@ contract BalanceManagerTest is Test {
         uint256 receiverBalance = balanceManager.getBalance(receiver, weth);
         assertEq(receiverBalance, transfer * (FEE_UNIT - feeMaker) / FEE_UNIT);
     }
+    
+    // function testMarketMakerVaultExemption() public {
+    //     address marketMakerVault = address(0xDEAD);
+    //     uint256 depositAmount = 100 ether;
+    //     uint256 transfer = 40 ether;
+    //     address receiver = address(0xFED);
+        
+    //     // Setup market maker vault
+    //     vm.startPrank(owner);
+    //     balanceManager.setMarketMakerVault(marketMakerVault, true);
+    //     balanceManager.setAuthorizedOperator(operator, true);
+    //     vm.stopPrank();
+        
+    //     // Verify market maker vault status
+    //     bool isExempt = balanceManager.isMarketMakerVault(marketMakerVault);
+    //     assertTrue(isExempt);
+        
+    //     // Deposit funds to market maker vault
+    //     vm.startPrank(marketMakerVault);
+    //     IERC20(Currency.unwrap(weth)).mint(marketMakerVault, depositAmount);
+    //     IERC20(Currency.unwrap(weth)).approve(address(balanceManager), depositAmount);
+    //     balanceManager.deposit(weth, depositAmount, marketMakerVault, marketMakerVault);
+    //     vm.stopPrank();
+        
+    //     // Transfer from market maker vault (should have no fees)
+    //     vm.startPrank(operator);
+    //     balanceManager.transferFrom(marketMakerVault, receiver, weth, transfer);
+    //     vm.stopPrank();
+        
+    //     // Verify receiver got full amount (no fees deducted)
+    //     uint256 receiverBalance = balanceManager.getBalance(receiver, weth);
+    //     assertEq(receiverBalance, transfer, "Market maker vault should be exempt from fees");
+    // }
+    
+    // function testMarketMakerVaultLockedExemption() public {
+    //     address marketMakerVault = address(0xBEEF);
+    //     uint256 depositAmount = 100 ether;
+    //     uint256 lockAmount = 50 ether;
+    //     address receiver = address(0xFED);
+        
+    //     // Setup market maker vault
+    //     vm.startPrank(owner);
+    //     balanceManager.setMarketMakerVault(marketMakerVault, true);
+    //     balanceManager.setAuthorizedOperator(operator, true);
+    //     vm.stopPrank();
+        
+    //     // Deposit funds to market maker vault
+    //     vm.startPrank(marketMakerVault);
+    //     IERC20(Currency.unwrap(weth)).mint(marketMakerVault, depositAmount);
+    //     IERC20(Currency.unwrap(weth)).approve(address(balanceManager), depositAmount);
+    //     balanceManager.deposit(weth, depositAmount, marketMakerVault, marketMakerVault);
+    //     vm.stopPrank();
+        
+    //     // Lock and transfer from market maker vault (should have no fees)
+    //     vm.startPrank(operator);
+    //     balanceManager.lock(marketMakerVault, weth, lockAmount);
+    //     balanceManager.transferLockedFrom(marketMakerVault, receiver, weth, lockAmount);
+    //     vm.stopPrank();
+        
+    //     // Verify receiver got full amount (no fees deducted)
+    //     uint256 receiverBalance = balanceManager.getBalance(receiver, weth);
+    //     assertEq(receiverBalance, lockAmount, "Market maker vault should be exempt from fees on locked transfers");
+    // }
+    
+    // function testMarketMakerVaultToggle() public {
+    //     address marketMakerVault = address(0xCAFE);
+    //     uint256 depositAmount = 100 ether;
+    //     uint256 transfer = 40 ether;
+    //     address receiver = address(0xFED);
+        
+    //     // Setup market maker vault
+    //     vm.startPrank(owner);
+    //     balanceManager.setMarketMakerVault(marketMakerVault, true);
+    //     balanceManager.setAuthorizedOperator(operator, true);
+    //     vm.stopPrank();
+        
+    //     // Deposit funds to market maker vault
+    //     vm.startPrank(marketMakerVault);
+    //     IERC20(Currency.unwrap(weth)).mint(marketMakerVault, depositAmount);
+    //     IERC20(Currency.unwrap(weth)).approve(address(balanceManager), depositAmount);
+    //     balanceManager.deposit(weth, depositAmount, marketMakerVault, marketMakerVault);
+    //     vm.stopPrank();
+        
+    //     // Transfer from market maker vault (should have no fees)
+    //     vm.startPrank(operator);
+    //     balanceManager.transferFrom(marketMakerVault, receiver, weth, transfer);
+    //     vm.stopPrank();
+        
+    //     // Verify receiver got full amount (no fees deducted)
+    //     uint256 receiverBalance = balanceManager.getBalance(receiver, weth);
+    //     assertEq(receiverBalance, transfer, "Market maker vault should be exempt from fees");
+        
+    //     // Now remove the exemption
+    //     vm.startPrank(owner);
+    //     balanceManager.setMarketMakerVault(marketMakerVault, false);
+    //     vm.stopPrank();
+        
+    //     // Verify market maker vault status is now false
+    //     bool isExempt = balanceManager.isMarketMakerVault(marketMakerVault);
+    //     assertFalse(isExempt);
+        
+    //     // Transfer again, this time fees should be applied
+    //     vm.startPrank(operator);
+    //     balanceManager.transferFrom(marketMakerVault, receiver, weth, transfer);
+    //     vm.stopPrank();
+        
+    //     // Verify receiver got amount minus fees
+    //     uint256 expectedBalance = transfer + transfer * (FEE_UNIT - feeMaker) / FEE_UNIT;
+    //     assertEq(balanceManager.getBalance(receiver, weth), expectedBalance, "Fees should be applied after exemption is removed");
+    // }
 }

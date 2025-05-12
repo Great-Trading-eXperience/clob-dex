@@ -73,4 +73,14 @@ interface IGTXRouter {
         uint8 maxHops,
         address user
     ) external returns (uint256 receivedAmount);
+    
+    /**
+     * @notice Withdraw tokens from the balance manager
+     * @param currency The currency to withdraw
+     * @param amount The amount to withdraw
+     */
+    function withdraw(
+        Currency currency,
+        uint256 amount
+    ) external;
 }

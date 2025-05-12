@@ -1,29 +1,43 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.17;
+pragma solidity ^0.8.26;
 
 import "forge-std/Test.sol";
 import "forge-std/console.sol";
 
 import "../../src/token/GTXToken.sol";
+import "../../src/mocks/MockToken.sol";
 import "../../src/incentives/votingescrow/VotingEscrowMainchain.sol";
 import "../../src/incentives/voting-controller/VotingControllerUpg.sol";
 import "../../src/incentives/gauge-controller/GaugeControllerMainchainUpg.sol";
 import "../../src/incentives/libraries/WeekMath.sol";
 
 import "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import "@openzeppelin/contracts/proxy/beacon/UpgradeableBeacon.sol";
 
-import "../../src/marketmaker/MarketMaker.sol";
-import "../../src/marketmaker/MarketMakerFactory.sol";
+import "../../src/marketmaker/GTXMarketMakerVault.sol";
+import "../../src/marketmaker/GTXMarketMakerFactory.sol";
+import "../../src/marketmaker/GTXMarketMakerFactoryStorage.sol";
+import "../../src/marketmaker/GTXMarketMakerVaultStorage.sol";
+import "../../src/BalanceManager.sol";
+import "../../src/PoolManager.sol";
+import "../../src/GTXRouter.sol";
+import "../../src/OrderBook.sol";
 
 contract GTXIncentiveSystemTest is Test {
     GTXToken public token;
     VotingEscrowMainchain public veToken;
     VotingControllerUpg public votingController;
     GaugeControllerMainchainUpg public gaugeController;
-    MarketMakerFactory public factory;
+    GTXMarketMakerFactory public factory;
 
-    MarketMaker public pool1MM;
-    MarketMaker public pool2MM;
+    // GTX infrastructure
+    BalanceManager public balanceManager;
+    PoolManager public poolManager;
+    GTXRouter public router;
+    UpgradeableBeacon public orderBookBeacon;
+
+    GTXMarketMakerVault public pool1Vault;
+    GTXMarketMakerVault public pool2Vault;
 
     address public owner;
     address public alice;
@@ -41,13 +55,18 @@ contract GTXIncentiveSystemTest is Test {
     address[] pools;
     uint64[] chainIds;
 
+    // Mock tokens for testing
+    MockToken public wbtc;
+    MockToken public weth;
+    MockToken public usdc;
+
     function setUp() public {
         owner = address(this);
         alice = makeAddr("alice");
         bob = makeAddr("bob");
 
+        // Set up GTX token and incentive system
         token = new GTXToken();
-
         veToken = new VotingEscrowMainchain(address(token), address(0), 0);
 
         VotingControllerUpg votingImpl = new VotingControllerUpg(
@@ -62,20 +81,112 @@ contract GTXIncentiveSystemTest is Test {
         );
         votingController = VotingControllerUpg(address(proxy));
 
-        factory = new MarketMakerFactory(address(veToken), address(0));
+        // Create mock tokens for trading pairs
+        wbtc = new MockToken("Wrapped BTC", "WBTC", 8);
+        
+        weth = new MockToken("Wrapped ETH", "WETH", 18);
+        
+        usdc = new MockToken("USD Coin", "USDC", 6);
+        
+        // Mint tokens to this contract
+        wbtc.mint(address(this), 1000 * 10**8);  // 1000 WBTC
+        weth.mint(address(this), 1000 * 10**18); // 1000 WETH
+        usdc.mint(address(this), 10000000 * 10**6); // 10M USDC
+        
+        // Mint tokens to users
+        wbtc.mint(alice, 100 * 10**8);
+        weth.mint(alice, 100 * 10**18);
+        usdc.mint(alice, 1000000 * 10**6);
+        
+        wbtc.mint(bob, 100 * 10**8);
+        weth.mint(bob, 100 * 10**18);
+        usdc.mint(bob, 1000000 * 10**6);
 
-        gaugeController = new GaugeControllerMainchainUpg(
+        // Set up GTX infrastructure
+        
+        // 1. Balance Manager
+        balanceManager = new BalanceManager();
+        balanceManager.initialize(address(this), address(this), 20, 30); // 0.2% maker fee, 0.3% taker fee
+        
+        // 2. OrderBook Beacon
+        OrderBook orderBookImpl = new OrderBook();
+        orderBookBeacon = new UpgradeableBeacon(address(orderBookImpl), address(this));
+        
+        // 3. Pool Manager
+        poolManager = new PoolManager();
+        poolManager.initialize(address(this), address(balanceManager), address(orderBookBeacon));
+        
+        // 4. Router
+        router = new GTXRouter();
+        router.initialize(address(this), address(poolManager));
+        
+        // Set router in pool manager
+        poolManager.setRouter(address(router));
+        
+        // Create and initialize vault implementation
+        GTXMarketMakerVault vaultImplementation = new GTXMarketMakerVault();
+        
+        // Set up market maker factory
+        factory = new GTXMarketMakerFactory();
+        factory.initialize(
+            address(this),
+            address(veToken),
+            address(0), // Will set later
+            address(router),
+            address(poolManager),
+            address(balanceManager),
+            address(vaultImplementation)
+        );
+
+        // Set up gauge controller
+        GaugeControllerMainchainUpg gaugeImpl = new GaugeControllerMainchainUpg(
             address(votingController),
             address(token),
             address(factory)
         );
-        factory.setGaugeController(address(gaugeController));
+        
+        TransparentUpgradeableProxy gaugeProxy = new TransparentUpgradeableProxy(
+            address(gaugeImpl),
+            address(this),
+            abi.encodeWithSelector(GaugeControllerMainchainUpg.initialize.selector)
+        );
+        gaugeController = GaugeControllerMainchainUpg(address(gaugeProxy));
 
-        pool1MM = MarketMaker(factory.createMarketMaker("WBTCUSDC LP", "LP1"));
-        pool2MM = MarketMaker(factory.createMarketMaker("WETHUSDC LP", "LP2"));
+        // Update factory with gauge controller address
+        factory.updateGaugeAddresses(address(veToken), address(gaugeController));
+        
+        // Set parameter constraints
+        factory.updateParameterConstraints(
+            1000,   // minTargetRatio (10%)
+            9000,   // maxTargetRatio (90%)
+            5,      // minSpread (0.05%)
+            500,    // maxSpread (5%)
+            0.01 * 10**8, // minOrderSize - WBTC decimals
+            100 * 10**8,  // maxOrderSize - WBTC decimals
+            10,     // minSlippageTolerance (0.1%)
+            200,    // maxSlippageTolerance (2%)
+            2,      // minActiveOrders
+            100,    // maxActiveOrders
+            5 minutes, // minRebalanceInterval
+            7 days     // maxRebalanceInterval
+        );
 
-        WBTCUSDC = address(pool1MM);
-        WETHUSDC = address(pool2MM);
+        // Create market maker vaults with recommended parameters
+        WBTCUSDC = factory.createVaultWithRecommendedParams(
+            "WBTC-USDC LP", 
+            "LP1", 
+            address(wbtc), 
+            address(usdc)
+        );
+        pool1Vault = GTXMarketMakerVault(WBTCUSDC);
+        
+        WETHUSDC = factory.createVaultWithRecommendedParams(
+            "WETH-USDC LP", 
+            "LP2",
+            address(weth),
+            address(usdc)
+        );
+        pool2Vault = GTXMarketMakerVault(WETHUSDC);
 
         pools.push(WBTCUSDC);
         pools.push(WETHUSDC);
@@ -114,14 +225,26 @@ contract GTXIncentiveSystemTest is Test {
     }
 
     function test_rewardDistribution_oneEpoch() public {
+        // Approve tokens for deposit
         vm.startPrank(alice);
-        pool1MM.deposit(LIQUIDITY);
-        pool2MM.deposit(LIQUIDITY);
+        wbtc.approve(address(pool1Vault), 10 * 10**8);
+        usdc.approve(address(pool1Vault), 200000 * 10**6);
+        weth.approve(address(pool2Vault), 10 * 10**18);
+        usdc.approve(address(pool2Vault), 200000 * 10**6);
+        
+        // Deposit liquidity (using both base and quote)
+        pool1Vault.deposit(1 * 10**8, 20000 * 10**6);
+        pool2Vault.deposit(1 * 10**18, 20000 * 10**6);
         vm.stopPrank();
 
         vm.startPrank(bob);
-        pool1MM.deposit(LIQUIDITY);
-        pool2MM.deposit(LIQUIDITY);
+        wbtc.approve(address(pool1Vault), 10 * 10**8);
+        usdc.approve(address(pool1Vault), 200000 * 10**6);
+        weth.approve(address(pool2Vault), 10 * 10**18);
+        usdc.approve(address(pool2Vault), 200000 * 10**6);
+        
+        pool1Vault.deposit(1 * 10**8, 20000 * 10**6);
+        pool2Vault.deposit(1 * 10**18, 20000 * 10**6);
         vm.stopPrank();
 
         // Vote after deposits
@@ -158,8 +281,8 @@ contract GTXIncentiveSystemTest is Test {
 
         // Users claim rewards - this will trigger internal market maker reward claims
         vm.startPrank(alice);
-        pool1MM.redeemRewards();
-        pool2MM.redeemRewards();
+        pool1Vault.redeemRewards();
+        pool2Vault.redeemRewards();
         vm.stopPrank();
 
         // Advance blocks to allow rewards to accumulate
@@ -167,8 +290,8 @@ contract GTXIncentiveSystemTest is Test {
         vm.roll(block.number + 300);
 
         vm.startPrank(bob);
-        pool1MM.redeemRewards();
-        pool2MM.redeemRewards();
+        pool1Vault.redeemRewards();
+        pool2Vault.redeemRewards();
         vm.stopPrank();
 
         // Log final state
@@ -193,15 +316,26 @@ contract GTXIncentiveSystemTest is Test {
     }
 
     function test_rewardDistribution_multipleEpochs() public {
-        // Initial deposits from both users
+        // Approve tokens for deposit
         vm.startPrank(alice);
-        pool1MM.deposit(LIQUIDITY);
-        pool2MM.deposit(LIQUIDITY);
+        wbtc.approve(address(pool1Vault), 10 * 10**8);
+        usdc.approve(address(pool1Vault), 200000 * 10**6);
+        weth.approve(address(pool2Vault), 10 * 10**18);
+        usdc.approve(address(pool2Vault), 200000 * 10**6);
+        
+        // Deposit liquidity (using both base and quote)
+        pool1Vault.deposit(1 * 10**8, 20000 * 10**6);
+        pool2Vault.deposit(1 * 10**18, 20000 * 10**6);
         vm.stopPrank();
 
         vm.startPrank(bob);
-        pool1MM.deposit(LIQUIDITY);
-        pool2MM.deposit(LIQUIDITY);
+        wbtc.approve(address(pool1Vault), 10 * 10**8);
+        usdc.approve(address(pool1Vault), 200000 * 10**6);
+        weth.approve(address(pool2Vault), 10 * 10**18);
+        usdc.approve(address(pool2Vault), 200000 * 10**6);
+        
+        pool1Vault.deposit(1 * 10**8, 20000 * 10**6);
+        pool2Vault.deposit(1 * 10**18, 20000 * 10**6);
         vm.stopPrank();
 
         // Set token rewards and fund the gauge controller
@@ -245,8 +379,8 @@ contract GTXIncentiveSystemTest is Test {
 
             // Users claim rewards
             vm.startPrank(alice);
-            pool1MM.redeemRewards();
-            pool2MM.redeemRewards();
+            pool1Vault.redeemRewards();
+            pool2Vault.redeemRewards();
             vm.stopPrank();
 
             // Advance blocks
@@ -254,8 +388,8 @@ contract GTXIncentiveSystemTest is Test {
             vm.roll(block.number + 300);
 
             vm.startPrank(bob);
-            pool1MM.redeemRewards();
-            pool2MM.redeemRewards();
+            pool1Vault.redeemRewards();
+            pool2Vault.redeemRewards();
             vm.stopPrank();
 
             // Record balances after this epoch
