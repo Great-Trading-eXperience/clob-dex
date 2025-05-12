@@ -314,6 +314,14 @@ contract OrderBook is
             revert UnauthorizedCancellation();
         }
 
+        IOrderBook.Status orderStatus = order.status;
+
+        if (orderStatus != Status.OPEN || orderStatus == Status.PARTIALLY_FILLED) {
+            revert OrderIsNotOpenOrder(orderStatus);
+        }
+
+        order.status = Status.CANCELLED;
+
         uint128 remainingQuantity = order.quantity - order.filled;
 
         _removeOrderFromQueue(queue, order);

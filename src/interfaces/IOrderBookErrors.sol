@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.26;
 
+import {IOrderBook} from "./IOrderBook.sol";
+
 /**
  * @title IOrderBookErrors
  * @notice Interface defining all custom errors used by the OrderBook system
@@ -24,4 +26,5 @@ interface IOrderBookErrors {
     error InsufficientBalance(uint256 requiredDeposit, uint256 userBalance);
     error OrderNotFound();
     error QueueEmpty();
+    error OrderIsNotOpenOrder(IOrderBook.Status status);
 }
