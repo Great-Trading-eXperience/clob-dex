@@ -60,6 +60,28 @@ contract BalanceManager is IBalanceManager, BalanceManagerStorage, OwnableUpgrad
         $.feeMaker = _feeMaker;
         $.feeTaker = _feeTaker;
     }
+    
+    // Set the market maker factory address
+    function setMarketMakerFactory(address _marketMakerFactory) external onlyOwner {
+        require(_marketMakerFactory != address(0), "Zero address");
+        Storage storage $ = getStorage();
+        $.marketMakerFactory = _marketMakerFactory;
+        emit MarketMakerFactorySet(_marketMakerFactory);
+    }
+    
+    // Check if an address is a market maker vault by querying the factory
+    function isMarketMakerVault(address vault) public view returns (bool) {
+        Storage storage $ = getStorage();
+        if ($.marketMakerFactory == address(0)) return false;
+        
+        // Call the factory's isValidVault function
+        (bool success, bytes memory data) = $.marketMakerFactory.staticcall(
+            abi.encodeWithSignature("isValidVault(address)", vault)
+        );
+        
+        // If the call was successful and returned true, the address is a market maker vault
+        return success && data.length > 0 && abi.decode(data, (bool));
+    }
 
     // Allow anyone to check balanceOf
     function getBalance(address user, Currency currency) external view returns (uint256) {
@@ -223,17 +245,26 @@ contract BalanceManager is IBalanceManager, BalanceManagerStorage, OwnableUpgrad
             );
         }
 
-        // Determine fee based on the role (maker/taker)
-        uint256 feeAmount = amount * $.feeTaker / FEE_UNIT;
-        require(feeAmount <= amount, "Fee exceeds the transfer amount");
+        // Check if sender is a market maker vault (exempt from fees)
+        uint256 feeAmount = 0;
+        uint256 amountAfterFee = amount;
+        
+        // Only apply fees if the sender is not a market maker vault
+        if (!isMarketMakerVault(sender)) {
+            // Determine fee based on the role (maker/taker)
+            feeAmount = amount * $.feeTaker / FEE_UNIT;
+            require(feeAmount <= amount, "Fee exceeds the transfer amount");
+            amountAfterFee = amount - feeAmount;
+            
+            // Transfer the fee to the feeReceiver if non-zero
+            if (feeAmount > 0) {
+                $.balanceOf[$.feeReceiver][currency.toId()] += feeAmount;
+            }
+        }
 
         // Deduct fee and update balances
         $.lockedBalanceOf[sender][msg.sender][currency.toId()] -= amount;
-        uint256 amountAfterFee = amount - feeAmount;
         $.balanceOf[receiver][currency.toId()] += amountAfterFee;
-
-        // Transfer the fee to the feeReceiver
-        $.balanceOf[$.feeReceiver][currency.toId()] += feeAmount;
 
         emit TransferFrom(msg.sender, sender, receiver, currency.toId(), amount, feeAmount);
     }
@@ -247,17 +278,26 @@ contract BalanceManager is IBalanceManager, BalanceManagerStorage, OwnableUpgrad
             revert InsufficientBalance(sender, currency.toId(), amount, $.balanceOf[sender][currency.toId()]);
         }
 
-        // Determine fee based on the role (maker/taker)
-        uint256 feeAmount = amount * $.feeMaker / FEE_UNIT;
-        require(feeAmount <= amount, "Fee exceeds the transfer amount");
+        // Check if sender is a market maker vault (exempt from fees)
+        uint256 feeAmount = 0;
+        uint256 amountAfterFee = amount;
+        
+        // Only apply fees if the sender is not a market maker vault
+        if (!isMarketMakerVault(sender)) {
+            // Determine fee based on the role (maker/taker)
+            feeAmount = amount * $.feeMaker / FEE_UNIT;
+            require(feeAmount <= amount, "Fee exceeds the transfer amount");
+            amountAfterFee = amount - feeAmount;
+            
+            // Transfer the fee to the feeReceiver if non-zero
+            if (feeAmount > 0) {
+                $.balanceOf[$.feeReceiver][currency.toId()] += feeAmount;
+            }
+        }
 
         // Deduct fee and update balances
         $.balanceOf[sender][currency.toId()] -= amount;
-        uint256 amountAfterFee = amount - feeAmount;
         $.balanceOf[receiver][currency.toId()] += amountAfterFee;
-
-        // Transfer the fee to the feeReceiver
-        $.balanceOf[$.feeReceiver][currency.toId()] += feeAmount;
 
         emit TransferFrom(msg.sender, sender, receiver, currency.toId(), amount, feeAmount);
     }

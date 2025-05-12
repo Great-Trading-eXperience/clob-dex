@@ -13,6 +13,7 @@ abstract contract BalanceManagerStorage {
         address feeReceiver;
         uint256 feeMaker;
         uint256 feeTaker;
+        address marketMakerFactory; // Factory contract to check if an address is a market maker vault
     }
 
     function getStorage() internal pure returns (Storage storage $) {

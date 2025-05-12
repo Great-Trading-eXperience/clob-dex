@@ -8,6 +8,7 @@ interface IBalanceManager {
     event Withdrawal(address indexed user, uint256 indexed id, uint256 amount);
     event OperatorSet(address indexed operator, bool approved);
     event PoolManagerSet(address indexed poolManager);
+    event MarketMakerFactorySet(address indexed factory);
     event TransferFrom(
         address indexed operator,
         address indexed sender,
@@ -55,4 +56,8 @@ interface IBalanceManager {
     function setAuthorizedOperator(address operator, bool approved) external;
 
     function setFees(uint256 _feeMaker, uint256 _feeTaker) external;
+    
+    function setMarketMakerFactory(address _marketMakerFactory) external;
+    
+    function isMarketMakerVault(address vault) external view returns (bool);
 }

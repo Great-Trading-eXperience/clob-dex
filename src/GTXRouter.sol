@@ -412,9 +412,18 @@ contract GTXRouter is IGTXRouter, Initializable, OwnableUpgradeable, IOrderBookE
     }
 
     /**
-     * @notice Execute a multi-hop swap where the second pool is accessed in reverse
-     * @dev Used when we have pools: srcCurrency-intermediary and dstCurrency-intermediary
+     * @notice Withdraw tokens from the balance manager
+     * @param currency The currency to withdraw
+     * @param amount The amount to withdraw
      */
+    function withdraw(
+        Currency currency,
+        uint256 amount
+    ) external {
+        // Use the balance manager to withdraw tokens
+        balanceManager.withdraw(currency, amount, msg.sender);
+    }
+    
     function executeReverseMultiHopSwap(
         Currency srcCurrency,
         Currency intermediary,
