@@ -1264,6 +1264,33 @@ contract GTXRouterTest is Test {
         vm.stopPrank();
     }
 
+    function testCancelOrderOnlyOnce() public {
+        address trader = makeAddr("traderOnce");
+        vm.startPrank(trader);
+
+        // Mint and approve tokens
+        mockWETH.mint(trader, 1 ether);
+        IERC20(Currency.unwrap(weth)).approve(address(balanceManager), 1 ether);
+
+        IPoolManager.Pool memory pool = _getPool(weth, usdc);
+
+        // Place a SELL order
+        uint128 price = 3000e6;
+        uint128 quantity = 1e18;
+        uint48 orderId = gtxRouter.placeOrderWithDeposit(pool, price, quantity, IOrderBook.Side.SELL, trader);
+
+        // First cancellation should succeed
+        gtxRouter.cancelOrder(pool, orderId);
+
+        // Second cancellation should revert
+        vm.expectRevert(
+            abi.encodeWithSelector(IOrderBookErrors.OrderIsNotOpenOrder.selector, IOrderBook.Status.CANCELLED)
+        );
+        gtxRouter.cancelOrder(pool, orderId);
+
+        vm.stopPrank();
+    }
+
     function testImmediateMatchWhenCrossingOrderBook() public {
         IPoolManager.Pool memory pool = _getPool(weth, usdc);
 
