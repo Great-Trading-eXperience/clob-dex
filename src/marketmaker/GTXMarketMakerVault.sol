@@ -220,7 +220,8 @@ contract GTXMarketMakerVault is
 
         uint256 availBase = getAvailableBaseBalance();
         uint256 availQuote = getAvailableQuoteBalance();
-        if (availBase < basePortion || availQuote < quotePortion) {
+
+        if (basePortion > availBase || quotePortion > availQuote) {
             _cancelOrdersToFreeBalance(
                 basePortion > availBase ? basePortion - availBase : 0,
                 quotePortion > availQuote ? quotePortion - availQuote : 0
@@ -229,8 +230,16 @@ contract GTXMarketMakerVault is
 
         _burn(msg.sender, shareAmount);
         
-        IERC20(Currency.unwrap($.baseCurrency)).transfer(msg.sender, basePortion);
-        IERC20(Currency.unwrap($.quoteCurrency)).transfer(msg.sender, quotePortion);
+        if (basePortion > 0) {
+            IBalanceManager($.balances).withdraw($.baseCurrency, basePortion, address(this));
+            IERC20(Currency.unwrap($.baseCurrency)).transfer(msg.sender, basePortion);
+        }
+        
+        if (quotePortion > 0) {
+            IBalanceManager($.balances).withdraw($.quoteCurrency, quotePortion, address(this));
+            IERC20(Currency.unwrap($.quoteCurrency)).transfer(msg.sender, quotePortion);
+        }
+        
         emit Withdraw(msg.sender, basePortion, quotePortion, shareAmount);
 
         if (shareAmount * 10 > totalShares) _maybeRebalance();
@@ -474,51 +483,71 @@ contract GTXMarketMakerVault is
         
         uint256 targetBase = (totalValueInBase * $.targetRatio) / BASIS_POINTS;
         
-        uint128 bidPrice = uint128((uint256(midPrice) * (BASIS_POINTS - $.spread / 2)) / BASIS_POINTS);
-        uint128 askPrice = uint128((uint256(midPrice) * (BASIS_POINTS + $.spread / 2)) / BASIS_POINTS);
-        
         IPoolManager.Pool memory p = _getPool();
+        
+        IOrderBook.TradingRules memory rules = p.orderBook.getTradingRules();
+        uint256 minPriceMovement = rules.minPriceMovement;
+        
+        uint128 rawBidPrice = uint128((uint256(midPrice) * (BASIS_POINTS - $.spread / 2)) / BASIS_POINTS);
+        uint128 rawAskPrice = uint128((uint256(midPrice) * (BASIS_POINTS + $.spread / 2)) / BASIS_POINTS);
+        
+        uint128 bidPrice = uint128((rawBidPrice / minPriceMovement) * minPriceMovement);
+        uint128 askPrice = uint128((rawAskPrice / minPriceMovement) * minPriceMovement);
         
         $.activeOrders = 0;
         
         uint256 buyOrders = $.minActiveOrders / 2;
         for (uint256 i = 0; i < buyOrders; i++) {
-            uint128 price = uint128(uint256(bidPrice) * (1000 - i * 5) / 1000);
+            uint256 priceReduction = (i * 5 * uint256(bidPrice)) / 1000;
+            priceReduction = (priceReduction / minPriceMovement) * minPriceMovement;
+            uint128 price = uint128(bidPrice - priceReduction);
+            
+            if (price == 0 || price % minPriceMovement != 0) continue;
+            
             uint128 size = uint128($.maxOrderSize / buyOrders);
             
             uint256 requiredQuote = PoolIdLibrary.baseToQuote(size, price, 18);
             if (requiredQuote <= quoteBalance) {
-                uint48 orderId = IGTXRouter($.router).placeOrder(
+                try IGTXRouter($.router).placeOrder(
                     p,
                     price,
                     size,
                     IOrderBook.Side.BUY,
                     address(this)
-                );
-                $.activeOrders++;
-                emit OrderPlaced(orderId, IOrderBook.Side.BUY, price, size);
-                
-                quoteBalance -= requiredQuote;
+                ) returns (uint48 orderId) {
+                    $.activeOrders++;
+                    emit OrderPlaced(orderId, IOrderBook.Side.BUY, price, size);
+                    quoteBalance -= requiredQuote;
+                } catch {
+                    // Skip if order placement fails
+                }
             }
         }
         
         uint256 sellOrders = $.minActiveOrders - buyOrders;
         for (uint256 i = 0; i < sellOrders; i++) {
-            uint128 price = uint128(uint256(askPrice) * (1000 + i * 5) / 1000);
+            uint256 priceIncrease = (i * 5 * uint256(askPrice)) / 1000;
+            priceIncrease = (priceIncrease / minPriceMovement) * minPriceMovement;
+            uint128 price = uint128(askPrice + priceIncrease);
+            
+            if (price % minPriceMovement != 0) continue;
+            
             uint128 size = uint128($.maxOrderSize / sellOrders);
             
             if (size <= baseBalance) {
-                uint48 orderId = IGTXRouter($.router).placeOrder(
+                try IGTXRouter($.router).placeOrder(
                     p,
                     price,
                     size,
                     IOrderBook.Side.SELL,
                     address(this)
-                );
-                $.activeOrders++;
-                emit OrderPlaced(orderId, IOrderBook.Side.SELL, price, size);
-                
-                baseBalance -= size;
+                ) returns (uint48 orderId) {
+                    $.activeOrders++;
+                    emit OrderPlaced(orderId, IOrderBook.Side.SELL, price, size);
+                    baseBalance -= size;
+                } catch {
+                    // Skip if order placement fails
+                }
             }
         }
         
