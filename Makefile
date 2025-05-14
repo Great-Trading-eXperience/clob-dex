@@ -36,6 +36,14 @@ define forge_place_market_mock_orderbook
 	forge script script/PlaceMarketMockOrderBook.s.sol:PlaceMarketMockOrderBook --rpc-url $(network) --broadcast $(flag)
 endef
 
+define forge_fill_and_place_market_orders
+	forge script script/FillAndPlaceMarketOrders.s.sol:FillAndPlaceMarketOrders --rpc-url $(network) --broadcast $(flag)
+endef
+
+define forge_place_limit_buy_orders
+	forge script script/PlaceLimitBuyOrders.s.sol:PlaceLimitBuyOrders --rpc-url $(network) --broadcast $(flag)
+endef
+
 define forge_swap
 	forge script script/Swap.s.sol:Swap --rpc-url $(network) --broadcast $(flag)
 endef
@@ -75,6 +83,14 @@ fill-orderbook:
 # Define a target to place market mock order book
 market-orderbook:
 	$(call forge_place_market_mock_orderbook,)
+
+# Define a target to fill order book and place market orders in a single script
+fill-and-place-market-orders:
+	$(call forge_fill_and_place_market_orders,)
+
+# Define a target to place limit BUY orders specifically
+place-limit-buy-orders:
+	$(call forge_place_limit_buy_orders,)
 
 # Define a target to execute swaps
 swap:
@@ -143,7 +159,12 @@ help:
 	@echo "  deploy-mocks-verify - Deploy and verify mock contracts"
 	@echo "  fill-orderbook  - Fill mock order book"
 	@echo "  market-orderbook - Place market orders in mock order book"
-	@echo "  swap            - Execute token swaps"
+	@echo "  fill-and-place-market-orders - Fill order book and place market orders in a single script"
+	@echo "  place-limit-buy-orders - Place limit BUY orders specifically to provide liquidity for market SELL orders"
+	@echo "  swap            - Execute token swaps (default: WETH to USDC)"
+	@echo "  swap-weth-to-wbtc - Execute WETH to WBTC swap"
+	@echo "  swap-weth-to-usdc - Execute WETH to USDC swap"
+	@echo "  swap-usdc-to-weth - Execute USDC to WETH swap"
 	@echo "  full-integration - Run full deployment and testing sequence"
 	@echo "  upgrade         - Upgrade contracts using the specified network"
 	@echo "  upgrade-verify  - Upgrade and verify contracts using the specified network"

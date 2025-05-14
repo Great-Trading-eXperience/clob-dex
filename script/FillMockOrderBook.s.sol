@@ -76,15 +76,21 @@ contract FillMockOrderBook is Script, DeployHelpers {
         // Setup sender with funds
         _setupFunds(200e18, 400_000e6); // 200 ETH, 400,000 USDC
 
-        // Place BUY orders (bids) - ascending price from 1900 to 1980
-        _placeBuyOrders(pool, 1900e6, 1980e6, 10e6, 10, 5e17);
+        // Place BUY orders (bids) - ascending price from 1500 to 1800
+        // Using lower prices to ensure they don't get matched immediately
+        _placeBuyOrders(pool, 1500e6, 1800e6, 30e6, 10, 5e17);
+        console.log("Placed 10 BUY orders from 1500 USDC to 1800 USDC");
 
         // Place SELL orders (asks) - ascending price from 2000 to 2100
         _placeSellOrders(pool, 2000e6, 2100e6, 10e6, 10, 4e17);
+        console.log("Placed 10 SELL orders from 2000 USDC to 2100 USDC");
+        
+        // Verify order book state after filling
+        _verifyOrderBookState(weth, usdc);
 
         // Print summary
         console.log("ETH/USDC order book filled with:");
-        console.log("- BUY orders from 1900 USDC to 1980 USDC");
+        console.log("- BUY orders from 1500 USDC to 1800 USDC");
         console.log("- SELL orders from 2000 USDC to 2100 USDC");
     }
 
@@ -184,6 +190,47 @@ contract FillMockOrderBook is Script, DeployHelpers {
         console.log("orders:", orderCount);
         console.log("with volume:", totalVolume, "ETH");
         console.log("");
+    }
+    
+    function _verifyOrderBookState(Currency base, Currency quote) private {
+        console.log("\n=== Verifying Order Book State After Filling ===");
+        
+        // Check best prices on both sides
+        IOrderBook.PriceVolume memory bestBuy = gtxRouter.getBestPrice(base, quote, IOrderBook.Side.BUY);
+        IOrderBook.PriceVolume memory bestSell = gtxRouter.getBestPrice(base, quote, IOrderBook.Side.SELL);
+        
+        console.log("Best BUY price:", bestBuy.price, "USDC");
+        console.log("Volume at best BUY:", bestBuy.volume, "ETH");
+        
+        console.log("Best SELL price:", bestSell.price, "USDC");
+        console.log("Volume at best SELL:", bestSell.volume, "ETH");
+        
+        if (bestBuy.price == 0 || bestBuy.volume == 0) {
+            console.log("WARNING: No BUY liquidity found! Market SELL orders will fail.");
+        } else {
+            console.log("[OK] BUY liquidity verified");
+        }
+        
+        if (bestSell.price == 0 || bestSell.volume == 0) {
+            console.log("WARNING: No SELL liquidity found! Market BUY orders will fail.");
+        } else {
+            console.log("[OK] SELL liquidity verified");
+        }
+        
+        // Get next best prices to verify depth
+        console.log("\n--- Order Book Depth ---");
+        
+        // Check a few specific price levels for BUY orders
+        console.log("BUY side depth:");
+        _checkPriceLevel(base, quote, IOrderBook.Side.BUY, 1800e6);
+        _checkPriceLevel(base, quote, IOrderBook.Side.BUY, 1650e6);
+        _checkPriceLevel(base, quote, IOrderBook.Side.BUY, 1500e6);
+        
+        // Check a few specific price levels for SELL orders
+        console.log("SELL side depth:");
+        _checkPriceLevel(base, quote, IOrderBook.Side.SELL, 2000e6);
+        _checkPriceLevel(base, quote, IOrderBook.Side.SELL, 2050e6);
+        _checkPriceLevel(base, quote, IOrderBook.Side.SELL, 2100e6);
     }
 
     function _checkOrderDetails(Currency base, Currency quote, uint48 orderId, string memory label) private {

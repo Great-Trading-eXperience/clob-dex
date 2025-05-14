@@ -77,9 +77,29 @@ contract PlaceMarketMockOrderBook is Script, DeployHelpers {
         // Get the pool using the resolver
         IPoolManager.Pool memory pool = poolManagerResolver.getPool(weth, usdc, address(poolManager));
 
-        // Setup sender with funds for market orders
-        _setupFunds(50e18, 100_000e6); // 50 ETH, 100,000 USDC
+        // Setup sender with funds for market orders and limit orders
+        _setupFunds(50e18, 1_000_000e6); // 50 ETH, 1,000,000 USDC
 
+        // Check for liquidity in the order book before placing market orders
+        console.log("\n=== Checking Order Book Liquidity Before Market Orders ===");
+        
+        // Check best prices on both sides
+        IOrderBook.PriceVolume memory bestBuy = gtxRouter.getBestPrice(weth, usdc, IOrderBook.Side.BUY);
+        IOrderBook.PriceVolume memory bestSell = gtxRouter.getBestPrice(weth, usdc, IOrderBook.Side.SELL);
+        
+        console.log("Best BUY price:", bestBuy.price, "USDC");
+        console.log("Volume at best BUY:", bestBuy.volume, "ETH");
+        
+        console.log("Best SELL price:", bestSell.price, "USDC");
+        console.log("Volume at best SELL:", bestSell.volume, "ETH");
+        
+        if (bestBuy.price == 0 || bestBuy.volume == 0) {
+            console.log("WARNING: No BUY liquidity found! Market SELL orders will fail.");
+        }
+        
+        if (bestSell.price == 0 || bestSell.volume == 0) {
+            console.log("WARNING: No SELL liquidity found! Market BUY orders will fail.");
+        }
 
         // Check current approvals
         uint256 wethAllowance = IERC20(address(mockWETH)).allowance(deployerAddress, address(balanceManager));
@@ -99,13 +119,39 @@ contract PlaceMarketMockOrderBook is Script, DeployHelpers {
             return;
         }
 
-        // Place market BUY orders (buys ETH with USDC)
-        // These will execute against the SELL limit orders
-        _placeMarketBuyOrders(pool, 1); // 5 buy orders
+        // Check for BUY liquidity before placing market SELL orders
+        console.log("\n--- Checking for BUY Liquidity Before Market SELL Orders ---");
+        IOrderBook.PriceVolume memory bestBuyBeforeSell = gtxRouter.getBestPrice(weth, usdc, IOrderBook.Side.BUY);
+        console.log("Best BUY price before SELL orders:", bestBuyBeforeSell.price, "USDC");
+        console.log("Volume at best BUY:", bestBuyBeforeSell.volume, "ETH");
+        
+        if (bestBuyBeforeSell.price == 0 || bestBuyBeforeSell.volume == 0) {
+            console.log("ERROR: No BUY liquidity found! Please run 'make place-limit-buy-orders' first to create BUY orders.");
+            console.log("Market SELL orders will fail without BUY liquidity.");
+            return;
+        } else {
+            console.log("[OK] BUY liquidity verified");
+        }
 
         // Place market SELL orders (sells ETH for USDC)
-        // These will execute against the BUY limit orders
-        _placeMarketSellOrders(pool, 1); // 5 sell orders
+        console.log("\n--- Placing Market SELL Orders ---");
+        _placeMarketSellOrders(pool, 1); // 1 sell order
+        
+        // Check for SELL liquidity before placing market BUY orders
+        console.log("\n--- Checking for SELL Liquidity Before Market BUY Orders ---");
+        IOrderBook.PriceVolume memory bestSellBeforeBuy = gtxRouter.getBestPrice(weth, usdc, IOrderBook.Side.SELL);
+        console.log("Best SELL price before BUY orders:", bestSellBeforeBuy.price, "USDC");
+        console.log("Volume at best SELL:", bestSellBeforeBuy.volume, "ETH");
+        
+        if (bestSellBeforeBuy.price == 0 || bestSellBeforeBuy.volume == 0) {
+            console.log("WARNING: No SELL liquidity found! Market BUY orders will be skipped.");
+        } else {
+            console.log("[OK] SELL liquidity verified");
+            
+            // Place market BUY orders (buys ETH with USDC)
+            console.log("\n--- Placing Market BUY Orders ---");
+            _placeMarketBuyOrders(pool, 1); // 1 buy order
+        }
 
         // Print summary
         console.log("\nMarket orders placed:");
@@ -127,6 +173,7 @@ contract PlaceMarketMockOrderBook is Script, DeployHelpers {
         console.log("USDC allowance:", IERC20(address(mockUSDC)).allowance(deployerAddress, address(balanceManager)));
     }
 
+
     function _placeMarketBuyOrders(
         IPoolManager.Pool memory pool,
         uint8 numOrders
@@ -135,11 +182,11 @@ contract PlaceMarketMockOrderBook is Script, DeployHelpers {
         
         // Different quantities for variety
         uint128[] memory quantities = new uint128[](5);
-        quantities[0] = 1e17;  // 0.1 ETH
-        quantities[1] = 2e17;  // 0.2 ETH
-        quantities[2] = 5e17;  // 0.5 ETH
-        quantities[3] = 1e18;  // 1.0 ETH
-        quantities[4] = 2e18;  // 2.0 ETH
+        quantities[0] = 1e15;  // 0.1 ETH
+        quantities[1] = 2e15;  // 0.2 ETH
+        quantities[2] = 5e15;  // 0.5 ETH
+        quantities[3] = 1e15;  // 1.0 ETH
+        quantities[4] = 2e15;  // 2.0 ETH
 
         for (uint8 i = 0; i < numOrders; i++) {
             // Market orders typically use 0 for price
@@ -164,11 +211,11 @@ contract PlaceMarketMockOrderBook is Script, DeployHelpers {
         
         // Different quantities for variety
         uint128[] memory quantities = new uint128[](5);
-        quantities[0] = 1e17;  // 0.1 ETH
-        quantities[1] = 2e17;  // 0.2 ETH
-        quantities[2] = 5e17;  // 0.5 ETH
-        quantities[3] = 1e18;  // 1.0 ETH
-        quantities[4] = 2e18;  // 2.0 ETH
+        quantities[0] = 1e15;  // 0.1 ETH
+        quantities[1] = 2e15;  // 0.2 ETH
+        quantities[2] = 5e15;  // 0.5 ETH
+        quantities[3] = 1e15;  // 1.0 ETH
+        quantities[4] = 2e15;  // 2.0 ETH
 
         for (uint8 i = 0; i < numOrders; i++) {
             // Market orders typically use 0 for price
