@@ -116,11 +116,6 @@ full-integration:
 	@echo "\nStep 4: Placing market orders..."
 	$(MAKE) market-orderbook
 	@echo "\n✓ Market orders placed and executed"
-	@sleep 2
-	@echo "\nStep 5: Executing swaps..."
-	$(MAKE) swap
-	@echo "\n✓ Swaps executed"
-	@sleep 2
 	@echo "\n=========================================="
 	@echo "Full Integration Test Complete!"
 	@echo "=========================================="
@@ -161,10 +156,7 @@ help:
 	@echo "  market-orderbook - Place market orders in mock order book"
 	@echo "  fill-and-place-market-orders - Fill order book and place market orders in a single script"
 	@echo "  place-limit-buy-orders - Place limit BUY orders specifically to provide liquidity for market SELL orders"
-	@echo "  swap            - Execute token swaps (default: WETH to USDC)"
-	@echo "  swap-weth-to-wbtc - Execute WETH to WBTC swap"
-	@echo "  swap-weth-to-usdc - Execute WETH to USDC swap"
-	@echo "  swap-usdc-to-weth - Execute USDC to WETH swap"
+	@echo "  swap            - Execute token swaps"
 	@echo "  full-integration - Run full deployment and testing sequence"
 	@echo "  upgrade         - Upgrade contracts using the specified network"
 	@echo "  upgrade-verify  - Upgrade and verify contracts using the specified network"
