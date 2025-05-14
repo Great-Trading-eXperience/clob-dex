@@ -18,7 +18,7 @@ interface DeployedContracts {
 export const deployedContracts: DeployedContracts = {
   31337: {
     BalanceManager: {
-      address: "0xccf1769d8713099172642eb55ddffc0c5a444fe9",
+      address: "0x5fbdb2315678afecb367f032d93f642f64180aa3",
       abi: [
         {
           type: "constructor",
@@ -890,7 +890,7 @@ export const deployedContracts: DeployedContracts = {
       },
     },
     UpgradeableBeacon: {
-      address: "0x139e1d41943ee15dde4df876f9d0e7f85e26660a",
+      address: "0xa513e6e4b8f2a923d98304ec87f64353c4d5c853",
       abi: [
         {
           type: "constructor",
@@ -1045,7 +1045,7 @@ export const deployedContracts: DeployedContracts = {
       },
     },
     PoolManager: {
-      address: "0x2dd78fd9b8f40659af32ef98555b8b31bc97a351",
+      address: "0x9fe46736679d2d9a65f0992f2272de9f3c7fa6e0",
       abi: [
         {
           type: "constructor",
@@ -1598,7 +1598,7 @@ export const deployedContracts: DeployedContracts = {
       },
     },
     GTXRouter: {
-      address: "0x2625760c4a8e8101801d3a48ee64b2bea42f1e96",
+      address: "0xdc64a140aa3e981100a9beca4e685f962f0cf6c9",
       abi: [
         {
           type: "constructor",
@@ -2290,6 +2290,17 @@ export const deployedContracts: DeployedContracts = {
         },
         {
           type: "error",
+          name: "OrderIsNotOpenOrder",
+          inputs: [
+            {
+              name: "status",
+              type: "uint8",
+              internalType: "enum IOrderBook.Status",
+            },
+          ],
+        },
+        {
+          type: "error",
           name: "OrderNotFound",
           inputs: [],
         },
@@ -2431,7 +2442,7 @@ export const deployedContracts: DeployedContracts = {
       },
     },
     OrderBook: {
-      address: "0xd6b040736e948621c5b6e0a494473c47a6113ea8",
+      address: "0x0165878a594ca255338adfa4d48449f69242eb8f",
       abi: [
         {
           type: "constructor",
@@ -3157,6 +3168,17 @@ export const deployedContracts: DeployedContracts = {
         },
         {
           type: "error",
+          name: "OrderIsNotOpenOrder",
+          inputs: [
+            {
+              name: "status",
+              type: "uint8",
+              internalType: "enum IOrderBook.Status",
+            },
+          ],
+        },
+        {
+          type: "error",
           name: "OrderNotFound",
           inputs: [],
         },
@@ -3304,7 +3326,7 @@ export const deployedContracts: DeployedContracts = {
       },
     },
     PoolManagerResolver: {
-      address: "0xade429ba898c34722e722415d722a70a297ce3a2",
+      address: "0x2279b7a0a67db372996a5fab50d91eaa73d2ebe6",
       abi: [
         {
           type: "constructor",
@@ -3402,7 +3424,7 @@ export const deployedContracts: DeployedContracts = {
       inheritedFunctions: {},
     },
     BeaconProxy: {
-      address: "0x82eda215fa92b45a3a76837c65ab862b6c7564a8",
+      address: "0xb7f8bc63bbcad18155201308c8f3540b07f84f5e",
       abi: [
         {
           type: "constructor",
@@ -5758,6 +5780,17 @@ export const deployedContracts: DeployedContracts = {
         },
         {
           type: "error",
+          name: "OrderIsNotOpenOrder",
+          inputs: [
+            {
+              name: "status",
+              type: "uint8",
+              internalType: "enum IOrderBook.Status",
+            },
+          ],
+        },
+        {
+          type: "error",
           name: "OrderNotFound",
           inputs: [],
         },
@@ -6622,6 +6655,17 @@ export const deployedContracts: DeployedContracts = {
           type: "error",
           name: "OrderHasNoLiquidity",
           inputs: [],
+        },
+        {
+          type: "error",
+          name: "OrderIsNotOpenOrder",
+          inputs: [
+            {
+              name: "status",
+              type: "uint8",
+              internalType: "enum IOrderBook.Status",
+            },
+          ],
         },
         {
           type: "error",
@@ -9226,6 +9270,17 @@ export const deployedContracts: DeployedContracts = {
         },
         {
           type: "error",
+          name: "OrderIsNotOpenOrder",
+          inputs: [
+            {
+              name: "status",
+              type: "uint8",
+              internalType: "enum IOrderBook.Status",
+            },
+          ],
+        },
+        {
+          type: "error",
           name: "OrderNotFound",
           inputs: [],
         },
@@ -10090,6 +10145,17 @@ export const deployedContracts: DeployedContracts = {
           type: "error",
           name: "OrderHasNoLiquidity",
           inputs: [],
+        },
+        {
+          type: "error",
+          name: "OrderIsNotOpenOrder",
+          inputs: [
+            {
+              name: "status",
+              type: "uint8",
+              internalType: "enum IOrderBook.Status",
+            },
+          ],
         },
         {
           type: "error",
@@ -12694,6 +12760,17 @@ export const deployedContracts: DeployedContracts = {
         },
         {
           type: "error",
+          name: "OrderIsNotOpenOrder",
+          inputs: [
+            {
+              name: "status",
+              type: "uint8",
+              internalType: "enum IOrderBook.Status",
+            },
+          ],
+        },
+        {
+          type: "error",
           name: "OrderNotFound",
           inputs: [],
         },
@@ -13558,6 +13635,17 @@ export const deployedContracts: DeployedContracts = {
           type: "error",
           name: "OrderHasNoLiquidity",
           inputs: [],
+        },
+        {
+          type: "error",
+          name: "OrderIsNotOpenOrder",
+          inputs: [
+            {
+              name: "status",
+              type: "uint8",
+              internalType: "enum IOrderBook.Status",
+            },
+          ],
         },
         {
           type: "error",
