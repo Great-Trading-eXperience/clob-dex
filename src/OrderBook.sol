@@ -13,8 +13,6 @@ import {PoolIdLibrary} from "./libraries/Pool.sol";
 
 import {OrderBookStorage} from "./storages/OrderBookStorage.sol";
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import {RedBlackTreeLib} from "@solady/utils/RedBlackTreeLib.sol";
 
@@ -525,20 +523,30 @@ contract OrderBook is
 
     function _getBestMatchingPrice(
         uint128 orderPrice,
-        IOrderBook.Side side,
+        IOrderBook.Side oppositeSide,
         bool isMarketOrder
     ) private view returns (uint128) {
         Storage storage $ = getStorage();
-        RedBlackTreeLib.Tree storage priceTree = $.priceTrees[side];
+        RedBlackTreeLib.Tree storage oppositePriceTree = $.priceTrees[oppositeSide];
 
-        bytes32 pricePtr = side == IOrderBook.Side.BUY ? priceTree.last() : priceTree.first();
-        uint128 bestPrice = uint128(RedBlackTreeLib.value(pricePtr));
+        bytes32 oppositePricePtr =
+            oppositeSide == IOrderBook.Side.BUY ? oppositePriceTree.last() : oppositePriceTree.first();
+        uint128 oppositePrice = uint128(RedBlackTreeLib.value(oppositePricePtr));
 
-        if (bestPrice > 0) {
-            return bestPrice;
+        if (isMarketOrder) {
+            return oppositePrice;
         }
 
-        return priceTree.exists(orderPrice) ? orderPrice : 0;
+        if (oppositePrice > 0) {
+            if (
+                (oppositeSide == IOrderBook.Side.BUY && orderPrice <= oppositePrice)
+                    || (oppositeSide == IOrderBook.Side.SELL && orderPrice >= oppositePrice)
+            ) {
+                return oppositePrice;
+            }
+        }
+
+        return oppositePriceTree.exists(orderPrice) ? orderPrice : 0;
     }
 
     function transferBalances(
