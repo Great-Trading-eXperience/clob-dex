@@ -439,17 +439,12 @@ contract GTXRouter is IGTXRouter, GTXRouterStorage, Initializable, OwnableUpgrad
         return receivedAmount;
     }
 
-    /**
-     * @notice Withdraw tokens from the balance manager
-     * @param currency The currency to withdraw
-     * @param amount The amount to withdraw
-     */
     function withdraw(
         Currency currency,
         uint256 amount
     ) external {
-        // Use the balance manager to withdraw tokens
-        balanceManager.withdraw(currency, amount, msg.sender);
+        Storage storage $ = getStorage();
+        IBalanceManager($.balanceManager).withdraw(currency, amount, msg.sender);
     }
     
     function executeReverseMultiHopSwap(
