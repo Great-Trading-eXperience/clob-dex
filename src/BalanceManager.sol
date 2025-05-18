@@ -73,12 +73,10 @@ contract BalanceManager is IBalanceManager, BalanceManagerStorage, OwnableUpgrad
         Storage storage $ = getStorage();
         if ($.marketMakerFactory == address(0)) return false;
         
-        // Call the factory's isValidVault function
         (bool success, bytes memory data) = $.marketMakerFactory.staticcall(
             abi.encodeWithSignature("isValidVault(address)", vault)
         );
         
-        // If the call was successful and returned true, the address is a market maker vault
         return success && data.length > 0 && abi.decode(data, (bool));
     }
 
@@ -254,7 +252,9 @@ contract BalanceManager is IBalanceManager, BalanceManagerStorage, OwnableUpgrad
 
         // Deduct fee and update balances
         $.lockedBalanceOf[sender][msg.sender][currency.toId()] -= amount;
+        uint256 amountAfterFee = amount - feeAmount;
         $.balanceOf[receiver][currency.toId()] += amountAfterFee;
+
 
         // Transfer the fee to the feeReceiver
         $.balanceOf[$.feeReceiver][currency.toId()] += feeAmount;
@@ -277,6 +277,7 @@ contract BalanceManager is IBalanceManager, BalanceManagerStorage, OwnableUpgrad
 
         // Deduct fee and update balances
         $.balanceOf[sender][currency.toId()] -= amount;
+        uint256 amountAfterFee = amount - feeAmount;
         $.balanceOf[receiver][currency.toId()] += amountAfterFee;
 
         emit TransferFrom(msg.sender, sender, receiver, currency.toId(), amount, feeAmount);

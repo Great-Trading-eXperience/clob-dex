@@ -261,34 +261,10 @@ contract GTXMarketMakerVault is
         return orderId;
     }
     
-    function placeOrderWithDeposit(uint128 price, uint128 quantity, IOrderBook.Side side) external onlyOwner returns (uint48) {
-        _validateSpread(price, side);
-        
-        Storage storage $ = getStorage();
-        
-        IPoolManager.Pool memory p = _getPool();
-        
-        uint48 orderId = IGTXRouter($.router).placeOrderWithDeposit(p, price, quantity, side, address(this));
-        
-        $.activeOrders++;
-        
-        emit OrderPlaced(orderId, side, price, quantity);
-        
-        return orderId;
-    }
-    
     function placeMarketOrder(uint128 quantity, IOrderBook.Side side) external onlyOwner returns (uint48) {
         Storage storage $ = getStorage();
         IPoolManager.Pool memory p = _getPool();
         uint48 orderId = IGTXRouter($.router).placeMarketOrder(p, quantity, side, address(this));
-        emit OrderPlaced(orderId, side, 0, quantity);
-        return orderId;
-    }
-    
-    function placeMarketOrderWithDeposit(uint128 quantity, IOrderBook.Side side) external onlyOwner returns (uint48) {
-        Storage storage $ = getStorage();
-        IPoolManager.Pool memory p = _getPool();
-        uint48 orderId = IGTXRouter($.router).placeMarketOrderWithDeposit(p, quantity, side, address(this));
         emit OrderPlaced(orderId, side, 0, quantity);
         return orderId;
     }
@@ -738,5 +714,29 @@ contract GTXMarketMakerVault is
         } catch {
             return false;
         }
+    }
+
+    function targetRatio() external view returns (uint256) {
+        return getStorage().targetRatio;
+    }
+
+    function spread() external view returns (uint256) {
+        return getStorage().spread;
+    }
+
+    function minSpread() external view returns (uint256) {
+        return getStorage().minSpread;
+    }
+
+    function maxOrderSize() external view returns (uint256) {
+        return getStorage().maxOrderSize;
+    }
+
+    function slippageTolerance() external view returns (uint256) {
+        return getStorage().slippageTolerance;
+    }
+
+    function minActiveOrders() external view returns (uint256) {
+        return getStorage().minActiveOrders;
     }
 }

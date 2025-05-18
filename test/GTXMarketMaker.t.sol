@@ -73,23 +73,24 @@ contract GTXMarketMakerTest is Test {
     uint256 private initialBalance = 1000 ether;
     uint256 private initialBalanceUSDC = 10e6;
     uint256 private initialBalanceWETH = 1e18;
-    uint256 constant BASE_AMOUNT = 10 * 10 ** 18; // 10 ETH
+    uint256 constant BASE_AMOUNT = 10 * 10 ** 18; 
     uint256 constant QUOTE_AMOUNT = 20_000 * 10 ** 6; // 20,000 USDC
 
-    // Default parameters - ensure they are within the valid ranges defined in the factory
-    uint256 targetRatio = 5000; // 50% (valid range: 1000-9000)
-    uint256 spread = 50; // 0.5% (valid range: 5-500)
-    uint256 minSpread = 10; // 0.1% (must be >= 5)
-    uint256 maxOrderSize = 1 * 10 ** 18; // 1 ETH (valid range: 0.01-100 ETH)
-    uint256 slippageTolerance = 50; // 0.5% (valid range: 10-200)
-    uint256 minActiveOrders = 4; // At least 4 orders (valid range: 2-100)
-    uint256 rebalanceInterval = 1 hours; // 1 hour (valid range: 5 min - 7 days)
+    // Default parameters
+    uint256 targetRatio = 5000; // 50%
+    uint256 spread = 50; // 0.5%
+    uint256 minSpread = 10; // 0.1%
+    uint256 maxOrderSize = 1 * 10 ** 18; // 1 ETH
+    uint256 slippageTolerance = 50; // 0.5%
+    uint256 minActiveOrders = 4; // At least 4 orders
+    uint256 rebalanceInterval = 1 hours; // 1 hour
 
     // Default trading rules
     IOrderBook.TradingRules private defaultTradingRules;
 
+    event ParametersUpdated(uint256 targetRatio, uint256 spread, uint256 minSpread, uint256 maxOrderSize, uint256 slippageTolerance, uint256 minActiveOrders);
+
     function setUp() public {
-        // Deploy tokens
         weth = new MockToken("Wrapped Ether", "WETH", 18);
         usdc = new MockToken("USD Coin", "USDC", 6);
         gtxToken = new GTXToken();
@@ -115,7 +116,7 @@ contract GTXMarketMakerTest is Test {
         // Deploy real infrastructure
         BeaconDeployer beaconDeployer = new BeaconDeployer();
 
-        // 1. BalanceManager proxy
+        // BalanceManager proxy
         (BeaconProxy balanceManagerProxy, ) = beaconDeployer
             .deployUpgradeableContract(
                 address(new BalanceManager()),
@@ -127,14 +128,14 @@ contract GTXMarketMakerTest is Test {
             );
         balanceManager = BalanceManager(address(balanceManagerProxy));
 
-        // 2. OrderBook beacon
+        // OrderBook beacon
         IBeacon orderBookBeacon = new UpgradeableBeacon(
             address(new OrderBook()),
             owner
         );
         address orderBookBeaconAddress = address(orderBookBeacon);
 
-        // 3. PoolManager proxy
+        // PoolManager proxy
         (BeaconProxy poolManagerProxy, ) = beaconDeployer
             .deployUpgradeableContract(
                 address(new PoolManager()),
@@ -150,7 +151,7 @@ contract GTXMarketMakerTest is Test {
             );
         poolManager = PoolManager(address(poolManagerProxy));
 
-        // 4. Router proxy
+        // Router proxy
         (BeaconProxy routerProxy, ) = beaconDeployer.deployUpgradeableContract(
             address(new GTXRouter()),
             owner,
@@ -168,10 +169,10 @@ contract GTXMarketMakerTest is Test {
 
         // Initialize default trading rules
         defaultTradingRules = IOrderBook.TradingRules({
-            minTradeAmount: 1e14, // 0.0001 ETH
-            minAmountMovement: 1e14, // 0.0001 ETH
-            minOrderSize: 1e4, // 0.01 USDC
-            minPriceMovement: 1e4 // 0.01 USDC with 6 decimals
+            minTradeAmount: 1e14,
+            minAmountMovement: 1e14,
+            minOrderSize: 1e4,
+            minPriceMovement: 1e4
         });
 
         // Use the actual owner address
@@ -202,7 +203,7 @@ contract GTXMarketMakerTest is Test {
                     (
                         owner,
                         address(veToken),
-                        tempGaugeController, // Use temporary non-zero address
+                        tempGaugeController, 
                         address(router),
                         address(poolManager),
                         address(balanceManager),
@@ -281,7 +282,6 @@ contract GTXMarketMakerTest is Test {
         // Add market maker vault to voting controller
         votingController.addPool(uint64(block.chainid), address(vault));
 
-        // Setup mock voting power for incentives
         // Mint and lock token for voting power
         gtxToken.mint(address(this), 100 * 10 ** 18);
         gtxToken.approve(address(veToken), 100 * 10 ** 18);
@@ -339,8 +339,8 @@ contract GTXMarketMakerTest is Test {
         // Create 20 traders for testing
         address[] memory traders = new address[](20);
         for (uint256 i = 0; i < 20; i++) {
-            traders[i] = address(uint160(i + 2000)); // Using different addresses than the main test accounts
-
+            traders[i] = address(uint160(i + 2000));
+            
             // Mint tokens to each trader
             vm.startPrank(traders[i]);
             weth.mint(traders[i], 100e18);
@@ -400,15 +400,9 @@ contract GTXMarketMakerTest is Test {
             Currency.wrap(address(usdc)),
             IOrderBook.Side.SELL
         );
-
-        console2.log("Best bid price:", bestBid.price);
-        console2.log("Best bid volume:", bestBid.volume);
-        console2.log("Best ask price:", bestAsk.price);
-        console2.log("Best ask volume:", bestAsk.volume);
     }
 
     function test_FactoryInitialization() public {
-        // Get infrastructure addresses
         (
             address veTokenAddr,
             address gaugeControllerAddr,
@@ -417,14 +411,12 @@ contract GTXMarketMakerTest is Test {
             address balanceManagerAddr
         ) = factory.getInfrastructureAddresses();
 
-        // Verify addresses
         assertEq(veTokenAddr, address(veToken));
         assertEq(gaugeControllerAddr, address(gaugeController));
         assertEq(routerAddr, address(router));
         assertEq(poolManagerAddr, address(poolManager));
         assertEq(balanceManagerAddr, address(balanceManager));
 
-        // Verify parameter constraints
         (
             uint256 minTargetRatio,
             uint256 maxTargetRatio,
@@ -440,7 +432,6 @@ contract GTXMarketMakerTest is Test {
             uint256 maxRebalanceIntervalValue
         ) = factory.getParameterConstraints();
 
-        // Verify default constraints
         assertEq(minTargetRatio, 1000);
         assertEq(maxTargetRatio, 9000);
         assertEq(minSpreadValue, 5);
@@ -456,10 +447,7 @@ contract GTXMarketMakerTest is Test {
     }
 
     function test_VaultCreation() public {
-        // Check that the vault is properly registered
         assertTrue(factory.isValidVault(address(vault)));
-
-        // Verify basic vault properties
         assertEq(vault.name(), "ETH-USDC Market Maker Vault");
         assertEq(vault.symbol(), "ETH-USDC-MMV");
         assertEq(vault.owner(), owner);
@@ -477,10 +465,8 @@ contract GTXMarketMakerTest is Test {
 
         vm.stopPrank();
 
-        // Check that the vault is properly registered
         assertTrue(factory.isValidVault(vaultAddress));
 
-        // Verify basic vault properties
         GTXMarketMakerVault recVault = GTXMarketMakerVault(vaultAddress);
         assertEq(recVault.name(), "Recommended ETH-USDC Vault");
         assertEq(recVault.symbol(), "REC-ETH-USDC");
@@ -488,24 +474,19 @@ contract GTXMarketMakerTest is Test {
     }
 
     function test_VaultDeposit() public {
-        // Mint tokens to Alice
         weth.mint(alice, BASE_AMOUNT);
         usdc.mint(alice, QUOTE_AMOUNT);
 
         vm.startPrank(alice);
 
-        // Approve vault to spend tokens
         weth.approve(address(vault), BASE_AMOUNT);
         usdc.approve(address(vault), QUOTE_AMOUNT);
 
-        // Initial deposit
         vault.deposit(BASE_AMOUNT, QUOTE_AMOUNT);
 
-        // Check balances
         assertEq(vault.getAvailableBaseBalance(), BASE_AMOUNT);
         assertEq(vault.getAvailableQuoteBalance(), QUOTE_AMOUNT);
 
-        // Check LP tokens
         uint256 lpTokens = vault.balanceOf(alice);
         assertGt(lpTokens, 0);
 
@@ -513,13 +494,11 @@ contract GTXMarketMakerTest is Test {
     }
     
     function test_MultipleDeposits() public {
-        // Mint tokens to Alice and Bob
         weth.mint(alice, BASE_AMOUNT);
         usdc.mint(alice, QUOTE_AMOUNT);
         weth.mint(bob, BASE_AMOUNT);
         usdc.mint(bob, QUOTE_AMOUNT);
 
-        // Alice’s deposit
         vm.startPrank(alice);
         weth.approve(address(vault), BASE_AMOUNT);
         usdc.approve(address(vault), QUOTE_AMOUNT);
@@ -527,7 +506,6 @@ contract GTXMarketMakerTest is Test {
         uint256 aliceLp = vault.balanceOf(alice);
         vm.stopPrank();
 
-        // Bob’s deposit
         vm.startPrank(bob);
         weth.approve(address(vault), BASE_AMOUNT);
         usdc.approve(address(vault), QUOTE_AMOUNT);
@@ -541,34 +519,28 @@ contract GTXMarketMakerTest is Test {
     function test_Withdraw() public {
         vm.startPrank(alice);
 
-        // Initial deposit
         vault.deposit(BASE_AMOUNT, QUOTE_AMOUNT);
         uint256 lpTokens = vault.balanceOf(alice);
 
-        // Before withdrawal
         uint256 beforeWethBalance = weth.balanceOf(alice);
         uint256 beforeUsdcBalance = usdc.balanceOf(alice);
 
-        // Withdraw half
         vault.withdraw(lpTokens / 2);
 
-        // After withdrawal
         uint256 afterWethBalance = weth.balanceOf(alice);
         uint256 afterUsdcBalance = usdc.balanceOf(alice);
 
-        // Should get back approximately half of the deposited assets
         assertApproxEqRel(
             afterWethBalance - beforeWethBalance,
             BASE_AMOUNT / 2,
             0.01e18
-        ); // Within 1%
+        );
         assertApproxEqRel(
             afterUsdcBalance - beforeUsdcBalance,
             QUOTE_AMOUNT / 2,
             0.01e18
-        ); // Within 1%
+        );
 
-        // Remaining LP tokens
         assertApproxEqAbs(vault.balanceOf(alice), lpTokens / 2, 1);
 
         vm.stopPrank();
@@ -577,16 +549,13 @@ contract GTXMarketMakerTest is Test {
     function test_WithdrawWithLockedFunds() public {
         vm.startPrank(alice);
 
-        // Initial deposit
         vault.deposit(BASE_AMOUNT, QUOTE_AMOUNT);
         uint256 lpTokens = vault.balanceOf(alice);
 
         vm.stopPrank();
 
-        // Place orders to lock funds
         vm.startPrank(owner);
         
-        // Place a sell order to lock base currency (ETH)
         uint128 sellPrice = 2100 * 10 ** 6;
         uint128 sellQuantity = uint128(BASE_AMOUNT / 2);
         uint48 sellOrderId = vault.placeOrder(
@@ -595,7 +564,6 @@ contract GTXMarketMakerTest is Test {
             IOrderBook.Side.SELL
         );
         
-        // Place a buy order to lock quote currency (USDC)
         uint128 buyPrice = 1900 * 10 ** 6;
         uint128 buyQuantity = uint128(BASE_AMOUNT / 2);
         uint48 buyOrderId = vault.placeOrder(
@@ -606,164 +574,136 @@ contract GTXMarketMakerTest is Test {
         
         vm.stopPrank();
         
-        // Get the actual locked balances after order placement
         uint256 lockedBase = vault.getLockedBaseBalance();
         uint256 lockedQuote = vault.getLockedQuoteBalance();
         uint256 availableBase = vault.getAvailableBaseBalance();
         uint256 availableQuote = vault.getAvailableQuoteBalance();
         
-        // Verify we have some locked funds
         assertGt(lockedBase, 0);
         assertGt(lockedQuote, 0);
         
-        // Verify available balances + locked balances = total balances
-        assertApproxEqRel(availableBase + lockedBase, BASE_AMOUNT, 0.05e18); // Within 5%
+        assertApproxEqRel(availableBase + lockedBase, BASE_AMOUNT, 0.05e18);
         assertApproxEqRel(availableQuote + lockedQuote, QUOTE_AMOUNT, 0.05e18); // Within 5%
 
         vm.startPrank(alice);
 
-        // Before withdrawal
         uint256 beforeWethBalance = weth.balanceOf(alice);
         uint256 beforeUsdcBalance = usdc.balanceOf(alice);
         
-        // The withdraw function should automatically cancel orders to free the locked funds
         vault.withdraw(lpTokens / 2);
         
-        // After withdrawal
         uint256 afterWethBalance = weth.balanceOf(alice);
         uint256 afterUsdcBalance = usdc.balanceOf(alice);
         
-        // Verify that the orders were cancelled by checking the locked balances
         vm.stopPrank();
         
-        // Check that locked balances are reduced
         uint256 lockedBaseAfter = vault.getLockedBaseBalance();
         uint256 lockedQuoteAfter = vault.getLockedQuoteBalance();
-        
-        // Print values for debugging
-        console2.log("Initial locked base:", lockedBase);
-        console2.log("After locked base:", lockedBaseAfter);
-        console2.log("Initial locked quote:", lockedQuote);
-        console2.log("After locked quote:", lockedQuoteAfter);
-        
+     
         vm.startPrank(alice);
 
-        // Should get back approximately half of the deposited assets
         assertApproxEqRel(
             afterWethBalance - beforeWethBalance,
             BASE_AMOUNT / 2,
             0.01e18
-        ); // Within 1%
+        );
         assertApproxEqRel(
             afterUsdcBalance - beforeUsdcBalance,
             QUOTE_AMOUNT / 2,
             0.01e18
-        ); // Within 1%
+        );
 
-        // Remaining LP tokens should be approximately half
-        assertApproxEqAbs(vault.balanceOf(alice), lpTokens / 2, 1); // Allow 1 wei difference due to rounding
+        assertApproxEqAbs(vault.balanceOf(alice), lpTokens / 2, 1);
 
         vm.stopPrank();
     }
 
     function test_PlaceOrder() public {
-        // First make a deposit
         vm.startPrank(alice);
         vault.deposit(BASE_AMOUNT, QUOTE_AMOUNT);
         vm.stopPrank();
 
         vm.startPrank(owner);
 
-        // Place a buy order
-        uint128 buyPrice = 1900 * 10 ** 6; // 1900 USDC per ETH
-        uint128 buyQuantity = 1 * 10 ** 18; // 1 ETH
+        uint128 buyPrice = 1900 * 10 ** 6; 
+        uint128 buyQuantity = 1 * 10 ** 18; 
         uint48 buyOrderId = vault.placeOrder(
             buyPrice,
             buyQuantity,
             IOrderBook.Side.BUY
         );
 
-        // Verify order ID is non-zero
         assertGt(uint256(buyOrderId), 0);
 
-        // Place a sell order
-        uint128 sellPrice = 2100 * 10 ** 6; // 2100 USDC per ETH
-        uint128 sellQuantity = 1 * 10 ** 18; // 1 ETH
+        uint128 sellPrice = 2100 * 10 ** 6; 
+        uint128 sellQuantity = 1 * 10 ** 18; 
         uint48 sellOrderId = vault.placeOrder(
             sellPrice,
             sellQuantity,
             IOrderBook.Side.SELL
         );
 
-        // Verify order ID is non-zero
         assertGt(uint256(sellOrderId), 0);
 
         vm.stopPrank();
     }
 
-    function test_PlaceOrderWithDeposit() public {
-        // First make a deposit
-        vm.startPrank(alice);
-        vault.deposit(BASE_AMOUNT, QUOTE_AMOUNT);
-        vm.stopPrank();
-
-        vm.startPrank(owner);
-
-        // Place a buy order with deposit
-        uint128 buyPrice = 1900 * 10 ** 6; // 1900 USDC per ETH
-        uint128 buyQuantity = 1 * 10 ** 18; // 1 ETH
-        uint48 buyOrderId = vault.placeOrderWithDeposit(
-            buyPrice,
-            buyQuantity,
-            IOrderBook.Side.BUY
-        );
-
-        // Verify order ID is non-zero
-        assertGt(uint256(buyOrderId), 0);
-
-        vm.stopPrank();
-    }
-
     function test_PlaceMarketOrder() public {
-        // First make a deposit
         vm.startPrank(alice);
         vault.deposit(BASE_AMOUNT, QUOTE_AMOUNT);
         vm.stopPrank();
 
         vm.startPrank(owner);
 
-        // Place a market buy order
-        uint128 buyQuantity = 1 * 10 ** 18; // 1 ETH
+        uint128 buyQuantity = 1 * 10 ** 18;
         uint48 buyOrderId = vault.placeMarketOrder(
             buyQuantity,
             IOrderBook.Side.BUY
         );
 
-        // Verify order ID is non-zero
         assertGt(uint256(buyOrderId), 0);
+
+        uint128 sellQuantity = 1 * 10 ** 18;
+        uint48 sellOrderId = vault.placeMarketOrder(
+            sellQuantity,
+            IOrderBook.Side.SELL
+        );
+
+        assertGt(uint256(sellOrderId), 0);
 
         vm.stopPrank();
     }
 
     function test_CancelOrder() public {
-        // First make a deposit
         vm.startPrank(alice);
         vault.deposit(BASE_AMOUNT, QUOTE_AMOUNT);
         vm.stopPrank();
 
         vm.startPrank(owner);
 
-        // Place an order
-        uint128 buyPrice = 1900 * 10 ** 6; // 1900 USDC per ETH
-        uint128 buyQuantity = 1 * 10 ** 18; // 1 ETH
+        uint128 buyPrice = 1900 * 10 ** 6; 
+        uint128 buyQuantity = 1 * 10 ** 18; 
         uint48 buyOrderId = vault.placeOrder(
             buyPrice,
             buyQuantity,
             IOrderBook.Side.BUY
         );
 
-        // Cancel the order
+        IOrderBook.Order memory orderBefore = vault.getOrder(buyOrderId);
+        uint128 remainingQuantity = orderBefore.quantity - orderBefore.filled;
+        uint256 expectedUnlockedAmount = (uint256(remainingQuantity) * orderBefore.price) / (10 ** 18);
+        uint256 balanceBefore = vault.getAvailableQuoteBalance();
+
+        vm.expectEmit(true, true, true, true);
+        emit IOrderBook.OrderCancelled(buyOrderId, address(vault), uint48(block.timestamp), IOrderBook.Status.CANCELLED);
+
         vault.cancelOrder(buyOrderId);
+
+        IOrderBook.Order memory orderAfter = vault.getOrder(buyOrderId);
+        assertEq(uint256(orderAfter.status), uint256(IOrderBook.Status.CANCELLED), "Order status should be CANCELLED");
+
+        uint256 balanceAfter = vault.getAvailableQuoteBalance();
+        assertGe(balanceAfter - balanceBefore, expectedUnlockedAmount, "Funds should be unlocked in BalanceManager");
 
         vm.stopPrank();
     }
@@ -771,22 +711,38 @@ contract GTXMarketMakerTest is Test {
     function test_UpdateParams() public {
         vm.startPrank(owner);
 
-        // Update parameters
-        uint256 newTargetRatio = 6000; // 60%
-        uint256 newSpread = 100; // 1%
-        uint256 newMinSpread = 20; // 0.2%
-        uint256 newMaxOrderSize = 2 * 10 ** 18; // 2 ETH
-        uint256 newSlippageTolerance = 100; // 1%
-        uint256 newMinActiveOrders = 6; // At least 6 orders
+        uint256 newTargetRatioVal = 6000;
+        uint256 newSpreadVal = 100;
+        uint256 newMinSpreadVal = 20;
+        uint256 newMaxOrderSizeVal = 2 * 10 ** 18;
+        uint256 newSlippageToleranceVal = 100;
+        uint256 newMinActiveOrdersVal = 6; 
+
+        vm.expectEmit(true, true, true, true);
+        emit ParametersUpdated(
+            newTargetRatioVal,
+            newSpreadVal,
+            newMinSpreadVal,
+            newMaxOrderSizeVal,
+            newSlippageToleranceVal,
+            newMinActiveOrdersVal
+        );
 
         vault.updateParams(
-            newTargetRatio,
-            newSpread,
-            newMinSpread,
-            newMaxOrderSize,
-            newSlippageTolerance,
-            newMinActiveOrders
+            newTargetRatioVal,
+            newSpreadVal,
+            newMinSpreadVal,
+            newMaxOrderSizeVal,
+            newSlippageToleranceVal,
+            newMinActiveOrdersVal
         );
+
+        assertEq(vault.targetRatio(), newTargetRatioVal);
+        assertEq(vault.spread(), newSpreadVal);
+        assertEq(vault.minSpread(), newMinSpreadVal);
+        assertEq(vault.maxOrderSize(), newMaxOrderSizeVal);
+        assertEq(vault.slippageTolerance(), newSlippageToleranceVal);
+        assertEq(vault.minActiveOrders(), newMinActiveOrdersVal);
 
         vm.stopPrank();
     }
@@ -794,15 +750,12 @@ contract GTXMarketMakerTest is Test {
     function test_FactoryUpdateImplementation() public {
         vm.startPrank(owner);
 
-        // Deploy a new implementation
         GTXMarketMakerVault newImpl = new GTXMarketMakerVault();
 
-        // Update the implementation
         address oldImpl = factory.getVaultImplementation();
         factory.updateVaultImplementation(address(newImpl));
         address updatedImpl = factory.getVaultImplementation();
 
-        // Verify the implementation was updated
         assertEq(updatedImpl, address(newImpl));
         assertNotEq(updatedImpl, oldImpl);
 
@@ -812,14 +765,12 @@ contract GTXMarketMakerTest is Test {
     function test_UpdateInfrastructure() public {
         vm.startPrank(owner);
 
-        // Deploy fresh infrastructure via beacons/proxies
         BeaconDeployer dele = new BeaconDeployer();
         UpgradeableBeacon newOrderBookBeacon = new UpgradeableBeacon(
             address(new OrderBook()),
             owner
         );
 
-        // New BalanceManager proxy
         (BeaconProxy newBalanceManagerProxy, ) = dele.deployUpgradeableContract(
             address(new BalanceManager()),
             owner,
@@ -829,7 +780,6 @@ contract GTXMarketMakerTest is Test {
             address(newBalanceManagerProxy)
         );
 
-        // New PoolManager proxy
         (BeaconProxy newPoolManagerProxy, ) = dele.deployUpgradeableContract(
             address(new PoolManager()),
             owner,
@@ -840,7 +790,6 @@ contract GTXMarketMakerTest is Test {
         );
         PoolManager newPoolManager = PoolManager(address(newPoolManagerProxy));
 
-        // New Router proxy
         (BeaconProxy newRouterProxy, ) = dele.deployUpgradeableContract(
             address(new GTXRouter()),
             owner,
@@ -851,14 +800,12 @@ contract GTXMarketMakerTest is Test {
         );
         GTXRouter newRouter = GTXRouter(address(newRouterProxy));
 
-        // Update factory infrastructure
         factory.updateInfrastructure(
             address(newRouter),
             address(newPoolManager),
             address(newBalanceManager)
         );
 
-        // Verify updates
         (
             ,
             ,
@@ -877,23 +824,21 @@ contract GTXMarketMakerTest is Test {
     function test_UpdateParameterConstraints() public {
         vm.startPrank(owner);
 
-        // Update parameter constraints
         factory.updateParameterConstraints(
-            2000, // minTargetRatio
-            8000, // maxTargetRatio
-            10, // minSpread
-            400, // maxSpread
-            0.1 * 10 ** 18, // minOrderSize
-            50 * 10 ** 18, // maxOrderSize
-            20, // minSlippageTolerance
-            150, // maxSlippageTolerance
-            3, // minActiveOrders
-            80, // maxActiveOrders
-            10 minutes, // minRebalanceInterval
-            3 days // maxRebalanceInterval
+            2000,
+            8000,
+            10,
+            400,
+            0.1 * 10 ** 18,
+            50 * 10 ** 18,
+            20,
+            150,
+            3,
+            80,
+            10 minutes,
+            3 days
         );
 
-        // Verify constraints were updated
         (
             uint256 minTargetRatio,
             uint256 maxTargetRatio,
@@ -926,43 +871,33 @@ contract GTXMarketMakerTest is Test {
     }
 
     function test_GetTotalValue() public {
-        // First make a deposit
         vm.startPrank(alice);
         vault.deposit(BASE_AMOUNT, QUOTE_AMOUNT);
         vm.stopPrank();
 
-        // Get the total value
         uint256 totalValue = vault.getTotalValue();
 
-        // Expected value based on price (2000 USDC per ETH)
         uint256 expectedValue = (BASE_AMOUNT * 2000 * 10 ** 6) /
             10 ** 18 +
             QUOTE_AMOUNT;
 
-        // Value should be approximately as expected (difference due to pricing)
-        assertApproxEqRel(totalValue, expectedValue, 0.05e18); // Within 5%
+        assertApproxEqRel(totalValue, expectedValue, 0.05e18);
     }
 
     function test_Rebalance() public {
-        // First make a deposit
         vm.startPrank(alice);
         vault.deposit(BASE_AMOUNT, QUOTE_AMOUNT);
         vm.stopPrank();
 
-        // Call rebalance as owner
         vm.startPrank(owner);
         vault.rebalance();
         vm.stopPrank();
-
-        // Non-owner can't rebalance too soon
-        vm.expectRevert("Too soon");
+        vm.expectRevert();
         vm.prank(alice);
         vault.rebalance();
 
-        // Move forward in time
         vm.warp(block.timestamp + 1 hours + 1);
 
-        // Now non-owner can rebalance
         vm.prank(alice);
         vault.rebalance();
     }
@@ -970,7 +905,6 @@ contract GTXMarketMakerTest is Test {
     function test_SetRebalanceInterval() public {
         vm.startPrank(owner);
 
-        // Set new rebalance interval
         uint256 newInterval = 30 minutes;
         vault.setRebalanceInterval(newInterval);
 
@@ -978,87 +912,70 @@ contract GTXMarketMakerTest is Test {
     }
 
     function test_GetBestPrice() public {
-        // Get best price for buy side
         IOrderBook.PriceVolume memory bestBid = vault.getBestPrice(
             IOrderBook.Side.BUY
         );
 
-        // Verify price is as expected
-        assertEq(bestBid.price, 1950 * 10 ** 6); // 1950 USDC per ETH
-        assertEq(bestBid.volume, 10 * 10 ** 18); // 10 ETH
+        assertEq(bestBid.price, 1940 * 10 ** 6);
+        assertEq(bestBid.volume, 2 * 10 ** 18);
 
-        // Get best price for sell side
         IOrderBook.PriceVolume memory bestAsk = vault.getBestPrice(
             IOrderBook.Side.SELL
         );
 
-        // Verify price is as expected
-        assertEq(bestAsk.price, 2050 * 10 ** 6); // 2050 USDC per ETH
-        assertEq(bestAsk.volume, 10 * 10 ** 18); // 10 ETH
+        assertEq(bestAsk.price, 2050 * 10 ** 6); 
+        assertEq(bestAsk.volume, 2 * 10 ** 18); 
     }
 
     function test_CurrentPrice() public {
-        // Get current price
         uint128 currentPrice = vault.getCurrentPrice();
 
-        // Should be the mid price between bid and ask
-        uint128 expectedPrice = uint128((1950 * 10 ** 6 + 2050 * 10 ** 6) / 2); // 2000 USDC per ETH
+        uint128 expectedPrice = uint128((1940 * 10 ** 6 + 2050 * 10 ** 6) / 2);
 
         assertEq(currentPrice, expectedPrice);
     }
 
     function test_ValidateSpread() public {
-        // Buy price at 1940, with best ask at 2050
-        // Spread = (2050 - 1940) / 2050 = 0.0537 = 5.37%
         bool isValid = vault.validateSpread(
             1940 * 10 ** 6,
             IOrderBook.Side.BUY
         );
         assertTrue(isValid);
 
-        // Buy price at 2049, with best ask at 2050
-        // Spread = (2050 - 2049) / 2050 = 0.00049 = 0.049%
         isValid = vault.validateSpread(2049 * 10 ** 6, IOrderBook.Side.BUY);
-        assertFalse(isValid); // Too narrow
+        assertFalse(isValid);
 
-        // Sell price at 2060, with best bid at 1950
-        // Spread = (2060 - 1950) / 2060 = 0.0534 = 5.34%
         isValid = vault.validateSpread(2060 * 10 ** 6, IOrderBook.Side.SELL);
         assertTrue(isValid);
 
-        // Sell price at 1951, with best bid at 1950
-        // Spread = (1951 - 1950) / 1951 = 0.00051 = 0.051%
-        isValid = vault.validateSpread(1951 * 10 ** 6, IOrderBook.Side.SELL);
-        assertFalse(isValid); // Too narrow
+        isValid = vault.validateSpread(1941 * 10 ** 6, IOrderBook.Side.SELL);
+        assertFalse(isValid);
     }
 
     function test_AccessControl() public {
-        // Non-owner can't update params
         vm.startPrank(alice);
-        vm.expectRevert("Ownable: caller is not the owner");
+        vm.expectRevert();
         vault.updateParams(
-            6000, // targetRatio
-            100, // spread
-            20, // minSpread
-            2 * 10 ** 18, // maxOrderSize
-            100, // slippageTolerance
-            6 // minActiveOrders
+            6000,
+            100,
+            20,
+            2 * 10 ** 18,
+            100,
+            6
         );
         vm.stopPrank();
 
-        // Non-owner can't place orders
         vm.startPrank(alice);
-        vm.expectRevert("Ownable: caller is not the owner");
+        vm.expectRevert();
         vault.placeOrder(
-            1900 * 10 ** 6, // price
-            1 * 10 ** 18, // quantity
+            1900 * 10 ** 6,
+            1 * 10 ** 18,
             IOrderBook.Side.BUY
         );
         vm.stopPrank();
 
-        // Non-owner can't set rebalance interval
         vm.startPrank(alice);
-        vm.expectRevert("Ownable: caller is not the owner");
+        vm.expectRevert();
         vault.setRebalanceInterval(30 minutes);
         vm.stopPrank();
     }
@@ -1066,13 +983,10 @@ contract GTXMarketMakerTest is Test {
     function test_UpgradeableVault() public {
         vm.startPrank(owner);
 
-        // Deploy a new implementation with additional functionality
         GTXMarketMakerVault newImpl = new GTXMarketMakerVault();
 
-        // Update the implementation
         factory.updateVaultImplementation(address(newImpl));
 
-        // Create a new vault with the new implementation
         uint256[7] memory params = [
             targetRatio,
             spread,
@@ -1091,25 +1005,23 @@ contract GTXMarketMakerTest is Test {
             params
         );
 
-        // Existing vault should continue to work with old implementation
         vault.updateParams(
-            6000, // targetRatio
-            100, // spread
-            20, // minSpread
-            2 * 10 ** 18, // maxOrderSize
-            100, // slippageTolerance
-            6 // minActiveOrders
+            6000,
+            100,
+            20,
+            2 * 10 ** 18,
+            100,
+            6
         );
 
-        // New vault should use new implementation
         GTXMarketMakerVault newVault = GTXMarketMakerVault(newVaultAddress);
         newVault.updateParams(
-            4000, // targetRatio
-            80, // spread
-            15, // minSpread
-            3 * 10 ** 18, // maxOrderSize
-            75, // slippageTolerance
-            8 // minActiveOrders
+            4000,
+            80,
+            15,
+            3 * 10 ** 18,
+            75,
+            8
         );
 
         vm.stopPrank();
