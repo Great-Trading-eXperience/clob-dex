@@ -11,7 +11,7 @@ flag ?=
 # Custom network can be set via make network=<network_name>
 network ?= $(DEFAULT_NETWORK)
 
-.PHONY: account chain compile deploy deploy-verify flatten fork format generate lint test verify upgrade upgrade-verify full-integration swap
+.PHONY: account chain compile deploy deploy-verify flatten fork format generate lint test verify upgrade upgrade-verify full-integration swap deploy-incentives deploy-markets market-maker-orders simulate-voting
 
 # Helper function to run forge script
 define forge_script
@@ -38,6 +38,26 @@ endef
 
 define forge_swap
 	forge script script/Swap.s.sol:Swap --rpc-url $(network) --broadcast $(flag)
+endef
+
+# Helper function to deploy incentive system
+define forge_deploy_incentives
+	forge script script/DeployIncentiveSystem.s.sol:DeployIncentiveSystem -vvvv --rpc-url $(network) --broadcast $(flag)
+endef
+
+# Helper function to deploy markets
+define forge_deploy_markets
+	forge script script/DeployMarkets.s.sol:DeployMarkets --rpc-url $(network) --broadcast $(flag)
+endef
+
+# Helper function to place market maker orders
+define forge_market_maker_orders
+	forge script script/MarketMakerOrdersScript.s.sol:MarketMakerOrdersScript --rpc-url $(network) --broadcast $(flag)
+endef
+
+# Helper function to simulate voting
+define forge_simulate_voting
+	forge script script/SimulateVoting.s.sol:SimulateVoting --rpc-url $(network) --broadcast $(flag)
 endef
 
 # Define a target to deploy using the specified network
@@ -79,6 +99,22 @@ market-orderbook:
 # Define a target to execute swaps
 swap:
 	$(call forge_swap,)
+
+# Define a target to deploy incentive system
+deploy-incentives:
+	$(call forge_deploy_incentives,)
+
+# Define a target to deploy markets
+deploy-markets:
+	$(call forge_deploy_markets,)
+
+# Define a target to place market maker orders
+market-maker-orders:
+	$(call forge_market_maker_orders,)
+
+# Define a target to simulate voting
+simulate-voting:
+	$(call forge_simulate_voting,)
 
 # Define a target to run full integration (deploy everything and test)
 full-integration:
@@ -144,6 +180,10 @@ help:
 	@echo "  fill-orderbook  - Fill mock order book"
 	@echo "  market-orderbook - Place market orders in mock order book"
 	@echo "  swap            - Execute token swaps"
+	@echo "  deploy-incentives - Deploy incentive system"
+	@echo "  deploy-markets  - Deploy markets"
+	@echo "  market-maker-orders - Place orders via market maker vault"
+	@echo "  simulate-voting - Simulate voting process"
 	@echo "  full-integration - Run full deployment and testing sequence"
 	@echo "  upgrade         - Upgrade contracts using the specified network"
 	@echo "  upgrade-verify  - Upgrade and verify contracts using the specified network"

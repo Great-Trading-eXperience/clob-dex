@@ -74,8 +74,8 @@ contract GTXMarketMakerTest is Test {
     uint256 private initialBalanceUSDC = 10e6;
     uint256 private initialBalanceWETH = 1e18;
     uint256 constant BASE_AMOUNT = 10 * 10 ** 18; 
-    uint256 constant QUOTE_AMOUNT = 20_000 * 10 ** 6; // 20,000 USDC
-
+    uint256 constant QUOTE_AMOUNT = 20_000 * 10 ** 6; 
+    
     // Default parameters
     uint256 targetRatio = 5000; // 50%
     uint256 spread = 50; // 0.5%

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.26;
 
+import {IGTXMarketMakerFactory} from "./../interfaces/IGTXMarketMakerFactory.sol";
 import {GTXMarketMakerVault} from "./GTXMarketMakerVault.sol";
 import {GTXMarketMakerFactoryStorage} from "./GTXMarketMakerFactoryStorage.sol";
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
@@ -8,19 +9,7 @@ import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Ini
 import "@openzeppelin/contracts/proxy/beacon/BeaconProxy.sol";
 import "@openzeppelin/contracts/proxy/beacon/UpgradeableBeacon.sol";
 
-import {console2} from "forge-std/console2.sol";
-
-/**
- * @title GTXMarketMakerFactory
- * @notice Factory contract for creating upgradable GTX Market Maker Vaults
- */
-contract GTXMarketMakerFactory is Initializable, OwnableUpgradeable, GTXMarketMakerFactoryStorage {
-    // Events
-    event VaultCreated(address vault, address creator, address base, address quote);
-    event InfrastructureUpdated(address router, address poolManager, address balanceManager);
-    event ParameterConstraintsUpdated();
-    event VaultImplementationUpdated(address oldImpl, address newImpl);
-
+contract GTXMarketMakerFactory is Initializable, OwnableUpgradeable, GTXMarketMakerFactoryStorage, IGTXMarketMakerFactory {
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
         _disableInitializers();
@@ -138,10 +127,6 @@ contract GTXMarketMakerFactory is Initializable, OwnableUpgradeable, GTXMarketMa
         vault = address(vaultProxy);
         
         $.isVault[vault] = true;
-
-        console2.log("createVault");
-        console2.log("vault", vault);
-        console2.log("isVault", $.isVault[vault]);
         
         emit VaultCreated(vault, msg.sender, base, quote);
         
@@ -197,9 +182,6 @@ contract GTXMarketMakerFactory is Initializable, OwnableUpgradeable, GTXMarketMa
     }
     
     function isValidVault(address _vault) external view returns (bool) {
-        console2.log("isValidVault");
-        console2.log("vault", _vault);
-        console2.log("isVault", getStorage().isVault[_vault]);
         return getStorage().isVault[_vault];
     }
     
