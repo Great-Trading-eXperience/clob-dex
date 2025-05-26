@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.26;
 
+import {IGTXMarketMakerVault} from "./../interfaces/IGTXMarkerMakerVault.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {ERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
@@ -29,27 +30,13 @@ contract GTXMarketMakerVault is
     ReentrancyGuardUpgradeable,
     MulticallUpgradeable,
     GaugeUpgradeable,
-    GTXMarketMakerVaultStorage
+    GTXMarketMakerVaultStorage,
+    IGTXMarketMakerVault
 {
     using SafeERC20 for IERC20;
 
     uint256 public constant BASIS_POINTS = 10000;
     uint256 public constant MINIMUM_LIQUIDITY = 1000;
-
-    event Deposit(address indexed user, uint256 baseAmount, uint256 quoteAmount, uint256 shares);
-    event Withdraw(address indexed user, uint256 baseAmount, uint256 quoteAmount, uint256 shares);
-    event OrderPlaced(uint48 orderId, IOrderBook.Side side, uint128 price, uint128 quantity);
-    event OrderCancelled(uint48 orderId);
-    event Rebalance(uint256 timestamp, uint256 baseBalance, uint256 quoteBalance);
-    event FeesReceived(uint256 amount, address token);
-    event ParametersUpdated(
-        uint256 targetRatio,
-        uint256 spread,
-        uint256 minSpread,
-        uint256 maxOrderSize,
-        uint256 slippageTolerance,
-        uint256 minActiveOrders
-    );
 
     constructor() {
         _disableInitializers();
@@ -419,14 +406,11 @@ contract GTXMarketMakerVault is
         
         if (bestBid.price > 0 && bestAsk.price > 0) {
             return uint128((uint256(bestBid.price) + uint256(bestAsk.price)) / 2);
-        } 
-        else if (bestBid.price > 0) {
+        } else if (bestBid.price > 0) {
             return bestBid.price;
-        } 
-        else if (bestAsk.price > 0) {
+        } else if (bestAsk.price > 0) {
             return bestAsk.price;
-        } 
-        else {
+        } else {
             return 2000e6;
         }
     }
