@@ -314,7 +314,7 @@ contract OrderBook is
 
         IOrderBook.Status orderStatus = order.status;
 
-        if (orderStatus != Status.OPEN || orderStatus == Status.PARTIALLY_FILLED) {
+        if (orderStatus != Status.OPEN && orderStatus != Status.PARTIALLY_FILLED) {
             revert OrderIsNotOpenOrder(orderStatus);
         }
 
