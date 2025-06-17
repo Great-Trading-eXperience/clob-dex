@@ -39,20 +39,18 @@ contract GTXRouter is IGTXRouter, GTXRouterStorage, Initializable, OwnableUpgrad
         IPoolManager.Pool memory pool,
         uint128 _price,
         uint128 _quantity,
-        IOrderBook.Side _side,
-        address _user
+        IOrderBook.Side _side
     ) public returns (uint48 orderId) {
-        orderId = _placeLimitOrder(pool, _price, _quantity, _side, false, _user);
+        orderId = _placeLimitOrder(pool, _price, _quantity, _side, false, msg.sender);
     }
 
     function placeOrderWithDeposit(
         IPoolManager.Pool memory pool,
         uint128 _price,
         uint128 _quantity,
-        IOrderBook.Side _side,
-        address _user
+        IOrderBook.Side _side
     ) external returns (uint48 orderId) {
-        orderId = _placeLimitOrder(pool, _price, _quantity, _side, true, _user);
+        orderId = _placeLimitOrder(pool, _price, _quantity, _side, true, msg.sender);
     }
 
     function _validateCallerBalance(
