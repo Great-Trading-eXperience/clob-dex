@@ -63,6 +63,10 @@ contract PoolManager is Initializable, OwnableUpgradeable, PoolManagerStorage, I
         PoolKey memory key = createPoolKey(_baseCurrency, _quoteCurrency);
         PoolId id = key.toId();
 
+        if (address($.pools[id].orderBook) != address(0)) {
+            revert PoolAlreadyExists(id);
+        }
+
         bytes memory initData =
             abi.encodeWithSelector(IOrderBook.initialize.selector, address(this), $.balanceManager, _tradingRules, key);
 
