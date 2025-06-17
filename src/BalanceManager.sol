@@ -76,7 +76,7 @@ contract BalanceManager is IBalanceManager, BalanceManagerStorage, OwnableUpgrad
 
         Storage storage $ = getStorage();
         // Verify if the caller is the user or an authorized operator
-        if (msg.sender != user && !$.authorizedOperators[msg.sender]) {
+        if (msg.sender != sender && !$.authorizedOperators[msg.sender]) {
             revert UnauthorizedOperator(msg.sender);
         }
 
@@ -111,7 +111,7 @@ contract BalanceManager is IBalanceManager, BalanceManagerStorage, OwnableUpgrad
         }
 
         // Transfer tokens directly from sender to this contract
-        currency.transferFrom(user, address(orderBook), amount);
+        currency.transferFrom(user, address(this), amount);
 
         // Credit directly to locked balance, bypassing the regular balance
         uint256 currencyId = currency.toId();
