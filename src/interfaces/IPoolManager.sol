@@ -13,7 +13,7 @@ interface IPoolManager {
     }
 
     error InvalidRouter();
-
+    error PoolAlreadyExists(PoolId id);
     event PoolCreated(PoolId indexed poolId, address orderBook, Currency baseCurrency, Currency quoteCurrency);
     event CurrencyAdded(Currency currency);
     event IntermediaryAdded(Currency currency);
