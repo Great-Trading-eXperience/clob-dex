@@ -179,7 +179,7 @@ contract BalanceAndFeeTest is Test, PoolHelper {
         // Create a series of buy orders at different price levels from multiple users
         vm.startPrank(alice);
         console.log("--- Alice places buy order at 2505 USDC per WETH (2505 USDC) ---");
-        router.placeOrderWithDeposit(pool, alicePrice, aliceQuantity, IOrderBook.Side.BUY, alice);
+        router.placeOrderWithDeposit(pool, alicePrice, aliceQuantity, IOrderBook.Side.BUY);
         vm.stopPrank();
 
         // Verify Alice's quote token was locked
@@ -196,7 +196,7 @@ contract BalanceAndFeeTest is Test, PoolHelper {
 
         vm.startPrank(charlie);
         console.log("--- Charlie places buy order at 2502 USDC per WETH (2502 USDC) ---");
-        router.placeOrderWithDeposit(pool, charliePrice, charlieQuantity, IOrderBook.Side.BUY, charlie);
+        router.placeOrderWithDeposit(pool, charliePrice, charlieQuantity, IOrderBook.Side.BUY);
         vm.stopPrank();
 
         // Verify Charlie's quote token was locked
@@ -205,7 +205,7 @@ contract BalanceAndFeeTest is Test, PoolHelper {
 
         vm.startPrank(david);
         console.log("--- David places buy order at 2500 USDC per WETH (2500 USDC) ---");
-        router.placeOrderWithDeposit(pool, davidPrice, davidQuantity, IOrderBook.Side.BUY, david);
+        router.placeOrderWithDeposit(pool, davidPrice, davidQuantity, IOrderBook.Side.BUY);
         vm.stopPrank();
 
         // Verify David's quote token was locked
@@ -272,7 +272,7 @@ contract BalanceAndFeeTest is Test, PoolHelper {
         vm.startPrank(bob);
         console.log("\n--- Bob places market sell order for 3 WETH ---");
         bool success = true;
-        try router.placeMarketOrderWithDeposit(pool, bobQuantity, IOrderBook.Side.SELL, bob) {
+        try router.placeMarketOrderWithDeposit(pool, bobQuantity, IOrderBook.Side.SELL) {
             // Order placed successfully
         } catch {
             success = false;
@@ -441,7 +441,7 @@ contract BalanceAndFeeTest is Test, PoolHelper {
         // Alice places a large sell limit order (maker)
         vm.startPrank(alice);
         console.log("--- Alice places sell order at 2500 USDC per WETH (5 WETH) ---");
-        router.placeOrderWithDeposit(pool, alicePrice, aliceQuantity, IOrderBook.Side.SELL, alice);
+        router.placeOrderWithDeposit(pool, alicePrice, aliceQuantity, IOrderBook.Side.SELL);
         vm.stopPrank();
 
         // Verify Alice's base token was locked
@@ -471,19 +471,19 @@ contract BalanceAndFeeTest is Test, PoolHelper {
         // Bob's market buy order
         vm.startPrank(bob);
         console.log("\n--- Bob places market buy order for 1 WETH ---");
-        router.placeMarketOrderWithDeposit(pool, bobQuantity, IOrderBook.Side.BUY, bob);
+        router.placeMarketOrderWithDeposit(pool, bobQuantity, IOrderBook.Side.BUY);
         vm.stopPrank();
 
         // Charlie's market buy order
         vm.startPrank(charlie);
         console.log("--- Charlie places market buy order for 2 WETH ---");
-        router.placeMarketOrderWithDeposit(pool, charlieQuantity, IOrderBook.Side.BUY, charlie);
+        router.placeMarketOrderWithDeposit(pool, charlieQuantity, IOrderBook.Side.BUY);
         vm.stopPrank();
 
         // David's market buy order
         vm.startPrank(david);
         console.log("--- David places market buy order for 1.5 WETH ---");
-        router.placeMarketOrderWithDeposit(pool, davidQuantity, IOrderBook.Side.BUY, david);
+        router.placeMarketOrderWithDeposit(pool, davidQuantity, IOrderBook.Side.BUY);
         vm.stopPrank();
 
         // Log final balances for all users
@@ -673,13 +673,6 @@ contract BalanceAndFeeTest is Test, PoolHelper {
         console.log("  Alice maker fee: ", aliceMakerFee, "USDC");
 
         console.log("Total trade value:", totalTradeValue, "USDC");
-
-        // Check if Alice's order was fully filled or partially filled
-        if (expectedRemainingQuantity > 0) {
-            console.log("Result: Alice's order was PARTIALLY filled");
-        } else {
-            console.log("Result: Alice's order was FULLY filled");
-        }
     }
 
     function testMultipleMakersSingleTakerPartialOrderMatchingWithHigherMakerQuantity() public {
@@ -699,96 +692,69 @@ contract BalanceAndFeeTest is Test, PoolHelper {
         uint256 feeCollectorInitialQuoteBalance = balanceManager.getBalance(feeCollector, quoteCurrency);
 
         // Define order parameters
-        uint128 alicePrice = uint128(2505 * (10 ** quoteDecimals)); // Best price
-        uint128 charliePrice = uint128(2502 * (10 ** quoteDecimals)); // Middle price
-        uint128 davidPrice = uint128(2500 * (10 ** quoteDecimals)); // Lowest price
+        uint128 alicePrice = uint128(2500 * (10 ** quoteDecimals)); // Alice's limit price
 
-        // Define larger buy quantities to ensure they're only partially filled
-        uint128 aliceQuantity = uint128(2 * (10 ** baseDecimals)); // 2 WETH = 5010 USDC
-        uint128 charlieQuantity = uint128(3 * (10 ** baseDecimals)); // 3 WETH = 7506 USDC
-        uint128 davidQuantity = uint128(4 * (10 ** baseDecimals)); // 4 WETH = 10000 USDC
+        // Alice places a large sell order (maker)
+        uint128 aliceQuantity = uint128(5 * (10 ** baseDecimals)); // 5 WETH
 
-        // Define a smaller sell quantity that will only partially fill the buy orders
-        uint128 bobQuantity = uint128((3 * (10 ** baseDecimals)) / 2); // 1.5 WETH
+        // Multiple takers will place market orders to buy from Alice
+        uint128 bobQuantity = uint128(1 * (10 ** baseDecimals)); // 1 WETH
+        uint128 charlieQuantity = uint128(2 * (10 ** baseDecimals)); // 2 WETH
+        uint128 davidQuantity = uint128((3 * (10 ** baseDecimals)) / 2); // 1.5 WETH
 
-        // Calculate expected locked amounts for buy orders
-        uint256 aliceExpectedLocked = (alicePrice * aliceQuantity) / (10 ** baseDecimals);
-        uint256 charlieExpectedLocked = (charliePrice * charlieQuantity) / (10 ** baseDecimals);
-        uint256 davidExpectedLocked = (davidPrice * davidQuantity) / (10 ** baseDecimals);
+        // Calculate expected locked amounts
+        uint256 aliceExpectedLocked = aliceQuantity;
 
-        // Create a series of buy orders at different price levels from multiple users
+        // Alice places a large sell limit order (maker)
         vm.startPrank(alice);
-        console.log("--- Alice places buy order at 2505 USDC per WETH (2 WETH) ---");
-        router.placeOrderWithDeposit(pool, alicePrice, aliceQuantity, IOrderBook.Side.BUY, alice);
+        console.log("--- Alice places sell order at 2500 USDC per WETH (5 WETH) ---");
+        router.placeOrderWithDeposit(pool, alicePrice, aliceQuantity, IOrderBook.Side.SELL);
         vm.stopPrank();
 
-        // Verify Alice's quote token was locked
-        uint256 aliceLockedAfterOrder = balanceManager.getLockedBalance(alice, address(orderBook), quoteCurrency);
+        // Verify Alice's base token was locked
+        uint256 aliceLockedAfterOrder = balanceManager.getLockedBalance(alice, address(orderBook), baseCurrency);
         assertEq(aliceLockedAfterOrder, aliceExpectedLocked, "Alice's locked amount incorrect");
 
         // Verify Alice's wallet balance decreased
         assertApproxEqAbs(
-            aliceInitialQuoteBalance - quoteToken.balanceOf(alice),
+            aliceInitialBaseBalance - baseToken.balanceOf(alice),
             aliceExpectedLocked,
             100,
             "Alice's wallet balance should have decreased by locked amount"
         );
 
-        vm.startPrank(charlie);
-        console.log("--- Charlie places buy order at 2502 USDC per WETH (3 WETH) ---");
-        router.placeOrderWithDeposit(pool, charliePrice, charlieQuantity, IOrderBook.Side.BUY, charlie);
-        vm.stopPrank();
-
-        // Verify Charlie's quote token was locked
-        uint256 charlieLockedAfterOrder = balanceManager.getLockedBalance(charlie, address(orderBook), quoteCurrency);
-        assertEq(charlieLockedAfterOrder, charlieExpectedLocked, "Charlie's locked amount incorrect");
-
-        vm.startPrank(david);
-        console.log("--- David places buy order at 2500 USDC per WETH (4 WETH) ---");
-        router.placeOrderWithDeposit(pool, davidPrice, davidQuantity, IOrderBook.Side.BUY, david);
-        vm.stopPrank();
-
-        // Verify David's quote token was locked
-        uint256 davidLockedAfterOrder = balanceManager.getLockedBalance(david, address(orderBook), quoteCurrency);
-        assertEq(davidLockedAfterOrder, davidExpectedLocked, "David's locked amount incorrect");
-
-        // Log balances after buy orders from multiple users
-        console.log("--- Balances After Multiple Users Place Buy Orders ---");
+        // Log balances after Alice places sell order
+        console.log("--- Balances After Alice Places Sell Order ---");
         logBalance("Alice", alice);
-        logBalance("Charlie", charlie);
-        logBalance("David", david);
         logBalance("Fee Collector", feeCollector);
 
-        // Verify order book has correct orders
-        (uint48 orderCountAlice, uint256 volumeAlice) = orderBook.getOrderQueue(IOrderBook.Side.BUY, alicePrice);
-        (uint48 orderCountCharlie, uint256 volumeCharlie) = orderBook.getOrderQueue(IOrderBook.Side.BUY, charliePrice);
-        (uint48 orderCountDavid, uint256 volumeDavid) = orderBook.getOrderQueue(IOrderBook.Side.BUY, davidPrice);
-
+        // Verify order book has correct sell order
+        (uint48 orderCountAlice, uint256 volumeAlice) = orderBook.getOrderQueue(IOrderBook.Side.SELL, alicePrice);
         assertEq(orderCountAlice, 1, "Should be 1 order at Alice's price");
-        assertEq(orderCountCharlie, 1, "Should be 1 order at Charlie's price");
-        assertEq(orderCountDavid, 1, "Should be 1 order at David's price");
+        assertEq(volumeAlice, aliceQuantity, "Volume at Alice's price incorrect");
 
-        uint256 aliceQuantityUnwrapped = aliceQuantity;
-        uint256 charlieQuantityUnwrapped = charlieQuantity;
-        uint256 davidQuantityUnwrapped = davidQuantity;
+        // Multiple takers place market buy orders to match against Alice's order
 
-        assertEq(volumeAlice, aliceQuantityUnwrapped, "Volume at Alice's price incorrect");
-        assertEq(volumeCharlie, charlieQuantityUnwrapped, "Volume at Charlie's price incorrect");
-        assertEq(volumeDavid, davidQuantityUnwrapped, "Volume at David's price incorrect");
-
-        // Bob places a market sell order that should partially match against Alice's order
+        // Bob's market buy order
         vm.startPrank(bob);
-        console.log("\n--- Bob places market sell order for 1.5 WETH ---");
-        bool success = true;
-        try router.placeMarketOrderWithDeposit(pool, bobQuantity, IOrderBook.Side.SELL, bob) {
-            // Order placed successfully
-        } catch {
-            success = false;
-        }
+        console.log("\n--- Bob places market buy order for 1 WETH ---");
+        router.placeMarketOrderWithDeposit(pool, bobQuantity, IOrderBook.Side.BUY);
+        vm.stopPrank();
+
+        // Charlie's market buy order
+        vm.startPrank(charlie);
+        console.log("--- Charlie places market buy order for 2 WETH ---");
+        router.placeMarketOrderWithDeposit(pool, charlieQuantity, IOrderBook.Side.BUY);
+        vm.stopPrank();
+
+        // David's market buy order
+        vm.startPrank(david);
+        console.log("--- David places market buy order for 1.5 WETH ---");
+        router.placeMarketOrderWithDeposit(pool, davidQuantity, IOrderBook.Side.BUY);
         vm.stopPrank();
 
         // Log final balances for all users
-        console.log("\n--- Final Balances After Partial Matching ---");
+        console.log("\n--- Final Balances After Multiple Takers Matching ---");
         logBalance("Alice", alice);
         logBalance("Bob", bob);
         logBalance("Charlie", charlie);
@@ -797,18 +763,64 @@ contract BalanceAndFeeTest is Test, PoolHelper {
 
         // VERIFY BALANCES AFTER MATCHING
 
-        // Calculate how much of each order should be filled
-        uint256 bobQuantityUnwrapped = bobQuantity;
+        // Calculate expected values for filled amounts
         uint256 alicePriceUnwrapped = alicePrice;
+        uint256 bobQuantityUnwrapped = bobQuantity;
+        uint256 charlieQuantityUnwrapped = charlieQuantity;
+        uint256 davidQuantityUnwrapped = davidQuantity;
+        uint256 aliceQuantityUnwrapped = aliceQuantity;
 
-        // Bob's 1.5 WETH should fully match against Alice's 2 WETH order
-        // (since Alice has the best price and sufficient quantity)
-        uint256 expectedMatchVolumeInBase = bobQuantityUnwrapped;
-        uint256 expectedMatchVolumeInQuote = (bobQuantityUnwrapped * alicePriceUnwrapped) / (10 ** baseDecimals);
+        // Total quantity taken from Alice's order
+        uint256 totalFilledQuantity = bobQuantityUnwrapped + charlieQuantityUnwrapped + davidQuantityUnwrapped;
+
+        // Expected remaining quantity in Alice's order
+        uint256 expectedRemainingQuantity = aliceQuantityUnwrapped - totalFilledQuantity;
+
+        // Calculate trade values and fees
+        uint256 bobTradeValue = bobQuantityUnwrapped;
+        uint256 charlieTradeValue = charlieQuantityUnwrapped;
+        uint256 davidTradeValue = davidQuantityUnwrapped;
+        uint256 totalTradeValue = bobTradeValue + charlieTradeValue + davidTradeValue;
+
+        uint256 bobTradeValueInQuote =
+            (bobTradeValue * (10 ** quoteDecimals) * alicePriceUnwrapped) / (10 ** quoteDecimals) / (10 ** baseDecimals);
+        uint256 charlieTradeValueInQuote = (charlieTradeValue * (10 ** quoteDecimals) * alicePriceUnwrapped)
+            / (10 ** quoteDecimals) / (10 ** baseDecimals);
+        uint256 davidTradeValueInQuote = (davidTradeValue * (10 ** quoteDecimals) * alicePriceUnwrapped)
+            / (10 ** quoteDecimals) / (10 ** baseDecimals);
+        uint256 totalFilledQuantityInQuote = totalFilledQuantity * (10 ** quoteDecimals) * alicePriceUnwrapped
+            / (10 ** quoteDecimals) / (10 ** baseDecimals);
 
         uint256 feeUnit = balanceManager.getFeeUnit();
-        uint256 bobTakerFee = (expectedMatchVolumeInQuote * feeTaker) / feeUnit;
-        uint256 aliceMakerFee = (expectedMatchVolumeInBase * feeMaker) / feeUnit;
+
+        // Taker fees (for buyers)
+        uint256 bobTakerFee = (bobTradeValue * feeTaker) / feeUnit;
+        uint256 charlieTakerFee = (charlieTradeValue * feeTaker) / feeUnit;
+        uint256 davidTakerFee = (davidTradeValue * feeTaker) / feeUnit;
+        uint256 totalTakerFee = bobTakerFee + charlieTakerFee + davidTakerFee;
+
+        console.log("\n--- Taker fees ---");
+        console.log("bob taker fee:", bobTakerFee);
+        console.log("charlie taker fee:", charlieTakerFee);
+        console.log("david taker fee:", davidTakerFee);
+        console.log("total taker fee:", totalTakerFee);
+
+        console.log("\n--- Trade values ---");
+        console.log("bob trade value:", bobTradeValue);
+        console.log("charlie trade value:", charlieTradeValue);
+        console.log("david trade value:", davidTradeValue);
+        console.log("total trade value:", totalTradeValue);
+
+        // Maker fee (for Alice)
+        uint256 aliceMakerFee = (
+            (((totalFilledQuantity * (10 ** quoteDecimals)) / (10 ** baseDecimals)) * feeMaker) / feeUnit
+        ) * (alicePriceUnwrapped / (10 ** quoteDecimals));
+
+        console.log("total filled quantity:", totalFilledQuantity);
+        console.log("alice price unwrapped:", alicePriceUnwrapped);
+
+        console.log("\n--- Maker fee ---");
+        console.log("alice maker fee:", aliceMakerFee);
 
         // 1. Verify fee collector received correct fees
         uint256 feeCollectorBaseBalance = balanceManager.getBalance(feeCollector, baseCurrency);
@@ -817,54 +829,22 @@ contract BalanceAndFeeTest is Test, PoolHelper {
         uint256 baseBalanceDiff = feeCollectorBaseBalance - feeCollectorInitialBaseBalance;
         uint256 quoteBalanceDiff = feeCollectorQuoteBalance - feeCollectorInitialQuoteBalance;
 
-        assertApproxEqAbs(baseBalanceDiff, aliceMakerFee, 100, "Fee collector base balance incorrect");
-        assertApproxEqAbs(quoteBalanceDiff, bobTakerFee, 100, "Fee collector quote balance incorrect");
+        assertApproxEqAbs(baseBalanceDiff, totalTakerFee, 100, "Fee collector base balance incorrect");
+        assertApproxEqAbs(quoteBalanceDiff, aliceMakerFee, 100, "Fee collector quote balance incorrect");
 
         // 2. Verify Bob's balances
         uint256 bobCurrentBaseBalance = baseToken.balanceOf(bob) + balanceManager.getBalance(bob, baseCurrency);
         uint256 bobCurrentQuoteBalance = quoteToken.balanceOf(bob) + balanceManager.getBalance(bob, quoteCurrency);
 
-        uint256 bobBaseDecrease = bobInitialBaseBalance - bobCurrentBaseBalance;
-        uint256 bobQuoteIncrease = bobCurrentQuoteBalance - bobInitialQuoteBalance;
-
-        assertApproxEqAbs(bobBaseDecrease, expectedMatchVolumeInBase, 100, "Bob's base token decrease incorrect");
+        uint256 bobBaseIncrease = bobCurrentBaseBalance - bobInitialBaseBalance;
+        uint256 bobQuoteDecrease = bobInitialQuoteBalance - bobCurrentQuoteBalance;
 
         assertApproxEqAbs(
-            bobQuoteIncrease, expectedMatchVolumeInQuote - bobTakerFee, 100, "Bob's quote token increase incorrect"
+            bobBaseIncrease, bobQuantityUnwrapped - bobTakerFee, 100, "Bob's base token increase incorrect"
         );
+        assertApproxEqAbs(bobQuoteDecrease, bobTradeValueInQuote, 100, "Bob's quote token decrease incorrect");
 
-        // 3. Verify Alice received her base tokens
-        uint256 aliceCurrentBaseBalance = baseToken.balanceOf(alice) + balanceManager.getBalance(alice, baseCurrency);
-        uint256 aliceCurrentQuoteBalance = quoteToken.balanceOf(alice) + balanceManager.getBalance(alice, quoteCurrency);
-
-        uint256 aliceBaseIncrease = aliceCurrentBaseBalance - aliceInitialBaseBalance;
-        uint256 aliceQuoteDecrease = aliceInitialQuoteBalance - aliceCurrentQuoteBalance;
-
-        assertApproxEqAbs(
-            aliceBaseIncrease, bobQuantityUnwrapped - aliceMakerFee, 100, "Alice didn't receive correct base tokens"
-        );
-
-        // Alice's quote tokens spent should be proportional to the filled amount
-        uint256 aliceQuoteSpent = (bobQuantityUnwrapped * alicePriceUnwrapped) / (10 ** baseDecimals);
-        uint256 aliceQuoteLockedAmount = balanceManager.getLockedBalance(alice, address(orderBook), quoteCurrency);
-
-        console.log("bob quantity unwrapped", bobQuantityUnwrapped);
-        console.log("alice price unwrapped", alicePriceUnwrapped);
-        console.log("alice quote locked amount", aliceQuoteLockedAmount);
-
-        assertApproxEqAbs(
-            aliceQuoteDecrease, aliceQuoteSpent + aliceQuoteLockedAmount, 100, "Alice's quote token decrease incorrect"
-        );
-
-        // 4. Verify Alice's remaining locked quote tokens
-        uint256 aliceRemainingLocked = balanceManager.getLockedBalance(alice, address(orderBook), quoteCurrency);
-        uint256 expectedRemainingLocked = aliceExpectedLocked - aliceQuoteSpent;
-
-        assertApproxEqAbs(
-            aliceRemainingLocked, expectedRemainingLocked, 100, "Alice should have remaining locked balance"
-        );
-
-        // 5. Verify Charlie and David's orders were not touched
+        // 3. Verify Charlie's balances
         uint256 charlieCurrentBaseBalance =
             baseToken.balanceOf(charlie) + balanceManager.getBalance(charlie, baseCurrency);
         uint256 charlieCurrentQuoteBalance =
@@ -873,67 +853,93 @@ contract BalanceAndFeeTest is Test, PoolHelper {
         uint256 charlieBaseIncrease = charlieCurrentBaseBalance - charlieInitialBaseBalance;
         uint256 charlieQuoteDecrease = charlieInitialQuoteBalance - charlieCurrentQuoteBalance;
 
-        assertEq(charlieBaseIncrease, 0, "Charlie's base balance should not change");
         assertApproxEqAbs(
-            charlieQuoteDecrease,
-            charlieExpectedLocked,
+            charlieBaseIncrease,
+            charlieQuantityUnwrapped - charlieTakerFee,
             100,
-            "Charlie's quote token decrease should only be locked amount"
+            "Charlie's base token increase incorrect"
+        );
+        assertApproxEqAbs(
+            charlieQuoteDecrease, charlieTradeValueInQuote, 100, "Charlie's quote token decrease incorrect"
         );
 
+        // 4. Verify David's balances
         uint256 davidCurrentBaseBalance = baseToken.balanceOf(david) + balanceManager.getBalance(david, baseCurrency);
         uint256 davidCurrentQuoteBalance = quoteToken.balanceOf(david) + balanceManager.getBalance(david, quoteCurrency);
 
         uint256 davidBaseIncrease = davidCurrentBaseBalance - davidInitialBaseBalance;
         uint256 davidQuoteDecrease = davidInitialQuoteBalance - davidCurrentQuoteBalance;
 
-        assertEq(davidBaseIncrease, 0, "David's base balance should not change");
         assertApproxEqAbs(
-            davidQuoteDecrease, davidExpectedLocked, 100, "David's quote token decrease should only be locked amount"
+            davidBaseIncrease, davidQuantityUnwrapped - davidTakerFee, 100, "David's base token increase incorrect"
+        );
+        assertApproxEqAbs(davidQuoteDecrease, davidTradeValueInQuote, 100, "David's quote token decrease incorrect");
+
+        // 5. Verify Alice's balances
+        uint256 aliceCurrentBaseBalance = baseToken.balanceOf(alice) + balanceManager.getBalance(alice, baseCurrency)
+            + balanceManager.getLockedBalance(alice, address(orderBook), baseCurrency);
+        uint256 aliceCurrentQuoteBalance = quoteToken.balanceOf(alice) + balanceManager.getBalance(alice, quoteCurrency);
+
+        uint256 aliceBaseDecrease = aliceInitialBaseBalance - aliceCurrentBaseBalance;
+        uint256 aliceQuoteIncrease = aliceCurrentQuoteBalance - aliceInitialQuoteBalance;
+
+        assertApproxEqAbs(aliceBaseDecrease, totalFilledQuantity, 100, "Alice's base token decrease incorrect");
+        assertApproxEqAbs(
+            aliceQuoteIncrease,
+            totalFilledQuantityInQuote - aliceMakerFee,
+            100,
+            "Alice's quote token increase incorrect"
         );
 
-        // Check orderbook state after partial matching
-        (uint48 orderCountAfterAlice, uint256 volumeAfterAlice) =
-            orderBook.getOrderQueue(IOrderBook.Side.BUY, alicePrice);
-        (uint48 orderCountAfterCharlie, uint256 volumeAfterCharlie) =
-            orderBook.getOrderQueue(IOrderBook.Side.BUY, charliePrice);
-        (uint48 orderCountAfterDavid, uint256 volumeAfterDavid) =
-            orderBook.getOrderQueue(IOrderBook.Side.BUY, davidPrice);
+        // 6. Verify Alice's remaining locked base tokens
+        uint256 aliceRemainingLocked = balanceManager.getLockedBalance(alice, address(orderBook), baseCurrency);
 
-        // Alice's order should still be in the book but with reduced volume
-        assertEq(orderCountAfterAlice, 1, "Alice's order should still be in the book");
-        uint256 expectedRemainingVolume = aliceQuantityUnwrapped - bobQuantityUnwrapped;
-        assertApproxEqAbs(volumeAfterAlice, expectedRemainingVolume, 100, "Remaining volume at Alice's price incorrect");
+        assertApproxEqAbs(
+            aliceRemainingLocked, expectedRemainingQuantity, 100, "Alice's remaining locked balance incorrect"
+        );
 
-        // Charlie and David's orders should be untouched
-        assertEq(orderCountAfterCharlie, 1, "Charlie's order should still be in the book");
-        assertEq(orderCountAfterDavid, 1, "David's order should still be in the book");
-        assertEq(volumeAfterCharlie, charlieQuantityUnwrapped, "Volume at Charlie's price should be unchanged");
-        assertEq(volumeAfterDavid, davidQuantityUnwrapped, "Volume at David's price should be unchanged");
+        // 7. Verify the order book state after all market orders
+        (uint48 orderCountAfter, uint256 volumeAfter) = orderBook.getOrderQueue(IOrderBook.Side.SELL, alicePrice);
+
+        if (expectedRemainingQuantity > 0) {
+            assertEq(orderCountAfter, 1, "Alice's order should still be in the book");
+            assertApproxEqAbs(
+                volumeAfter, expectedRemainingQuantity, 100, "Remaining volume at Alice's price incorrect"
+            );
+        } else {
+            assertEq(orderCountAfter, 0, "Alice's order should be fully matched and removed");
+            assertEq(volumeAfter, 0, "Volume at Alice's price should be zero");
+        }
 
         console.log("\n--- Verification Results ---");
-        console.log("Alice's trade:");
-        console.log("  Original order: 2 WETH at 2505 USDC/WETH");
-        console.log("  Filled amount: ", bobQuantityUnwrapped, "WETH");
-        console.log("  Cost: ", aliceQuoteSpent, "USDC");
-        console.log("  Maker fee: ", aliceMakerFee, "WETH");
-        console.log("  Remaining order: ", expectedRemainingVolume, "WETH");
-        console.log("  Remaining locked: ", aliceRemainingLocked, "USDC");
+        console.log("Alice's sell order:");
+        console.log("  Original quantity: 5 WETH at 2500 USDC/WETH");
+        console.log("  Total filled: ", totalFilledQuantity, "WETH");
+        console.log("  Received: ", aliceQuoteIncrease, "USDC");
+        console.log("  Maker fee: ", aliceMakerFee, "USDC");
+        console.log("  Remaining quantity: ", expectedRemainingQuantity, "WETH");
+        console.log("  Remaining locked: ", aliceRemainingLocked, "WETH");
 
         console.log("Bob's trade:");
-        console.log("  Sold: ", bobQuantityUnwrapped, "WETH");
-        console.log("  Received: ", bobQuoteIncrease, "USDC");
+        console.log("  Bought: ", bobQuantityUnwrapped, "WETH");
+        console.log("  Paid: ", bobTradeValue + bobTakerFee, "USDC");
         console.log("  Taker fee: ", bobTakerFee, "USDC");
 
-        console.log("Charlie's order:");
-        console.log("  Untouched - still in order book: 3 WETH at 2502 USDC/WETH");
+        console.log("Charlie's trade:");
+        console.log("  Bought: ", charlieQuantityUnwrapped, "WETH");
+        console.log("  Paid: ", charlieTradeValue + charlieTakerFee, "USDC");
+        console.log("  Taker fee: ", charlieTakerFee, "USDC");
 
-        console.log("David's order:");
-        console.log("  Untouched - still in order book: 4 WETH at 2500 USDC/WETH");
+        console.log("David's trade:");
+        console.log("  Bought: ", davidQuantityUnwrapped, "WETH");
+        console.log("  Paid: ", davidTradeValue + davidTakerFee, "USDC");
+        console.log("  Taker fee: ", davidTakerFee, "USDC");
 
         console.log("Fee collector received:");
-        console.log("  Maker fees: ", aliceMakerFee, "WETH");
-        console.log("  Taker fees: ", bobTakerFee, "USDC");
+        console.log("  Total taker fees: ", totalTakerFee, "USDC");
+        console.log("  Alice maker fee: ", aliceMakerFee, "USDC");
+
+        console.log("Total trade value:", totalTradeValue, "USDC");
     }
 
     function testMultipleMakersSingleTakerPartialOrderMatchingWithHigherTakerQuantity() public {
@@ -975,7 +981,7 @@ contract BalanceAndFeeTest is Test, PoolHelper {
         // Create a series of buy orders at different price levels from multiple users
         vm.startPrank(alice);
         console.log("--- Alice places buy order at 2505 USDC per WETH (1 WETH) ---");
-        router.placeOrderWithDeposit(pool, alicePrice, aliceQuantity, IOrderBook.Side.BUY, alice);
+        router.placeOrderWithDeposit(pool, alicePrice, aliceQuantity, IOrderBook.Side.BUY);
         vm.stopPrank();
 
         // Verify Alice's quote token was locked
@@ -984,7 +990,7 @@ contract BalanceAndFeeTest is Test, PoolHelper {
 
         vm.startPrank(charlie);
         console.log("--- Charlie places buy order at 2502 USDC per WETH (1.5 WETH) ---");
-        router.placeOrderWithDeposit(pool, charliePrice, charlieQuantity, IOrderBook.Side.BUY, charlie);
+        router.placeOrderWithDeposit(pool, charliePrice, charlieQuantity, IOrderBook.Side.BUY);
         vm.stopPrank();
 
         // Verify Charlie's quote token was locked
@@ -993,7 +999,7 @@ contract BalanceAndFeeTest is Test, PoolHelper {
 
         vm.startPrank(david);
         console.log("--- David places buy order at 2500 USDC per WETH (2 WETH) ---");
-        router.placeOrderWithDeposit(pool, davidPrice, davidQuantity, IOrderBook.Side.BUY, david);
+        router.placeOrderWithDeposit(pool, davidPrice, davidQuantity, IOrderBook.Side.BUY);
         vm.stopPrank();
 
         // Verify David's quote token was locked
@@ -1038,7 +1044,7 @@ contract BalanceAndFeeTest is Test, PoolHelper {
         // If the system requires exact fills, this might revert
         // If the system allows partial fills, this should succeed and only fill what's available
         bool success = true;
-        try router.placeMarketOrderWithDeposit(pool, bobQuantity, IOrderBook.Side.SELL, bob) {
+        try router.placeMarketOrderWithDeposit(pool, bobQuantity, IOrderBook.Side.SELL) {
             // Order placed successfully
         } catch {
             success = false;
@@ -1255,7 +1261,7 @@ contract BalanceAndFeeTest is Test, PoolHelper {
         vm.startPrank(bob);
         bool success = true;
         IPoolManager.Pool memory _poolDetails = _getPool(poolManager, baseCurrency, quoteCurrency);
-        try router.placeMarketOrderWithDeposit(_poolDetails, bobQuantity, IOrderBook.Side.SELL, bob) {
+        try router.placeMarketOrderWithDeposit(_poolDetails, bobQuantity, IOrderBook.Side.SELL) {
             // Order placed successfully
         } catch {
             success = false;

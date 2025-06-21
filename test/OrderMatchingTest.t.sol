@@ -145,7 +145,7 @@ contract OrderMatchingTest is Test {
         IOrderBook.Side side = IOrderBook.Side.BUY;
 
         IPoolManager.Pool memory pool = _getPool(baseCurrency, quoteCurrency);
-        router.placeOrderWithDeposit(pool, price, quantity, side, address(alice));
+        router.placeOrderWithDeposit(pool, price, quantity, side);
 
         (uint48 orderCount, uint256 totalVolume) = orderBook.getOrderQueue(side, price);
 
@@ -162,14 +162,14 @@ contract OrderMatchingTest is Test {
         IOrderBook.Side limitSide = IOrderBook.Side.BUY;
 
         IPoolManager.Pool memory pool = _getPool(baseCurrency, quoteCurrency);
-        router.placeOrderWithDeposit(pool, limitPrice, limitQuantity, limitSide, address(bob));
+        router.placeOrderWithDeposit(pool, limitPrice, limitQuantity, limitSide);
         vm.stopPrank();
 
         vm.startPrank(alice);
         uint128 quantity = 2e18;
         IOrderBook.Side side = IOrderBook.Side.SELL;
 
-        router.placeMarketOrderWithDeposit(pool, quantity, side, address(alice));
+        router.placeMarketOrderWithDeposit(pool, quantity, side);
 
         (uint48 orderCount, uint256 totalVolume) = orderBook.getOrderQueue(limitSide, limitPrice);
 

@@ -73,13 +73,13 @@ contract PlaceLimitOrdersScript is Script, DeployHelpers {
         // Place buy order as User A
         vm.startBroadcast(userAPrivateKey);
         _setupUserFunds(userA, 0, 4000e6); // Give User A 4000 USDC for buy order
-        uint48 buyOrderId = gtxRouter.placeOrderWithDeposit(pool, PRICE, ORDER_QUANTITY, IOrderBook.Side.BUY, userA);
+        uint48 buyOrderId = gtxRouter.placeOrderWithDeposit(pool, PRICE, ORDER_QUANTITY, IOrderBook.Side.BUY);
         vm.stopBroadcast();
 
         // Place sell order as User B
         vm.startBroadcast(userBPrivateKey);
         _setupUserFunds(userB, 2e18, 0); // Give User B 2 ETH for sell order
-        uint48 sellOrderId = gtxRouter.placeOrderWithDeposit(pool, PRICE, ORDER_QUANTITY, IOrderBook.Side.SELL, userB);
+        uint48 sellOrderId = gtxRouter.placeOrderWithDeposit(pool, PRICE, ORDER_QUANTITY, IOrderBook.Side.SELL);
         vm.stopBroadcast();
 
         logOrders(buyOrderId, sellOrderId);
@@ -95,13 +95,13 @@ contract PlaceLimitOrdersScript is Script, DeployHelpers {
         // Place sell order as User A
         vm.startBroadcast(userAPrivateKey);
         _setupUserFunds(userA, 2e18, 0); // Give User A 2 ETH for sell order
-        uint48 sellOrderId = gtxRouter.placeOrderWithDeposit(pool, PRICE, ORDER_QUANTITY, IOrderBook.Side.SELL, userA);
+        uint48 sellOrderId = gtxRouter.placeOrderWithDeposit(pool, PRICE, ORDER_QUANTITY, IOrderBook.Side.SELL);
         vm.stopBroadcast();
 
         // Place buy order as User B
         vm.startBroadcast(userBPrivateKey);
         _setupUserFunds(userB, 0, 4000e6); // Give User B 4000 USDC for buy order
-        uint48 buyOrderId = gtxRouter.placeOrderWithDeposit(pool, PRICE, ORDER_QUANTITY, IOrderBook.Side.BUY, userB);
+        uint48 buyOrderId = gtxRouter.placeOrderWithDeposit(pool, PRICE, ORDER_QUANTITY, IOrderBook.Side.BUY);
         vm.stopBroadcast();
 
         logOrders(buyOrderId, sellOrderId);

@@ -111,7 +111,7 @@ contract FillMockOrderBook is Script, DeployHelpers {
 
         while (currentPrice <= endPrice && ordersPlaced < numOrders) {
             uint48 orderId =
-                gtxRouter.placeOrderWithDeposit(pool, currentPrice, quantity, IOrderBook.Side.BUY, msg.sender);
+                gtxRouter.placeOrderWithDeposit(pool, currentPrice, quantity, IOrderBook.Side.BUY);
             buyOrderIds.push(orderId);
 
             currentPrice += priceStep;
@@ -132,7 +132,7 @@ contract FillMockOrderBook is Script, DeployHelpers {
 
         while (currentPrice <= endPrice && ordersPlaced < numOrders) {
             uint48 orderId =
-                gtxRouter.placeOrderWithDeposit(pool, currentPrice, quantity, IOrderBook.Side.SELL, msg.sender);
+                gtxRouter.placeOrderWithDeposit(pool, currentPrice, quantity, IOrderBook.Side.SELL);
             sellOrderIds.push(orderId);
 
             currentPrice += priceStep;

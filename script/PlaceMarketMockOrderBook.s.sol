@@ -146,8 +146,7 @@ contract PlaceMarketMockOrderBook is Script, DeployHelpers {
             uint48 orderId = gtxRouter.placeMarketOrderWithDeposit(
                 pool, 
                 quantities[i % 5], 
-                IOrderBook.Side.BUY, 
-                deployerAddress
+                IOrderBook.Side.BUY
             );
             
             console.log("Placed market BUY order ID:", orderId);
@@ -175,8 +174,7 @@ contract PlaceMarketMockOrderBook is Script, DeployHelpers {
             uint48 orderId = gtxRouter.placeMarketOrderWithDeposit(
                 pool, 
                 quantities[i % 5], 
-                IOrderBook.Side.SELL, 
-                deployerAddress
+                IOrderBook.Side.SELL
             );
             
             console.log("Placed market SELL order ID:", orderId);

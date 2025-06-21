@@ -133,11 +133,10 @@ contract GTXRouter is IGTXRouter, GTXRouterStorage, Initializable, OwnableUpgrad
     function placeMarketOrder(
         IPoolManager.Pool memory pool,
         uint128 _quantity,
-        IOrderBook.Side _side,
-        address _user
+        IOrderBook.Side _side
     ) public returns (uint48 orderId) {
-        _validateCallerBalance(pool, _user, _side, _quantity, 0, false, false);
-        return _placeMarketOrder(pool, _quantity, _side, _user);
+        _validateCallerBalance(pool, msg.sender, _side, _quantity, 0, false, false);
+        return _placeMarketOrder(pool, _quantity, _side, msg.sender);
     }
 
     /**
@@ -171,24 +170,23 @@ contract GTXRouter is IGTXRouter, GTXRouterStorage, Initializable, OwnableUpgrad
         if (quantity == 0) {
             revert InvalidQuantity();
         }
-        return placeMarketOrder(pool, quantity, side, user);
+        return placeMarketOrder(pool, quantity, side);
     }
 
     function placeMarketOrderWithDeposit(
         IPoolManager.Pool memory pool,
         uint128 _quantity,
-        IOrderBook.Side _side,
-        address _user
+        IOrderBook.Side _side
     ) external returns (uint48 orderId) {
         (Currency depositCurrency, uint256 requiredBalance) =
-            _validateCallerBalance(pool, _user, _side, _quantity, 0, true, true);
+            _validateCallerBalance(pool, msg.sender, _side, _quantity, 0, true, true);
 
         Storage storage $ = getStorage();
         IBalanceManager balanceManager = IBalanceManager($.balanceManager);
 
-        balanceManager.deposit(depositCurrency, requiredBalance, _user, _user);
+        balanceManager.deposit(depositCurrency, requiredBalance, msg.sender, msg.sender);
         //
-        return _placeMarketOrder(pool, _quantity, _side, _user);
+        return _placeMarketOrder(pool, _quantity, _side, msg.sender);
     }
 
     function cancelOrder(IPoolManager.Pool memory pool, uint48 orderId) external {
