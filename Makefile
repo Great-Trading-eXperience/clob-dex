@@ -11,7 +11,7 @@ flag ?=
 # Custom network can be set via make network=<network_name>
 network ?= $(DEFAULT_NETWORK)
 
-.PHONY: account chain compile deploy deploy-verify flatten fork format generate lint test verify upgrade upgrade-verify full-integration swap deploy-incentives deploy-markets market-maker-orders simulate-voting
+.PHONY: account chain compile deploy deploy-verify flatten fork format generate lint test verify upgrade upgrade-verify full-integration swap deploy-incentives deploy-markets market-maker-orders simulate-voting deploy-faucet deploy-faucet-verify setup-faucet add-faucet-tokens deposit-faucet-tokens check-balances
 
 # Helper function to run forge script
 define forge_script
@@ -58,6 +58,31 @@ endef
 # Helper function to simulate voting
 define forge_simulate_voting
 	forge script script/SimulateVoting.s.sol:SimulateVoting --rpc-url $(network) --broadcast $(flag)
+endef
+
+# Helper function to deploy faucet
+define forge_deploy_faucet
+	forge script script/faucet/DeployFaucet.s.sol:DeployFaucet --rpc-url $(network) --broadcast $(flag)
+endef
+
+# Helper function to setup faucet
+define forge_setup_faucet
+	forge script script/faucet/SetupFaucet.s.sol:SetupFaucet --rpc-url $(network) --broadcast $(flag)
+endef
+
+# Helper function to add tokens to faucet
+define forge_add_faucet_tokens
+	forge script script/faucet/AddToken.s.sol:AddToken --rpc-url $(network) --broadcast $(flag)
+endef
+
+# Helper function to deposit tokens to faucet
+define forge_deposit_faucet_tokens
+	forge script script/faucet/DepositToken.s.sol:DepositToken --rpc-url $(network) --broadcast $(flag)
+endef
+
+# Helper function to check token balances
+define forge_check_balances
+	forge script script/CheckTokenBalances.s.sol:CheckTokenBalances --rpc-url $(network) $(flag)
 endef
 
 # Define a target to deploy using the specified network
@@ -116,6 +141,30 @@ market-maker-orders:
 simulate-voting:
 	$(call forge_simulate_voting,)
 
+# Define a target to deploy faucet
+deploy-faucet:
+	$(call forge_deploy_faucet,)
+
+# Define a target to deploy and verify faucet
+deploy-faucet-verify:
+	$(call forge_deploy_faucet,--verify)
+
+# Define a target to setup faucet
+setup-faucet:
+	$(call forge_setup_faucet,)
+
+# Define a target to add tokens to faucet
+add-faucet-tokens:
+	$(call forge_add_faucet_tokens,)
+
+# Define a target to deposit tokens to faucet
+deposit-faucet-tokens:
+	$(call forge_deposit_faucet_tokens,)
+
+# Define a target to check token balances
+check-balances:
+	$(call forge_check_balances,)
+
 # Define a target to run full integration (deploy everything and test)
 full-integration:
 	@echo "=========================================="
@@ -125,19 +174,27 @@ full-integration:
 	$(MAKE) deploy
 	@echo "\n✓ Core contracts deployed"
 	@sleep 2
-	@echo "\nStep 2: Deploying mock tokens..."
+	@echo "Step 2: Deploying mock tokens..."
 	$(MAKE) deploy-mocks
 	@echo "\n✓ Mock tokens deployed"
 	@sleep 2
-	@echo "\nStep 3: Filling orderbook with limit orders..."
+	@echo "\nStep 3: Deploying and setting up faucet..."
+	forge clean
+	$(MAKE) deploy-faucet
+	$(MAKE) setup-faucet
+	$(MAKE) add-faucet-tokens
+	$(MAKE) deposit-faucet-tokens
+	@echo "\n✓ Faucet deployed and configured"
+	@sleep 2
+	@echo "Step 4: Filling orderbook with limit orders..."
 	$(MAKE) fill-orderbook
 	@echo "\n✓ Orderbook filled with limit orders"
 	@sleep 2
-	@echo "\nStep 4: Placing market orders..."
+	@echo "Step 5: Placing market orders..."
 	$(MAKE) market-orderbook
 	@echo "\n✓ Market orders placed and executed"
 	@sleep 2
-	@echo "\nStep 5: Executing swaps..."
+	@echo "Step 6: Executing swaps..."
 	$(MAKE) swap
 	@echo "\n✓ Swaps executed"
 	@sleep 2
@@ -184,6 +241,12 @@ help:
 	@echo "  deploy-markets  - Deploy markets"
 	@echo "  market-maker-orders - Place orders via market maker vault"
 	@echo "  simulate-voting - Simulate voting process"
+	@echo "  deploy-faucet    - Deploy faucet contract"
+	@echo "  deploy-faucet-verify - Deploy and verify faucet contract"
+	@echo "  setup-faucet     - Setup faucet parameters"
+	@echo "  add-faucet-tokens - Add tokens to faucet"
+	@echo "  deposit-faucet-tokens - Deposit tokens to faucet"
+	@echo "  check-balances  - Check token balances and approvals for owner address"
 	@echo "  full-integration - Run full deployment and testing sequence"
 	@echo "  upgrade         - Upgrade contracts using the specified network"
 	@echo "  upgrade-verify  - Upgrade and verify contracts using the specified network"

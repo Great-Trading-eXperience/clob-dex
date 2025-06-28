@@ -970,7 +970,7 @@ contract BalanceAndFeeTest is Test, PoolHelper {
         uint256 charlieExpectedLocked = (charliePrice * charlieQuantity) / (10 ** baseDecimals);
         uint256 davidExpectedLocked = (davidPrice * davidQuantity) / (10 ** baseDecimals);
 
-        IPoolManager.Pool memory pool = _getPool(poolManager, baseCurrency, quoteCurrency);
+        IPoolManager.Pool memory currentPool = _getPool(poolManager, baseCurrency, quoteCurrency);
 
         // Create a series of buy orders at different price levels from multiple users
         vm.startPrank(alice);

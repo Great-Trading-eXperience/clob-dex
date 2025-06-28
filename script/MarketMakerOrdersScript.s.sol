@@ -93,80 +93,80 @@ contract MarketMakerOrdersScript is DeployHelpers {
         console.log("\n========== SELECTING MARKET MAKER VAULT ==========");
         
         // Try to get vaults from factory
-        try factory.getVaults() returns (address[] memory vaults) {
-            if (vaults.length == 0) {
-                console.log("No vaults found in factory");
-                return;
-            }
+        // try factory.getVaults() returns (address[] memory vaults) {
+        //     if (vaults.length == 0) {
+        //         console.log("No vaults found in factory");
+        //         return;
+        //     }
             
-            console.log("Found %d vaults:", vaults.length);
+        //     console.log("Found %d vaults:", vaults.length);
             
-            for (uint256 i = 0; i < vaults.length; i++) {
-                GTXMarketMakerVault mmVault = GTXMarketMakerVault(vaults[i]);
+        //     for (uint256 i = 0; i < vaults.length; i++) {
+        //         GTXMarketMakerVault mmVault = GTXMarketMakerVault(vaults[i]);
                 
-                try mmVault.name() returns (string memory vaultName) {
-                    try mmVault.symbol() returns (string memory vaultSymbol) {
-                        console.log("%d: %s (%s) - %s", i, vaultName, vaultSymbol, vaults[i]);
-                    } catch {
-                        console.log("%d: <Unknown Symbol> - %s", i, vaults[i]);
-                    }
-                } catch {
-                    console.log("%d: <Unknown Name> - %s", i, vaults[i]);
-                }
-            }
+        //         try mmVault.name() returns (string memory vaultName) {
+        //             try mmVault.symbol() returns (string memory vaultSymbol) {
+        //                 console.log("%d: %s (%s) - %s", i, vaultName, vaultSymbol, vaults[i]);
+        //             } catch {
+        //                 console.log("%d: <Unknown Symbol> - %s", i, vaults[i]);
+        //             }
+        //         } catch {
+        //             console.log("%d: <Unknown Name> - %s", i, vaults[i]);
+        //         }
+        //     }
             
-            if (vaults.length > 0) {
-                vaultAddress = vaults[0];
-                GTXMarketMakerVault selectedVault = GTXMarketMakerVault(vaultAddress);
+        //     if (vaults.length > 0) {
+        //         vaultAddress = vaults[0];
+        //         GTXMarketMakerVault selectedVault = GTXMarketMakerVault(vaultAddress);
                 
-                string memory vaultName = "";
-                string memory vaultSymbol = "";
+        //         string memory vaultName = "";
+        //         string memory vaultSymbol = "";
                 
-                try selectedVault.name() returns (string memory name) {
-                    vaultName = name;
-                } catch {}
+        //         try selectedVault.name() returns (string memory name) {
+        //             vaultName = name;
+        //         } catch {}
                 
-                try selectedVault.symbol() returns (string memory symbol) {
-                    vaultSymbol = symbol;
-                } catch {}
+        //         try selectedVault.symbol() returns (string memory symbol) {
+        //             vaultSymbol = symbol;
+        //         } catch {}
                 
-                console.log("\nSelected vault: %s (%s)", vaultName, vaultSymbol);
-                console.log("Vault address: %s", vaultAddress);
+        //         console.log("\nSelected vault: %s (%s)", vaultName, vaultSymbol);
+        //         console.log("Vault address: %s", vaultAddress);
                 
-                // Display vault parameters
-                displayVaultParameters(selectedVault);
-            }
-        } catch {
-            console.log("Failed to get vaults from factory");
-        }
+        //         // Display vault parameters
+        //         displayVaultParameters(selectedVault);
+        //     }
+        // } catch {
+        //     console.log("Failed to get vaults from factory");
+        // }
     }
     
     function displayVaultParameters(GTXMarketMakerVault selectedVault) private view {
-        console.log("\n========== VAULT PARAMETERS ==========");
+        // console.log("\n========== VAULT PARAMETERS ==========");
         
-        try selectedVault.getBaseToken() returns (address baseToken) {
-            console.log("Base Token: %s", baseToken);
-        } catch {
-            console.log("Failed to get base token");
-        }
+        // try selectedVault.getBaseToken() returns (address baseToken) {
+        //     console.log("Base Token: %s", baseToken);
+        // } catch {
+        //     console.log("Failed to get base token");
+        // }
         
-        try selectedVault.getQuoteToken() returns (address quoteToken) {
-            console.log("Quote Token: %s", quoteToken);
-        } catch {
-            console.log("Failed to get quote token");
-        }
+        // try selectedVault.getQuoteToken() returns (address quoteToken) {
+        //     console.log("Quote Token: %s", quoteToken);
+        // } catch {
+        //     console.log("Failed to get quote token");
+        // }
         
-        try selectedVault.getCurrentPrice() returns (uint128 currentPrice) {
-            console.log("Current Price: %d (quote decimals)", currentPrice);
-        } catch {
-            console.log("Failed to get current price");
-        }
+        // try selectedVault.getCurrentPrice() returns (uint128 currentPrice) {
+        //     console.log("Current Price: %d (quote decimals)", currentPrice);
+        // } catch {
+        //     console.log("Failed to get current price");
+        // }
         
-        try selectedVault.getTotalValue() returns (uint256 totalValue) {
-            console.log("Total Value: %d (quote decimals)", totalValue);
-        } catch {
-            console.log("Failed to get total value");
-        }
+        // try selectedVault.getTotalValue() returns (uint256 totalValue) {
+        //     console.log("Total Value: %d (quote decimals)", totalValue);
+        // } catch {
+        //     console.log("Failed to get total value");
+        // }
     }
     
     function placeLimitOrders() private {

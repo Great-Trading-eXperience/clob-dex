@@ -4,6 +4,7 @@ ast = true
 build_info = true
 extra_output = ["storageLayout"]
 src = "src"
+test = "test"
 out = "out"
 libs = ["lib"]
 optimizer = true

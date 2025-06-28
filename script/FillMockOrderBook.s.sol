@@ -54,16 +54,17 @@ contract FillMockOrderBook is Script, DeployHelpers {
 
     function run() public {
         uint256 deployerPrivateKey = getDeployerKey();
+        address deployer = vm.addr(deployerPrivateKey);
         vm.startBroadcast(deployerPrivateKey);
 
-        fillETHUSDCOrderBook();
+        fillETHUSDCOrderBook(deployer);
 
         verifyOrders();
 
         vm.stopBroadcast();
     }
 
-    function fillETHUSDCOrderBook() private {
+    function fillETHUSDCOrderBook(address deployer) private {
         console.log("\n=== Filling ETH/USDC Order Book ===");
 
         // Get currency objects
@@ -77,16 +78,16 @@ contract FillMockOrderBook is Script, DeployHelpers {
         _checkOrderBookPrices(pool, "Before Placing Orders");
 
         // Setup sender with funds
-        _setupFunds(200e18, 400_000e6); // 200 ETH, 400,000 USDC
+        _setupFunds(deployer, 200e18, 400_000e6); // 200 ETH, 400,000 USDC
 
         // Place BUY orders (bids) - ascending price from 1900 to 1980
-        _placeBuyOrders(pool, 1900e6, 1980e6, 10e6, 10, 5e17);
+        _placeBuyOrders(pool, deployer, 1900e6, 1980e6, 10e6, 10, 5e17);
 
         // Check order book state after placing BUY orders
         _checkOrderBookPrices(pool, "After Placing BUY Orders");
 
         // Place SELL orders (asks) - ascending price from 2000 to 2100
-        _placeSellOrders(pool, 2000e6, 2100e6, 10e6, 10, 4e17);
+        _placeSellOrders(pool, deployer, 2000e6, 2100e6, 10e6, 10, 4e17);
 
         // Check order book state after placing SELL orders
         _checkOrderBookPrices(pool, "After Placing SELL Orders");
@@ -97,10 +98,10 @@ contract FillMockOrderBook is Script, DeployHelpers {
         console.log("- SELL orders from 2000 USDC to 2100 USDC");
     }
 
-    function _setupFunds(uint256 ethAmount, uint256 usdcAmount) private {
-        // Mint tokens directly to sender
-        mockWETH.mint(msg.sender, ethAmount);
-        mockUSDC.mint(msg.sender, usdcAmount);
+    function _setupFunds(address user, uint256 ethAmount, uint256 usdcAmount) private {
+        // Mint tokens directly to user
+        mockWETH.mint(user, ethAmount);
+        mockUSDC.mint(user, usdcAmount);
 
         // Approve tokens for balance manager
         IERC20(address(mockWETH)).approve(address(balanceManager), ethAmount);
@@ -109,6 +110,7 @@ contract FillMockOrderBook is Script, DeployHelpers {
 
     function _placeBuyOrders(
         IPoolManager.Pool memory pool,
+        address user,
         uint128 startPrice,
         uint128 endPrice,
         uint128 priceStep,
@@ -120,7 +122,7 @@ contract FillMockOrderBook is Script, DeployHelpers {
 
         while (currentPrice <= endPrice && ordersPlaced < numOrders) {
             uint48 orderId =
-                gtxRouter.placeOrderWithDeposit(pool, currentPrice, quantity, IOrderBook.Side.BUY, msg.sender);
+                gtxRouter.placeOrderWithDeposit(pool, currentPrice, quantity, IOrderBook.Side.BUY, user);
             buyOrderIds.push(orderId);
 
             currentPrice += priceStep;
@@ -130,6 +132,7 @@ contract FillMockOrderBook is Script, DeployHelpers {
 
     function _placeSellOrders(
         IPoolManager.Pool memory pool,
+        address user,
         uint128 startPrice,
         uint128 endPrice,
         uint128 priceStep,
@@ -141,7 +144,7 @@ contract FillMockOrderBook is Script, DeployHelpers {
 
         while (currentPrice <= endPrice && ordersPlaced < numOrders) {
             uint48 orderId =
-                gtxRouter.placeOrderWithDeposit(pool, currentPrice, quantity, IOrderBook.Side.SELL, msg.sender);
+                gtxRouter.placeOrderWithDeposit(pool, currentPrice, quantity, IOrderBook.Side.SELL, user);
             sellOrderIds.push(orderId);
 
             currentPrice += priceStep;

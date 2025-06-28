@@ -842,10 +842,10 @@ contract GTXMarketMakerTest is Test {
         (
             uint256 minTargetRatio,
             uint256 maxTargetRatio,
-            uint256 minSpread,
+            uint256 newMinSpread,
             uint256 maxSpread,
             uint256 minOrderSize,
-            uint256 maxOrderSize,
+            uint256 newMaxOrderSize,
             uint256 minSlippageTolerance,
             uint256 maxSlippageTolerance,
             uint256 minActiveOrdersParam,

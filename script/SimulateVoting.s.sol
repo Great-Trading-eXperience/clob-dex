@@ -99,56 +99,56 @@ contract SimulateVoting is DeployHelpers {
     }
     
     function configureVotersAndPools() private {
-        console.log("\n========== CONFIGURING VOTERS AND POOLS ==========");
+        // console.log("\n========== CONFIGURING VOTERS AND POOLS ==========");
         
-        addVoter("alice", vm.addr(uint256(keccak256("alice"))));
-        addVoter("bob", vm.addr(uint256(keccak256("bob"))));
-        addVoter("charlie", vm.addr(uint256(keccak256("charlie"))));
+        // addVoter("alice", vm.addr(uint256(keccak256("alice"))));
+        // addVoter("bob", vm.addr(uint256(keccak256("bob"))));
+        // addVoter("charlie", vm.addr(uint256(keccak256("charlie"))));
         
-        for (uint256 i = 0; i < deployments.length; i++) {
-            if (startsWith(deployments[i].name, "POOL_")) {
-                pools.push(deployments[i].addr);
-                poolNames.push(deployments[i].name);
-                console.log("Found pool: %s at %s", deployments[i].name, deployments[i].addr);
-            }
-        }
+        // for (uint256 i = 0; i < deployments.length; i++) {
+        //     if (startsWith(deployments[i].name, "POOL_")) {
+        //         pools.push(deployments[i].addr);
+        //         poolNames.push(deployments[i].name);
+        //         console.log("Found pool: %s at %s", deployments[i].name, deployments[i].addr);
+        //     }
+        // }
         
-        if (pools.length == 0) {
-            console.log("No pools found in deployments, checking factory for vaults");
+        // if (pools.length == 0) {
+        //     console.log("No pools found in deployments, checking factory for vaults");
             
-            try factory.getVaults() returns (address[] memory vaults) {
-                for (uint256 i = 0; i < vaults.length; i++) {
-                    pools.push(vaults[i]);
-                    poolNames.push(string(abi.encodePacked("Vault_", vm.toString(i))));
-                    console.log("Found vault: %s", vaults[i]);
-                }
-            } catch {
-                console.log("Failed to get vaults from factory");
-            }
-        }
+        //     try factory.getVaults() returns (address[] memory vaults) {
+        //         for (uint256 i = 0; i < vaults.length; i++) {
+        //             pools.push(vaults[i]);
+        //             poolNames.push(string(abi.encodePacked("Vault_", vm.toString(i))));
+        //             console.log("Found vault: %s", vaults[i]);
+        //         }
+        //     } catch {
+        //         console.log("Failed to get vaults from factory");
+        //     }
+        // }
         
-        if (pools.length == 0) {
-            console.log("WARNING: No pools found. Please deploy pools first using DeployMarkets.s.sol");
-        } else {
-            console.log("Configured %d voters and %d pools", voters.length, pools.length);
-        }
+        // if (pools.length == 0) {
+        //     console.log("WARNING: No pools found. Please deploy pools first using DeployMarkets.s.sol");
+        // } else {
+        //     console.log("Configured %d voters and %d pools", voters.length, pools.length);
+        // }
         
-        try votingController.getPools() returns (address[] memory existingPools) {
-            if (existingPools.length == 0 && pools.length > 0) {
-                console.log("Adding pools to voting controller");
-                uint64[] memory chainIds = new uint64[](pools.length);
-                for (uint256 i = 0; i < pools.length; i++) {
-                    chainIds[i] = uint64(block.chainid);
-                }
-                try votingController.addMultiPools(chainIds, pools) {
-                    console.log("Successfully added pools to voting controller");
-                } catch {
-                    console.log("Failed to add pools to voting controller");
-                }
-            }
-        } catch {
-            console.log("Failed to get pools from voting controller");
-        }
+        // try votingController.getPools() returns (address[] memory existingPools) {
+        //     if (existingPools.length == 0 && pools.length > 0) {
+        //         console.log("Adding pools to voting controller");
+        //         uint64[] memory chainIds = new uint64[](pools.length);
+        //         for (uint256 i = 0; i < pools.length; i++) {
+        //             chainIds[i] = uint64(block.chainid);
+        //         }
+        //         try votingController.addMultiPools(chainIds, pools) {
+        //             console.log("Successfully added pools to voting controller");
+        //         } catch {
+        //             console.log("Failed to add pools to voting controller");
+        //         }
+        //     }
+        // } catch {
+        //     console.log("Failed to get pools from voting controller");
+        // }
     }
     
     function distributeTokens() private {
@@ -173,40 +173,40 @@ contract SimulateVoting is DeployHelpers {
     function lockTokens() private {
         console.log("\n========== LOCKING TOKENS FOR VOTING POWER ==========");
         
-        for (uint256 i = 0; i < voters.length; i++) {
-            address voter = voters[i];
-            string memory name = voterNames[i];
+        // for (uint256 i = 0; i < voters.length; i++) {
+        //     address voter = voters[i];
+        //     string memory name = voterNames[i];
             
-            try veToken.balanceOf(voter) returns (uint256 balance) {
-                if (balance > 0) {
-                    console.log("%s already has %d voting power", name, balance / 1e18);
-                    continue;
-                }
-            } catch {
-                console.log("Failed to check voting power for %s", name);
-            }
+        //     try veToken.balanceOf(voter) returns (uint256 balance) {
+        //         if (balance > 0) {
+        //             console.log("%s already has %d voting power", name, balance / 1e18);
+        //             continue;
+        //         }
+        //     } catch {
+        //         console.log("Failed to check voting power for %s", name);
+        //     }
             
-            vm.startPrank(voter);
-            try token.approve(address(veToken), LOCK_AMOUNT) {
-                console.log("%s approved tokens for locking", name);
-            } catch {
-                console.log("Failed to approve tokens for %s", name);
-                vm.stopPrank();
-                continue;
-            }
+        //     vm.startPrank(voter);
+        //     try token.approve(address(veToken), LOCK_AMOUNT) {
+        //         console.log("%s approved tokens for locking", name);
+        //     } catch {
+        //         console.log("Failed to approve tokens for %s", name);
+        //         vm.stopPrank();
+        //         continue;
+        //     }
             
-            uint128 lockEnd = uint128(
-                WeekMath.getWeekStartTimestamp(uint128(block.timestamp + YEAR)) + WEEK - 1
-            );
+        //     uint128 lockEnd = uint128(
+        //         WeekMath.getWeekStartTimestamp(uint128(block.timestamp + YEAR)) + WEEK - 1
+        //     );
             
-            try veToken.createLock(LOCK_AMOUNT, lockEnd) {
-                console.log("%s locked %d tokens until %s", name, LOCK_AMOUNT / 1e18, vm.toString(lockEnd));
-            } catch {
-                console.log("Failed to lock tokens for %s", name);
-            }
+        //     try veToken.createLock(LOCK_AMOUNT, lockEnd) {
+        //         console.log("%s locked %d tokens until %s", name, LOCK_AMOUNT / 1e18, vm.toString(lockEnd));
+        //     } catch {
+        //         console.log("Failed to lock tokens for %s", name);
+        //     }
             
-            vm.stopPrank();
-        }
+        //     vm.stopPrank();
+        // }
     }
     
     function voteForPools() private {
