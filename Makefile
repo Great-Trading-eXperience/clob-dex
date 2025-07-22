@@ -11,7 +11,7 @@ flag ?=
 # Custom network can be set via make network=<network_name>
 network ?= $(DEFAULT_NETWORK)
 
-.PHONY: account chain compile deploy deploy-verify flatten fork format generate lint test verify upgrade upgrade-verify full-integration swap
+.PHONY: account chain compile deploy deploy-verify flatten fork format generate lint test verify upgrade upgrade-verify full-integration simple-integration simple-demo swap
 
 # Helper function to run forge script
 define forge_script
@@ -42,6 +42,10 @@ endef
 
 define forge_mint_tokens
 	forge script script/MintTokens.s.sol:MintTokens --rpc-url $(network) --broadcast $(flag)
+endef
+
+define forge_simple_market_order_demo
+	forge script script/SimpleMarketOrderDemo.s.sol:SimpleMarketOrderDemo --rpc-url $(network) --broadcast $(flag)
 endef
 
 # Define a target to deploy using the specified network
@@ -87,6 +91,30 @@ swap:
 # Define a target to mint tokens
 mint-tokens:
 	$(call forge_mint_tokens,)
+
+# Define a target to run simple market order demo
+simple-demo:
+	$(call forge_simple_market_order_demo,)
+
+# Define a target to run simple integration (deploy, deploy-mocks, simple demo)
+simple-integration:
+	@echo "=========================================="
+	@echo "Starting Simple Integration Demo..."
+	@echo "=========================================="
+	@echo "Step 1: Deploying core contracts..."
+	$(MAKE) deploy
+	@echo "\n✓ Core contracts deployed"
+	@sleep 2
+	@echo "\nStep 2: Deploying mock tokens..."
+	$(MAKE) deploy-mocks
+	@echo "\n✓ Mock tokens deployed"
+	@sleep 2
+	@echo "\nStep 3: Running simple market order demo..."
+	$(MAKE) simple-demo
+	@echo "\n✓ Simple market order demo completed"
+	@echo "\n=========================================="
+	@echo "Simple Integration Demo Complete!"
+	@echo "=========================================="
 
 # Define a target to run full integration (deploy everything and test)
 full-integration:
@@ -159,6 +187,8 @@ help:
 	@echo "  market-orderbook - Place market orders in mock order book"
 	@echo "  swap            - Execute token swaps"
 	@echo "  mint-tokens     - Mint tokens to specified recipient"
+	@echo "  simple-demo     - Run simple market order demonstration"
+	@echo "  simple-integration - Run simple integration (deploy, deploy-mocks, simple-demo)"
 	@echo "  full-integration - Run full deployment and testing sequence"
 	@echo "  upgrade         - Upgrade contracts using the specified network"
 	@echo "  upgrade-verify  - Upgrade and verify contracts using the specified network"
