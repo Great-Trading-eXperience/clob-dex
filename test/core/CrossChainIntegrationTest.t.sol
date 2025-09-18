@@ -42,8 +42,8 @@ contract CrossChainIntegrationTest is Test {
         vm.startPrank(owner);
         
         // Deploy tokens and mailbox
-        sourceToken = new MockToken("USDT", "USDT", 6);
-        syntheticToken = new MockToken("gsUSDT", "gsUSDT", 6);
+        sourceToken = new MockToken("USDC", "USDC", 6);
+        syntheticToken = new MockToken("gsUSDC", "gsUSDC", 6);
         mailbox = new MockMailbox();
         
         // Deploy BalanceManager (destination chain - Rari)
@@ -78,14 +78,14 @@ contract CrossChainIntegrationTest is Test {
         chainBalanceManager.setTokenMapping(address(sourceToken), address(syntheticToken));
         
         // Setup test balances
-        sourceToken.mint(user, 1000e6); // 1000 USDT
+        sourceToken.mint(user, 1000e6); // 1000 USDC
         syntheticToken.mint(address(balanceManager), 1000e6); // Mint synthetics to BalanceManager for testing
         
         vm.stopPrank();
     }
 
     function test_CrossChainDeposit() public {
-        uint256 depositAmount = 100e6; // 100 USDT
+        uint256 depositAmount = 100e6; // 100 USDC
         
         vm.startPrank(user);
         
@@ -112,7 +112,7 @@ contract CrossChainIntegrationTest is Test {
     }
 
     function test_CrossChainMessageHandling() public {
-        uint256 amount = 50e6; // 50 USDT
+        uint256 amount = 50e6; // 50 USDC
         uint256 nonce = 123;
         
         // Create deposit message (simulating message from ChainBalanceManager)
@@ -143,7 +143,7 @@ contract CrossChainIntegrationTest is Test {
     }
 
     function test_CrossChainWithdraw() public {
-        uint256 withdrawAmount = 25e6; // 25 USDT
+        uint256 withdrawAmount = 25e6; // 25 USDC
         
         // Setup: Give user synthetic tokens
         vm.startPrank(owner);
@@ -181,7 +181,7 @@ contract CrossChainIntegrationTest is Test {
     }
 
     function test_WithdrawMessageHandling() public {
-        uint256 amount = 30e6; // 30 USDT
+        uint256 amount = 30e6; // 30 USDC
         uint256 nonce = 456;
         
         // Setup: Deposit tokens to vault first

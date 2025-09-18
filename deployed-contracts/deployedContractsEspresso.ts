@@ -53,7 +53,7 @@ export const deployedContracts: DeployedContracts = {
 			address: "0x0a1Ced1539C9FB81aBdDF870588A4fEfBf461bBB",
 			abi: ChainRegistryABI,
 		},
-		gsUSDT: {
+		gsUSDC: {
 			address: "0x6fcf28b801C7116cA8b6460289e259aC8D9131F3",
 			abi: SyntheticTokenABI,
 		},
@@ -93,7 +93,7 @@ export const deployedContracts: DeployedContracts = {
 			address: "0x27D0Dd86F00b59aD528f1D9B699847A588fbA2C7",
 			abi: ChainBalanceManagerABI,
 		},
-		USDT: {
+		USDC: {
 			address: "0x1362Dd75d8F1579a0Ebd62DF92d8F3852C3a7516",
 			abi: ERC20ABI,
 		},
@@ -113,7 +113,7 @@ export const deployedContracts: DeployedContracts = {
 			address: "0xF36453ceB82F0893FCCe4da04d32cEBfe33aa29A",
 			abi: ChainBalanceManagerABI,
 		},
-		USDT: {
+		USDC: {
 			address: "0x5eafC52D170ff391D41FBA99A7e91b9c4D49929a",
 			abi: ERC20ABI,
 		},
@@ -133,7 +133,7 @@ export const deployedContracts: DeployedContracts = {
 			address: "0xa2B3Eb8995814E84B4E369A11afe52Cef6C7C745",
 			abi: ChainBalanceManagerABI,
 		},
-		USDT: {
+		USDC: {
 			address: "0x97668AEc1d8DEAF34d899c4F6683F9bA877485f6",
 			abi: ERC20ABI,
 		},

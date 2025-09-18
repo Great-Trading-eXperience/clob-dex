@@ -7,12 +7,28 @@ import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Ini
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {FaucetStorage} from "./FaucetStorage.sol";
 
-contract Faucet is Initializable, OwnableUpgradeable, ReentrancyGuardUpgradeable, FaucetStorage {
+interface IFaucetErrors {
+    error TokenAlreadyExists(address token);
+    error FaucetAmountNotSet();
+    error FaucetCooldownNotSet();
+    error CooldownNotPassed(uint256 availableAt);
+    error InsufficientFaucetBalance(uint256 required, uint256 available);
+    error TransferFailed();
+    error ZeroAmount();
+    error TokenNotSupported(address token);
+    error InsufficientNativeBalance(uint256 required, uint256 available);
+    error NativeTransferFailed();
+    error IncorrectNativeAmount();
+}
+
+contract Faucet is Initializable, OwnableUpgradeable, ReentrancyGuardUpgradeable, FaucetStorage, IFaucetErrors {
     event AddToken(address token);
     event UpdateFaucetAmount(uint256 amount);
     event UpdateFaucetCooldown(uint256 cooldown);
     event RequestToken(address requester, address receiver, address token);
     event DepositToken(address depositor, address token, uint256 amount);
+
+    address private constant NATIVE_TOKEN = address(0);
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -34,7 +50,7 @@ contract Faucet is Initializable, OwnableUpgradeable, ReentrancyGuardUpgradeable
 
         for (uint256 i = 0; i < $.availableTokens.length; i++) {
             if (_token == $.availableTokens[i]) {
-                revert("The token has already exist");
+                revert TokenAlreadyExists(_token);
             }
         }
 
@@ -43,11 +59,11 @@ contract Faucet is Initializable, OwnableUpgradeable, ReentrancyGuardUpgradeable
         emit AddToken(_token);
     }
 
-    function getAvailableTokensLength() view public returns(uint256) {
+    function getAvailableTokensLength() public view returns(uint256) {
         return getStorage().availableTokens.length;
     }
 
-    function getAvailableToken(uint256 index) view public returns(address) {
+    function getAvailableToken(uint256 index) public view returns(address) {
         return getStorage().availableTokens[index];
     }
 
@@ -83,44 +99,128 @@ contract Faucet is Initializable, OwnableUpgradeable, ReentrancyGuardUpgradeable
     function getCurrentTimestamp() public view returns (uint256) {
         return block.timestamp;
     }
+    
+    function getNativeBalance() public view returns (uint256) {
+        return address(this).balance;
+    }
+    
+    function getTokenBalance(address _token) public view returns (uint256) {
+        if (_token == NATIVE_TOKEN) {
+            return address(this).balance;
+        } else {
+            return IERC20(_token).balanceOf(address(this));
+        }
+    }
+    
+    function isNativeToken(address _token) public pure returns (bool) {
+        return _token == NATIVE_TOKEN;
+    }
 
     function requestToken(address _receiver, address _token) public nonReentrant {
         Storage storage $ = getStorage();
-        require($.faucetAmount > 0, "Faucet amount isn't set yet");
-        require($.faucetCooldown > 0, "Faucet cooldown isn't set yet");
-        require(block.timestamp > $.lastRequestTime[msg.sender], "Please wait until the cooldown time is passed");
-        require(IERC20(_token).balanceOf(address(this)) > $.faucetAmount, "The amount of balance is not enough");
+        if ($.faucetAmount == 0) {
+            revert FaucetAmountNotSet();
+        }
+        if ($.faucetCooldown == 0) {
+            revert FaucetCooldownNotSet();
+        }
+        uint256 lastRequest = $.lastRequestTime[msg.sender];
+        if (lastRequest != 0 && block.timestamp < lastRequest + $.faucetCooldown) {
+            revert CooldownNotPassed(lastRequest + $.faucetCooldown);
+        }
+        
+        if (_token == NATIVE_TOKEN) {
+            // Handle native token (ETH)
+            uint256 nativeBalance = address(this).balance;
+            if (nativeBalance < $.faucetAmount) {
+                revert InsufficientNativeBalance($.faucetAmount, nativeBalance);
+            }
+            
+            (bool success, ) = payable(_receiver).call{value: $.faucetAmount}("");
+            if (!success) {
+                revert NativeTransferFailed();
+            }
+            
+            emit RequestToken(msg.sender, _receiver, NATIVE_TOKEN);
+        } else {
+            // Handle ERC20 token
+            uint256 faucetBalance = IERC20(_token).balanceOf(address(this));
+            if (faucetBalance < $.faucetAmount) {
+                revert InsufficientFaucetBalance($.faucetAmount, faucetBalance);
+            }
 
-        bool result = IERC20(_token).transfer(_receiver, $.faucetAmount);
-        require(result, "The transfer process doesn't executed successfully");
+            bool result = IERC20(_token).transfer(_receiver, $.faucetAmount);
+            if (!result) {
+                revert TransferFailed();
+            }
+            
+            emit RequestToken(msg.sender, _receiver, _token);
+        }
 
         $.lastRequestTime[msg.sender] = block.timestamp;
-
-        emit RequestToken(msg.sender, _receiver, _token);
     }
 
-    function drainWallet(address _token) public nonReentrant {
-        uint256 balance = IERC20(_token).balanceOf(msg.sender);
-        bool success = IERC20(_token).transferFrom(msg.sender, address(this), balance);
-        require(success, "Transfer failed");
-    }
-
-    function depositToken(address _token, uint256 _amount) public nonReentrant {
-        require(_amount > 0, "Amount must be greater than 0");
+    function depositToken(address _token, uint256 _amount) public payable nonReentrant {
+        if (_amount == 0) {
+            revert ZeroAmount();
+        }
         
         Storage storage $ = getStorage();
-        bool exists = false;
-        for (uint256 i = 0; i < $.availableTokens.length; i++) {
-            if (_token == $.availableTokens[i]) {
-                exists = true;
-                break;
+        
+        if (_token == NATIVE_TOKEN) {
+            // Handle native token (ETH) deposit
+            if (msg.value != _amount) {
+                revert IncorrectNativeAmount();
             }
+            
+            emit DepositToken(msg.sender, NATIVE_TOKEN, _amount);
+        } else {
+            // Handle ERC20 token deposit
+            if (msg.value != 0) {
+                revert IncorrectNativeAmount();
+            }
+            
+            bool exists = false;
+            for (uint256 i = 0; i < $.availableTokens.length; i++) {
+                if (_token == $.availableTokens[i]) {
+                    exists = true;
+                    break;
+                }
+            }
+            if (!exists) {
+                revert TokenNotSupported(_token);
+            }
+
+            bool success = IERC20(_token).transferFrom(msg.sender, address(this), _amount);
+            if (!success) {
+                revert TransferFailed();
+            }
+
+            emit DepositToken(msg.sender, _token, _amount);
         }
-        require(exists, "Token not supported by faucet");
-
-        bool success = IERC20(_token).transferFrom(msg.sender, address(this), _amount);
-        require(success, "Transfer failed");
-
-        emit DepositToken(msg.sender, _token, _amount);
+    }
+    
+    // Convenience function to deposit native token without specifying amount
+    function depositNative() external payable nonReentrant {
+        if (msg.value == 0) {
+            revert ZeroAmount();
+        }
+        
+        emit DepositToken(msg.sender, NATIVE_TOKEN, msg.value);
+    }
+    
+    // Convenience function to request native token
+    function requestNative(address _receiver) external nonReentrant {
+        requestToken(_receiver, NATIVE_TOKEN);
+    }
+    
+    // Allow contract to receive native tokens directly
+    receive() external payable {
+        emit DepositToken(msg.sender, NATIVE_TOKEN, msg.value);
+    }
+    
+    // Fallback function
+    fallback() external payable {
+        emit DepositToken(msg.sender, NATIVE_TOKEN, msg.value);
     }
 }

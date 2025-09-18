@@ -19,16 +19,30 @@ network ?= $(DEFAULT_NETWORK)
 RARI_RPC := https://rari.caff.testnet.espresso.network
 APPCHAIN_RPC := https://appchain.caff.testnet.espresso.network
 ARBITRUM_RPC := https://sepolia-rollup.arbitrum.io/rpc
+GTX_ANVIL_RPC := https://anvil.gtxdex.xyz
+GTX_ANVIL_2_RPC := https://side-anvil.gtxdex.xyz
 
 # Helper function to get RPC URL by network name
 define get_rpc_url
 $(if $(filter rari_testnet,$(1)),$(RARI_RPC),\
 $(if $(filter appchain_testnet,$(1)),$(APPCHAIN_RPC),\
 $(if $(filter arbitrum_sepolia,$(1)),$(ARBITRUM_RPC),\
-$(1))))
+$(if $(filter gtx_anvil,$(1)),$(GTX_ANVIL_RPC),\
+$(if $(filter gtx_anvil_2,$(1)),$(GTX_ANVIL_2_RPC),\
+$(1))))))
 endef
 
-.PHONY: account chain compile deploy deploy-verify flatten fork format generate lint test verify upgrade upgrade-verify full-integration simple-integration simple-demo swap deploy-chain-balance-manager add-tokens-chain-balance-manager add-single-token-chain-balance-manager remove-single-token-chain-balance-manager list-tokens-chain-balance-manager test-chain-balance-manager fill-orderbook-tokens market-orderbook-tokens deploy-upgradeable-gtx upgrade-gtx-contract test-espresso-integration check-env
+# Helper function to get chain name for deployment files (using chain IDs)
+define get_chain_name
+$(if $(filter rari_testnet,$(1)),rari,$(if $(filter appchain_testnet,$(1)),appchain,$(if $(filter arbitrum_sepolia,$(1)),arbitrum-sepolia,$(if $(filter gtx_anvil,$(1)),31337,$(if $(filter gtx_anvil_2,$(1)),31338,$(1))))))
+endef
+
+# Helper function to get paired chain ID (for cross-chain operations)
+define get_paired_chain
+$(if $(filter gtx_anvil,$(1)),31338,$(if $(filter gtx_anvil_2,$(1)),31337,$(1)))
+endef
+
+.PHONY: account chain compile deploy deploy-verify flatten fork format generate lint test verify upgrade upgrade-verify full-integration simple-integration simple-demo swap deploy-chain-balance-manager add-tokens-chain-balance-manager add-single-token-chain-balance-manager remove-single-token-chain-balance-manager list-tokens-chain-balance-manager test-chain-balance-manager fill-orderbook-tokens market-orderbook-tokens deploy-upgradeable-gtx upgrade-gtx-contract test-espresso-integration check-env verify-balance validate-deployment validate-data-population validate-cross-chain-deposit test-local-deposit fill-orderbook fill-orderbook-custom market-order transfer-tokens diagnose-market-order
 
 # Helper function to run forge script
 define forge_script
@@ -37,7 +51,7 @@ endef
 
 # Helper function to run upgrade script
 define forge_upgrade_script
- forge script script/UpgradeBeaconProxies.s.sol:UpgradeBeaconProxies --rpc-url $(network) --broadcast $(flag)
+ forge script script/maintenance/UpgradeBeaconProxies.s.sol:UpgradeBeaconProxies --rpc-url $(network) --broadcast $(flag)
 endef
 
 # Helper function to run mock deployment script
@@ -45,37 +59,16 @@ define forge_deploy_mocks
 	forge script script/DeployMocks.s.sol:DeployMocks --rpc-url $(network) --broadcast $(flag)
 endef
 
-define forge_fill_mock_orderbook
-	forge script script/FillMockOrderBook.s.sol:FillMockOrderBook --rpc-url $(network) --broadcast $(flag)
-endef
 
-define forge_place_market_mock_orderbook
-	forge script script/PlaceMarketMockOrderBook.s.sol:PlaceMarketMockOrderBook --rpc-url $(network) --broadcast $(flag)
-endef
 
-define forge_fill_mock_orderbook_configurable
-	forge script script/FillMockOrderBook.s.sol:FillMockOrderBook --sig "runConfigurable(uint128,uint128,uint128,uint128,uint128,uint8,uint128,uint128,uint256,uint256)" $(buy_start_price) $(buy_end_price) $(sell_start_price) $(sell_end_price) $(price_step) $(num_orders) $(buy_quantity) $(sell_quantity) $(eth_amount) $(usdc_amount) --rpc-url $(network) --broadcast $(flag)
-endef
 
-define forge_place_market_mock_orderbook_configurable
-	forge script script/PlaceMarketMockOrderBook.s.sol:PlaceMarketMockOrderBook --sig "runConfigurable(uint8,uint8,uint256,uint256)" $(num_buy_orders) $(num_sell_orders) $(eth_amount) $(usdc_amount) --rpc-url $(network) --broadcast $(flag)
-endef
 
-define forge_fill_orderbook_with_tokens
-	forge script script/FillMockOrderBook.s.sol:FillMockOrderBook --sig "runWithTokens(string,string)" "$(token0)" "$(token1)" --rpc-url $(network) --broadcast $(flag)
-endef
 
-define forge_market_orderbook_with_tokens
-	forge script script/PlaceMarketMockOrderBook.s.sol:PlaceMarketMockOrderBook --sig "runWithTokens(string,string)" "$(token0)" "$(token1)" --rpc-url $(network) --broadcast $(flag)
-endef
 
 define forge_swap
-	forge script script/Swap.s.sol:Swap --rpc-url $(network) --broadcast $(flag)
+	forge script script/trading/Swap.s.sol:Swap --rpc-url $(network) --broadcast $(flag)
 endef
 
-define forge_mint_tokens
-	forge script script/MintTokens.s.sol:MintTokens --rpc-url $(network) --broadcast $(flag)
-endef
 
 define forge_deploy_faucet
 	forge script script/faucet/DeployFaucet.s.sol:DeployFaucet --rpc-url $(network) --broadcast $(flag)
@@ -93,55 +86,12 @@ define forge_deposit_faucet_tokens
 	forge script script/faucet/DepositToken.s.sol:DepositToken --rpc-url $(network) --broadcast $(flag)
 endef
 
-define forge_simple_market_order_demo
-	forge script script/SimpleMarketOrderDemo.s.sol:SimpleMarketOrderDemo --rpc-url $(network) --broadcast $(flag)
-endef
-
-define forge_deploy_chain_balance_manager
-	forge script script/DeployChainBalanceManager.s.sol:DeployChainBalanceManager --rpc-url $(network) --broadcast $(flag)
-endef
-
-define forge_add_tokens_chain_balance_manager
-	forge script script/AddTokensToChainBalanceManager.s.sol:AddTokensToChainBalanceManager --rpc-url $(network) --broadcast $(flag)
-endef
-
-define forge_test_chain_balance_manager_unlock_claim
-	forge script script/TestChainBalanceManagerUnlockClaim.s.sol:TestChainBalanceManagerUnlockClaim --rpc-url $(network) --broadcast $(flag)
-endef
-
-define forge_test_chain_balance_manager_simple
-	forge script script/TestChainBalanceManagerSimple.s.sol:TestChainBalanceManagerSimple --rpc-url $(network) --broadcast $(flag)
-endef
-
-define forge_test_chain_balance_manager_basic
-	forge script script/TestChainBalanceManagerBasic.s.sol:TestChainBalanceManagerBasic --rpc-url $(network) --broadcast $(flag)
-endef
-
-# =============================================================
-#              NEW ESPRESSO HYPERLANE FUNCTIONS
-# =============================================================
-
 # Environment check
 check-env:
 	@if [ -z "$(PRIVATE_KEY)" ]; then \
 		echo "Error: PRIVATE_KEY not set in .env"; \
 		exit 1; \
 	fi
-
-# Deploy upgradeable GTX contracts
-define forge_deploy_upgradeable_gtx
-	NETWORK=$(1) forge script script/DeployUpgradeableGTX.s.sol:DeployUpgradeableGTX --rpc-url $(call get_rpc_url,$(1)) --broadcast $(flag)
-endef
-
-# Upgrade GTX contracts
-define forge_upgrade_gtx
-	PROXY_ADDRESS=$(1) CONTRACT_TYPE=$(2) forge script script/UpgradeGTXContract.s.sol:UpgradeGTXContract --rpc-url $(call get_rpc_url,$(3)) --broadcast $(flag)
-endef
-
-# Test Espresso integration
-define forge_test_espresso
-	TEST_TYPE=$(1) $(2) forge script script/TestEspressoIntegration.s.sol:TestEspressoIntegration --rpc-url $(call get_rpc_url,$(3)) $(4)
-endef
 
 # Define a target to deploy using the specified network
 deploy:
@@ -171,77 +121,13 @@ deploy-mocks:
 deploy-mocks-verify:
 	$(call forge_deploy_mocks,--verify)
 
-# Define a target to fill mock order book
-fill-orderbook:
-	$(call forge_fill_mock_orderbook,)
-
-# Define a target to place market mock order book
-market-orderbook:
-	$(call forge_place_market_mock_orderbook,)
-
-# Define a target to fill orderbook with specific tokens
-fill-orderbook-tokens:
-	$(call forge_fill_orderbook_with_tokens,)
-
-# Define a target to place market orders with specific tokens
-market-orderbook-tokens:
-	$(call forge_market_orderbook_with_tokens,)
-
-# Define a target to fill orderbook with configurable parameters
-fill-orderbook-configurable:
-	$(call forge_fill_mock_orderbook_configurable,)
-
-# Define a target to place market orders with configurable parameters
-market-orderbook-configurable:
-	$(call forge_place_market_mock_orderbook_configurable,)
-
 # Define a target to execute swaps
 swap:
 	$(call forge_swap,)
 
-# Define a target to mint tokens
-mint-tokens:
-	$(call forge_mint_tokens,)
-
-# Define a target to run simple market order demo
-simple-demo:
-	$(call forge_simple_market_order_demo,)
-
-# Define a target to deploy ChainBalanceManager
-deploy-chain-balance-manager:
-	$(call forge_deploy_chain_balance_manager,)
-
-# Define a target to add tokens to ChainBalanceManager
-add-tokens-chain-balance-manager:
-	$(call forge_add_tokens_chain_balance_manager,)
-
-# Define a target to add single token to ChainBalanceManager
-add-single-token-chain-balance-manager:
-	forge script script/AddTokensToChainBalanceManager.s.sol:AddTokensToChainBalanceManager --sig "addSingleToken(address)" $(token) --rpc-url $(network) --broadcast $(flag)
-
-# Define a target to remove single token from ChainBalanceManager
-remove-single-token-chain-balance-manager:
-	forge script script/AddTokensToChainBalanceManager.s.sol:AddTokensToChainBalanceManager --sig "removeSingleToken(address)" $(token) --rpc-url $(network) --broadcast $(flag)
-
-# Define a target to list whitelisted tokens in ChainBalanceManager
-list-tokens-chain-balance-manager:
-	forge script script/AddTokensToChainBalanceManager.s.sol:AddTokensToChainBalanceManager --sig "listWhitelistedTokens()" --rpc-url $(network)
-
 # Test ChainBalanceManager
 test-chain-balance-manager:
 	forge test --match-contract ChainBalanceManagerTest -v
-
-# Test ChainBalanceManager unlock/claim functionality with deployment
-test-chain-balance-manager-unlock-claim:
-	$(call forge_test_chain_balance_manager_unlock_claim,)
-
-# Test ChainBalanceManager simple test (deploys own mock tokens)
-test-chain-balance-manager-simple:
-	$(call forge_test_chain_balance_manager_simple,)
-
-# Test ChainBalanceManager basic functionality
-test-chain-balance-manager-basic:
-	$(call forge_test_chain_balance_manager_basic,)
 
 # Send tokens with balance logging
 send-token:
@@ -328,10 +214,6 @@ full-integration:
 	@echo "Full Integration Test Complete!"
 	@echo "=========================================="
 
-# Define a target to verify contracts using the specified network
-verify:
-	forge script script/VerifyAll.s.sol --ffi --rpc-url $(network)
-
 compile-watch-core:
 	forge build src/core --watch src/core
 
@@ -352,7 +234,7 @@ lint:
 
 # Define a target to generate ABI files
 generate-abi:
-	node script/generateTsAbis.js
+	node script/utils/generateTsAbis.js
 
 # Define a target to build the project
 build:
@@ -362,20 +244,171 @@ build:
 #         NEW UPGRADEABLE & ESPRESSO INTEGRATION TARGETS
 # =============================================================
 
-# Deploy upgradeable GTX contracts to Rari (host chain)
-deploy-upgradeable-rari: check-env
-	@echo "⚡ Deploying Upgradeable GTX to Rari..."
-	$(call forge_deploy_upgradeable_gtx,rari_testnet)
+# Complete GTX Anvil setup (deploy both chains and configure) - LEGACY
+setup-gtx-anvil-complete: check-env
+	@echo "🚀 Setting up complete GTX Anvil system..."
+	@$(MAKE) deploy-gtx-anvil-trading
+	@echo ""
+	@$(MAKE) deploy-gtx-anvil-2-chain-bm
+	@echo ""
+	@$(MAKE) configure-gtx-anvil-tokens
+	@echo ""
+	@echo "🎉 GTX Anvil complete setup finished!"
 
-# Deploy upgradeable GTX contracts to Appchain (source chain)
-deploy-upgradeable-appchain: check-env
-	@echo "⚡ Deploying Upgradeable GTX to Appchain..."
-	$(call forge_deploy_upgradeable_gtx,appchain_testnet)
+# Deploy core chain trading system (generalized)
+deploy-core-chain-trading: check-env
+	@echo "🚀 Deploying Core Chain Trading System..."
+	forge script script/deployments/DeployCoreChainTrading.s.sol:DeployCoreChainTrading --rpc-url $(call get_rpc_url,$(network)) --broadcast $(flag)
 
-# Deploy upgradeable GTX contracts to Arbitrum (source chain)
-deploy-upgradeable-arbitrum: check-env
-	@echo "⚡ Deploying Upgradeable GTX to Arbitrum..."
-	$(call forge_deploy_upgradeable_gtx,arbitrum_sepolia)
+# Deploy side chain tokens (step 1 of side chain setup)
+# Usage: make deploy-side-chain-tokens network=gtx_anvil_2
+deploy-side-chain-tokens: check-env
+	@echo "🪙 Deploying Side Chain Tokens..."
+	$(if $(SIDE_CHAIN),SIDE_CHAIN=$(SIDE_CHAIN),SIDE_CHAIN=$(call get_chain_name,$(network))) forge script script/deployments/DeploySideChainTokens.s.sol:DeploySideChainTokens --rpc-url $(call get_rpc_url,$(network)) --broadcast $(flag)
+
+# Deploy side chain balance manager (step 2 of side chain setup, requires tokens)
+# Usage: make deploy-side-chain-bm network=gtx_anvil_2 [core_chain=gtx-anvil]
+deploy-side-chain-bm: check-env
+	@echo "🚀 Deploying Side Chain Balance Manager..."
+	$(if $(core_chain),@echo "📡 Using core chain: $(core_chain)",@echo "📡 Using default core chain: 31337")
+	$(if $(core_chain),CORE_CHAIN=$(core_chain),CORE_CHAIN=31337) SIDE_CHAIN=$(call get_chain_name,$(network)) forge script script/deployments/DeploySideChainBalanceManager.s.sol:DeploySideChainBalanceManager --rpc-url $(call get_rpc_url,$(network)) --broadcast $(flag)
+
+# SPLIT SCRIPTS - Individual configuration steps (easier to debug)
+
+# Step 1: Register side chain in ChainRegistry
+register-side-chain: check-env
+	@echo "📋 Registering Side Chain in ChainRegistry..."
+	@echo "📡 Auto-detecting: CORE_CHAIN=$(call get_chain_name,$(network)), SIDE_DOMAIN=$(call get_paired_chain,$(network))"
+	CORE_CHAIN=$(call get_chain_name,$(network)) SIDE_DOMAIN=$(call get_paired_chain,$(network)) forge script script/configuration/RegisterSideChain.s.sol:RegisterSideChain --rpc-url $(call get_rpc_url,$(network)) --broadcast $(flag)
+
+# Step 2: Configure BalanceManager for cross-chain operations
+configure-balance-manager: check-env
+	@echo "⚙️ Configuring BalanceManager for Cross-Chain Operations..."
+	@echo "📡 Auto-detecting: CORE_CHAIN=$(call get_chain_name,$(network)), SIDE_DOMAIN=$(call get_paired_chain,$(network))"
+	CORE_CHAIN=$(call get_chain_name,$(network)) SIDE_DOMAIN=$(call get_paired_chain,$(network)) SIDE_CHAIN=$(call get_paired_chain,$(network)) forge script script/configuration/ConfigureBalanceManager.s.sol:ConfigureBalanceManager --rpc-url $(call get_rpc_url,$(network)) --broadcast $(flag)
+
+# Step 3: Update core chain token mappings (cross-chain + local for depositLocal)
+update-core-chain-mappings: check-env
+	@echo "🪙 Updating Core Chain Token Mappings (Cross-chain + Local)..."
+	@echo "⚠️  CRITICAL: This configures both cross-chain and local deposit functionality"
+	@echo "📡 Auto-detecting: CORE_CHAIN=$(call get_chain_name,$(network)), SIDE_CHAIN=$(call get_paired_chain,$(network))"
+	CORE_CHAIN=$(call get_chain_name,$(network)) SIDE_CHAIN=$(call get_paired_chain,$(network)) forge script script/configuration/UpdateCoreChainMappings.s.sol:UpdateCoreChainMappings --rpc-url $(call get_rpc_url,$(network)) --broadcast $(flag)
+
+
+# Update side chain token mappings (run after configure-cross-chain-tokens)
+update-side-chain-mappings: check-env
+	@echo "🔄 Updating Side Chain Token Mappings..."
+	@echo "📡 Auto-detecting: SIDE_CHAIN=$(call get_chain_name,$(network)), CORE_CHAIN=$(call get_paired_chain,$(network))"
+	SIDE_CHAIN=$(call get_chain_name,$(network)) CORE_CHAIN=$(call get_paired_chain,$(network)) forge script script/configuration/UpdateSideChainMappings.s.sol:UpdateSideChainMappings --rpc-url $(call get_rpc_url,$(network)) --broadcast $(flag)
+
+
+# Deploy native tokens and synthetic tokens on core chain
+deploy-core-chain-tokens: check-env
+	@echo "🪙 Deploying Core Chain Tokens..."
+	@echo "📡 Auto-detecting: SIDE_CHAIN=$(call get_paired_chain,$(network))"
+	SIDE_CHAIN=$(call get_paired_chain,$(network)) forge script script/deployments/DeployCoreChainTokens.s.sol:DeployCoreChainTokens --rpc-url $(call get_rpc_url,$(network)) --broadcast $(flag)
+
+# Create trading pools on core chain  
+# Usage: make create-trading-pools network=gtx_anvil
+# Options: CREATE_NATIVE_POOLS=true CREATE_BRIDGE_POOLS=true
+create-trading-pools: check-env
+	@echo "🏊 Creating Trading Pools..."
+	CORE_CHAIN=31337 $(if $(CREATE_NATIVE_POOLS),CREATE_NATIVE_POOLS=$(CREATE_NATIVE_POOLS),) $(if $(CREATE_BRIDGE_POOLS),CREATE_BRIDGE_POOLS=$(CREATE_BRIDGE_POOLS),) forge script script/deployments/CreateTradingPools.s.sol:CreateTradingPools --rpc-url $(call get_rpc_url,$(network)) --broadcast $(flag)
+
+# Validate deployment before cross-chain testing
+# Usage: make validate-deployment
+validate-deployment:
+	@echo "🔍 Running deployment validation script..."
+	@echo "📝 Output will be logged to deployment.log"
+	@./validate-deployment.sh
+
+# Validate data population (trader balances, liquidity, trading events)
+validate-data-population:
+	@echo "🔍 Running data population validation script..."
+	@echo "📝 Output will be logged to population.log"
+	@./validate-data-population.sh
+
+# Validate cross-chain deposit functionality
+# Usage: make validate-cross-chain-deposit
+validate-cross-chain-deposit:
+	@echo "🔗 Running cross-chain deposit validation..."
+	@echo "📝 Output will be logged to cross-chain-deposit.log"
+	@./validate-cross-chain-deposit.sh
+
+# Test cross-chain deposits (any chains, any token)
+# Usage: make test-cross-chain-deposit network=gtx_anvil_2 side_chain=gtx-anvil-2 core_chain=gtx-anvil token=USDC amount=1000000000
+test-cross-chain-deposit: check-env
+	@echo "🔄 Testing cross-chain deposit..."
+	$(if $(side_chain),@echo "📡 Side chain: $(side_chain)",@echo "📡 Side chain: auto-detect")
+	$(if $(core_chain),@echo "📡 Core chain: $(core_chain)",@echo "📡 Core chain: gtx-anvil (default)")
+	$(if $(token),@echo "🪙 Token: $(token)",@echo "🪙 Token: USDC (default)")
+	$(if $(amount),@echo "💰 Amount: $(amount)",@echo "💰 Amount: auto (default)")
+	$(if $(recipient),@echo "👤 Recipient: $(recipient)",)
+	$(if $(side_chain),SIDE_CHAIN=$(side_chain),) $(if $(core_chain),CORE_CHAIN=$(core_chain),) $(if $(token),TOKEN_SYMBOL=$(token),) $(if $(amount),DEPOSIT_AMOUNT=$(amount),) $(if $(recipient),TEST_RECIPIENT=$(recipient),) forge script script/deposits/CrossChainDeposit.s.sol:TestCrossChainDeposit --rpc-url $(call get_rpc_url,$(network)) --broadcast $(flag)
+
+# Test local deposits (same chain: regular token -> synthetic token)
+# Usage: make test-local-deposit network=gtx_anvil token=USDC amount=1000000000
+# Usage: make test-local-deposit network=gtx_anvil token=WETH amount=1000000000000000000 recipient=0x123...
+test-local-deposit: check-env
+	@echo "🏠 Testing local deposit..."
+	@echo "📡 Network: $(network)"
+	$(if $(token),@echo "🪙 Token: $(token)",@echo "🪙 Token: USDC (default)")
+	$(if $(amount),@echo "💰 Amount: $(amount)",@echo "💰 Amount: auto (default)")
+	$(if $(recipient),@echo "👤 Recipient: $(recipient)",@echo "👤 Recipient: deployer (default)")
+	$(if $(token),TOKEN_SYMBOL=$(token),) $(if $(amount),DEPOSIT_AMOUNT=$(amount),) $(if $(recipient),TEST_RECIPIENT=$(recipient),) forge script script/deposits/LocalDeposit.s.sol:LocalDeposit --rpc-url $(call get_rpc_url,$(network)) --broadcast $(flag)
+
+# Fill orderbook with limit orders (default ETH/USDC pairs)
+# Usage: make fill-orderbook network=gtx_anvil
+fill-orderbook: check-env
+	@echo "📈 Filling orderbook with limit orders..."
+	@echo "📡 Network: $(network)"
+	@echo "🪙 Trading pair: gsWETH/gsUSDC (default)"
+	forge script script/trading/FillOrderBook.s.sol:FillMockOrderBook --rpc-url $(call get_rpc_url,$(network)) --broadcast $(flag)
+
+# Fill orderbook with custom parameters
+# Usage: make fill-orderbook-custom network=gtx_anvil buy_start=1900000000 buy_end=1980000000 sell_start=2000000000 sell_end=2100000000 price_step=10000000 num_orders=10 buy_qty=10000000000000000 sell_qty=10000000000000000 eth_amount=200000000000000000000 usdc_amount=400000000000
+fill-orderbook-custom: check-env
+	@echo "📈 Filling orderbook with custom parameters..."
+	@echo "📡 Network: $(network)"
+	$(if $(buy_start),@echo "📊 Buy start price: $(buy_start)",@echo "📊 Buy start price: 1900000000 (default)")
+	$(if $(buy_end),@echo "📊 Buy end price: $(buy_end)",@echo "📊 Buy end price: 1980000000 (default)")
+	$(if $(sell_start),@echo "📊 Sell start price: $(sell_start)",@echo "📊 Sell start price: 2000000000 (default)")
+	$(if $(sell_end),@echo "📊 Sell end price: $(sell_end)",@echo "📊 Sell end price: 2100000000 (default)")
+	BUY_START_PRICE=$(or $(buy_start),1900000000) BUY_END_PRICE=$(or $(buy_end),1980000000) SELL_START_PRICE=$(or $(sell_start),2000000000) SELL_END_PRICE=$(or $(sell_end),2100000000) PRICE_STEP=$(or $(price_step),10000000) NUM_ORDERS=$(or $(num_orders),10) BUY_QUANTITY=$(or $(buy_qty),10000000000000000) SELL_QUANTITY=$(or $(sell_qty),10000000000000000) ETH_AMOUNT=$(or $(eth_amount),200000000000000000000) USDC_AMOUNT=$(or $(usdc_amount),400000000000) forge script script/trading/FillOrderBook.s.sol:FillMockOrderBook --sig "runConfigurable(uint128,uint128,uint128,uint128,uint128,uint8,uint128,uint128,uint256,uint256)" $(or $(buy_start),1900000000) $(or $(buy_end),1980000000) $(or $(sell_start),2000000000) $(or $(sell_end),2100000000) $(or $(price_step),10000000) $(or $(num_orders),10) $(or $(buy_qty),10000000000000000) $(or $(sell_qty),10000000000000000) $(or $(eth_amount),200000000000000000000) $(or $(usdc_amount),400000000000) --rpc-url $(call get_rpc_url,$(network)) --broadcast $(flag)
+
+# Execute market orders (buy and sell)
+# Usage: make market-order network=gtx_anvil
+market-order: check-env
+	@echo "🔄 Executing market orders..."
+	@echo "📡 Network: $(network)"
+	@echo "🪙 Trading pair: WETH/USDC"
+	@echo "⚡ Executing both market buy and sell orders"
+	forge script script/trading/MarketOrderBook.sol:MarketOrderBook --rpc-url $(call get_rpc_url,$(network)) --broadcast $(flag)
+
+# Usage: make transfer-tokens network=gtx_anvil recipient=0x123... token=USDC amount=1000000000
+transfer-tokens: check-env
+	@echo "💸 Transferring tokens..."
+	@echo "📡 Network: $(network)"
+	$(if $(recipient),@echo "👤 Recipient: $(recipient)",$(error "recipient parameter is required"))
+	$(if $(token),@echo "🪙 Token: $(token)",$(error "token parameter is required"))
+	$(if $(amount),@echo "💰 Amount: $(amount)",$(error "amount parameter is required"))
+	RECIPIENT=$(recipient) TOKEN_SYMBOL=$(token) AMOUNT=$(amount) forge script script/utils/TransferTokens.s.sol:TransferTokens --rpc-url $(call get_rpc_url,$(network)) --broadcast $(flag)
+
+
+# Diagnose market order issues 
+# Usage: make diagnose-market-order network=gtx_anvil
+diagnose-market-order: check-env
+	@echo "🔍 Diagnosing market order issues..."
+	@echo "📡 Network: $(network)"
+	forge script script/trading/DiagnoseMarketOrder.s.sol:DiagnoseMarketOrder --rpc-url $(call get_rpc_url,$(network)) --broadcast $(flag)
+
+# Complete two-chain setup (requires setting network for each step)
+setup-two-chain-complete: check-env
+	@echo "🚀 Setting up complete two-chain system..."
+	@echo "Note: This requires manually setting network for each step"
+	@echo "1. Run: make deploy-core-chain-trading network=<core_network>"
+	@echo "2. Run: make deploy-side-chain-bm network=<side_network>  # Automatically loads core chain BalanceManager"  
+	@echo "3. Run: make configure-chain-tokens network=<core_network>"
 
 # Deploy upgradeable GTX to all chains
 deploy-upgradeable-all: check-env
@@ -386,95 +419,50 @@ deploy-upgradeable-all: check-env
 	@echo ""
 	@$(MAKE) deploy-upgradeable-arbitrum
 	@echo ""
+	@$(MAKE) deploy-upgradeable-gtx-anvil
+	@echo ""
+	@$(MAKE) deploy-upgradeable-gtx-anvil-2
+	@echo ""
 	@echo "🎉 All upgradeable contracts deployed!"
 	@echo "📋 Update proxy addresses in .env for instant upgrades"
-
-# Upgrade BalanceManager (Rari host chain)
-upgrade-balance-manager: check-env
-	@if [ -z "$(PROXY_ADDRESS)" ]; then \
-		echo "Usage: make upgrade-balance-manager PROXY_ADDRESS=0x123..."; \
-		exit 1; \
-	fi
-	@echo "⚡ Upgrading BalanceManager in seconds..."
-	$(call forge_upgrade_gtx,$(PROXY_ADDRESS),BalanceManager,rari_testnet)
-
-# Upgrade ChainBalanceManager (source chains)
-upgrade-chain-balance-manager: check-env
-	@if [ -z "$(PROXY_ADDRESS)" ] || [ -z "$(NETWORK)" ]; then \
-		echo "Usage: make upgrade-chain-balance-manager PROXY_ADDRESS=0x123... NETWORK=appchain_testnet"; \
-		exit 1; \
-	fi
-	@echo "⚡ Upgrading ChainBalanceManager in seconds..."
-	$(call forge_upgrade_gtx,$(PROXY_ADDRESS),ChainBalanceManager,$(NETWORK))
-
-# Test cross-chain deposit (Appchain → Rari) - Working version
-deposit-appchain-to-rari: check-env
-	@echo "🔄 Depositing from Appchain to Rari..."
-	forge script script/TestAppchainToRariDeposit.s.sol:TestAppchainToRariDeposit --rpc-url https://appchain.caff.testnet.espresso.network --broadcast
-
-# Test cross-chain deposit (Appchain → Rari) - Original version
-test-deposit: check-env
-	@if [ -z "$(APPCHAIN_CHAIN_BM_PROXY)" ]; then \
-		echo "Error: Set APPCHAIN_CHAIN_BM_PROXY in .env"; \
-		exit 1; \
-	fi
-	@echo "🔄 Testing cross-chain deposit..."
-	$(call forge_test_espresso,deposit,APPCHAIN_CHAIN_BM_PROXY=$(APPCHAIN_CHAIN_BM_PROXY),appchain_testnet,)
-
-# Test cross-chain withdrawal (Rari → Appchain)
-test-withdraw: check-env
-	@if [ -z "$(RARI_BALANCE_MANAGER_PROXY)" ]; then \
-		echo "Error: Set RARI_BALANCE_MANAGER_PROXY in .env"; \
-		exit 1; \
-	fi
-	@echo "🔄 Testing cross-chain withdrawal..."
-	$(call forge_test_espresso,withdraw,RARI_BALANCE_MANAGER_PROXY=$(RARI_BALANCE_MANAGER_PROXY),rari_testnet,)
-
-# Test complete cross-chain flow
-test-cross-chain: check-env
-	@echo "🔄 Testing complete cross-chain flow..."
-	$(call forge_test_espresso,complete,APPCHAIN_CHAIN_BM_PROXY=$(APPCHAIN_CHAIN_BM_PROXY) RARI_BALANCE_MANAGER_PROXY=$(RARI_BALANCE_MANAGER_PROXY),appchain_testnet,)
-
-# Check balances across all chains
-test-balances: check-env
-	@echo "📊 Checking balances across all chains..."
-	@echo "=== Rari Synthetic Balances ==="
-	@$(call forge_test_espresso,balance_rari,,rari_testnet,)
-	@echo ""
-	@echo "=== Appchain Unlocked Balances ==="
-	@$(call forge_test_espresso,balance_appchain,,appchain_testnet,)
-
-
+	
 # Define a target to display help information
 help:
 	@echo "=== GTX CLOB DEX - Upgradeable Contracts with Espresso Hyperlane ==="
 	@echo ""
 	@echo "🚀 Quick Start Commands:"
-	@echo "  deploy-upgradeable-all          - Deploy upgradeable contracts to all chains"
-	@echo "  test-cross-chain                - Test complete cross-chain flow"
 	@echo ""
-	@echo "⚡ Instant Upgrades (Perfect for Accelerator!):"
-	@echo "  upgrade-balance-manager PROXY_ADDRESS=0x123..."
-	@echo "  upgrade-chain-balance-manager PROXY_ADDRESS=0x123... NETWORK=appchain_testnet"
+	@echo "🔥 Two-Chain Deployment (Generalized):"
+	@echo "  deploy-core-chain-trading       - Deploy core chain trading system"
+	@echo "  deploy-side-chain-bm            - Deploy side chain balance manager"
+	@echo "  configure-cross-chain-tokens    - Configure cross-chain token mappings"
+	@echo "    register-side-chain           - Step 1: Register side chain in ChainRegistry"
+	@echo "    configure-balance-manager     - Step 2: Configure BalanceManager for cross-chain"
+	@echo "    update-core-chain-mappings    - Step 3: Update core chain token mappings"
+	@echo "  deploy-core-chain-tokens        - Deploy tokens (no pools)"
+	@echo "  create-trading-pools            - Create all required trading pools"
+	@echo "  validate-deployment             - Validate deployment (including pools)"
+	@echo "  validate-data-population        - Validate data population (balances, liquidity, events)"
+	@echo "  test-cross-chain-deposit        - Test cross-chain deposits (any chains)"
+	@echo "  test-local-deposit              - Test local deposits (same chain)"
+	@echo "  transfer-tokens                 - Transfer tokens to another address"
+	@echo "  fill-orderbook                  - Fill orderbook with default limit orders"
+	@echo "  fill-orderbook-custom           - Fill orderbook with custom parameters"
+	@echo "  market-order                    - Execute market orders (buy and sell)"
+	@echo "  diagnose-market-order          - Debug market order issues"
+	@echo "  setup-two-chain-complete        - Instructions for complete setup"
 	@echo ""
-	@echo "🔗 Espresso Cross-Chain Testing:"
-	@echo "  test-deposit                    - Test Appchain → Rari deposit"
-	@echo "  test-withdraw                   - Test Rari → Appchain withdrawal"
-	@echo "  test-balances                   - Check balances across all chains"
-	@echo ""
-	@echo "🏗️  Upgradeable Deployment:"
-	@echo "  deploy-upgradeable-rari         - Deploy upgradeable BalanceManager"
-	@echo "  deploy-upgradeable-appchain     - Deploy upgradeable ChainBalanceManager"
-	@echo "  deploy-upgradeable-arbitrum     - Deploy upgradeable ChainBalanceManager"
+	@echo "🏗️  GTX Anvil Deployment (Legacy):"
+	@echo "  deploy-gtx-anvil-trading        - Deploy GTX Anvil core trading system"
+	@echo "  deploy-gtx-anvil-2-chain-bm     - Deploy GTX Anvil 2 chain balance manager"
+	@echo "  configure-gtx-anvil-tokens      - Configure token registry and mappings"
+	@echo "  setup-gtx-anvil-complete        - Complete GTX Anvil setup (all steps)"
 	@echo ""
 	@echo "📋 Legacy CLOB Commands:"
 	@echo "  deploy                          - Deploy contracts using the specified network"
 	@echo "  deploy-verify                   - Deploy and verify contracts"
 	@echo "  deploy-mocks                    - Deploy mock contracts"
-	@echo "  fill-orderbook                  - Fill mock order book"
-	@echo "  market-orderbook                - Place market orders in mock order book"
 	@echo "  swap                            - Execute token swaps"
-	@echo "  simple-demo                     - Run simple market order demonstration"
 	@echo "  simple-integration              - Run simple integration sequence"
 	@echo "  full-integration                - Run full deployment and testing"
 	@echo ""
@@ -487,8 +475,4 @@ help:
 	@echo ""
 	@echo "📋 Required Environment Variables (.env):"
 	@echo "  PRIVATE_KEY=0x123..."
-	@echo "  RARI_BALANCE_MANAGER_PROXY=0x123...      # After deployment"
-	@echo "  APPCHAIN_CHAIN_BM_PROXY=0x123...         # After deployment"
 	@echo ""
-	@echo "🎯 Perfect for Accelerator Development!"
-	@echo "   Upgrade contracts in seconds, iterate at lightning speed!"

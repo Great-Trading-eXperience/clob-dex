@@ -264,8 +264,17 @@ router.swapExactIn(
 
 ## Deployment Guide
 
-### Deploying Contracts
-To deploy contracts, use the following command:
+For complete deployment instructions, see **[📋 DEPLOYMENT.md](docs/DEPLOYMENT.md)**
+
+### Quick Deployment
+```bash
+# Deploy and validate the complete two-chain system
+make validate-deployment           # Validate core deployment
+make validate-cross-chain-deposit  # Validate cross-chain system
+```
+
+### Single Network Deployment
+To deploy contracts to a single network:
 ```bash
 make deploy network=<network_name>
 ```
@@ -278,6 +287,18 @@ make deploy network=<network_name>
 To deploy and verify contracts:
 ```bash
 make deploy-verify network=<network_name>
+```
+
+---
+
+## Data Population
+
+For populating the system with demo trading data, see **[📊 DATA_POPULATION.md](docs/DATA_POPULATION.md)**
+
+### Quick Data Population
+```bash
+# Populate system with traders, liquidity, and trading activity
+make validate-data-population
 ```
 
 ---
@@ -295,10 +316,6 @@ To deploy and verify mock contracts:
 ```bash
 make deploy-mocks-verify network=<network_name>
 ```
-
-### Mock Order Book Generation
-
-After deploying the contracts and mock tokens, you can automatically fill the order book with sample orders to simulate a live market.
 
 ### Fill Mock Order Book
 To populate the ETH/USDC order book with sample orders:

@@ -17,7 +17,7 @@ library HyperlaneMessages {
      */
     struct WithdrawMessage {
         uint8 messageType;       // WITHDRAW_MESSAGE = 2
-        address syntheticToken;  // gsUSDT, gsWETH, etc. (Rari address)
+        address syntheticToken;  // gsUSDC, gsWETH, etc. (Rari address)
         address recipient;       // User address on destination chain
         uint256 amount;          // Amount to unlock
         uint32 targetChainId;    // Destination chain domain ID
@@ -30,7 +30,7 @@ library HyperlaneMessages {
      */
     struct DepositMessage {
         uint8 messageType;       // DEPOSIT_MESSAGE = 1
-        address syntheticToken;  // gsUSDT, gsWETH, etc. (Rari address)
+        address syntheticToken;  // gsUSDC, gsWETH, etc. (Rari address)
         address user;            // User address (same across all chains)
         uint256 amount;          // Amount deposited
         uint32 sourceChainId;    // Source chain domain ID

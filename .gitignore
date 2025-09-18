@@ -12,9 +12,6 @@ yarn.lock
 /developments
 localhost.json
 
-# Docs
-docs/
-
 # Dotenv file
 .env
 
@@ -22,3 +19,9 @@ docs/
 
 node_modules
 *.env
+
+# Logs
+deployment.log
+cross-chain-deposit.log
+population.log
+

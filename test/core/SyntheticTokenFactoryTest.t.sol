@@ -54,8 +54,8 @@ contract SyntheticTokenFactoryTest is Test {
             sourceChainId,
             sourceToken,
             targetChainId,
-            "Synthetic USDT",
-            "sUSDT",
+            "Synthetic USDC",
+            "sUSDC",
             6,  // source decimals
             18  // synthetic decimals
         );
@@ -150,14 +150,14 @@ contract SyntheticTokenFactoryTest is Test {
             sourceChainId,
             sourceToken,
             targetChainId,
-            "Synthetic USDT",
-            "sUSDT",
-            6,  // source decimals (USDT)
+            "Synthetic USDC",
+            "sUSDC",
+            6,  // source decimals (USDC)
             18  // synthetic decimals (standard ERC20)
         );
         
         // Test source to synthetic conversion (6 -> 18 decimals)
-        uint256 sourceAmount = 1000000; // 1 USDT (6 decimals)
+        uint256 sourceAmount = 1000000; // 1 USDC (6 decimals)
         uint256 syntheticAmount = factory.convertAmount(syntheticToken, sourceAmount, true);
         assertEq(syntheticAmount, 1000000000000000000); // 1 * 10^18
         
@@ -180,8 +180,8 @@ contract SyntheticTokenFactoryTest is Test {
             sourceChainId,
             sourceToken,
             targetChainId,
-            "Synthetic USDT",
-            "sUSDT",
+            "Synthetic USDC",
+            "sUSDC",
             6,
             18
         );
@@ -263,8 +263,8 @@ contract SyntheticTokenFactoryTest is Test {
             sourceChainId,
             sourceToken,
             targetChainId,
-            "Synthetic USDT",
-            "sUSDT",
+            "Synthetic USDC",
+            "sUSDC",
             6,
             18
         );
@@ -275,8 +275,8 @@ contract SyntheticTokenFactoryTest is Test {
             sourceChainId,
             sourceToken,
             targetChainId,
-            "Another USDT",
-            "aUSDT",
+            "Another USDC",
+            "aUSDC",
             6,
             18
         );

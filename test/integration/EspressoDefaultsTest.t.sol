@@ -23,7 +23,7 @@ contract EspressoDefaultsTest is Test {
     uint32 constant APPCHAIN_CHAIN_ID = 4661;
     
     // Espresso token addresses
-    address constant APPCHAIN_USDT = 0x1362Dd75d8F1579a0Ebd62DF92d8F3852C3a7516;
+    address constant APPCHAIN_USDC = 0x1362Dd75d8F1579a0Ebd62DF92d8F3852C3a7516;
     address constant APPCHAIN_WETH = 0x02950119C4CCD1993f7938A55B8Ab8384C3CcE4F;
     address constant APPCHAIN_WBTC = 0xb2e9Eabb827b78e2aC66bE17327603778D117d18;
     
@@ -81,9 +81,9 @@ contract EspressoDefaultsTest is Test {
     
     function test_DefaultTokenMappings() public {
         // Check if default token mappings exist
-        address gsUSDT = tokenRegistry.getSyntheticToken(
+        address gsUSDC = tokenRegistry.getSyntheticToken(
             APPCHAIN_CHAIN_ID,
-            APPCHAIN_USDT,
+            APPCHAIN_USDC,
             RARI_CHAIN_ID
         );
         
@@ -100,20 +100,20 @@ contract EspressoDefaultsTest is Test {
         );
         
         // If mappings exist, verify they're active
-        if (gsUSDT != address(0)) {
+        if (gsUSDC != address(0)) {
             assertTrue(tokenRegistry.isTokenMappingActive(
                 APPCHAIN_CHAIN_ID,
-                APPCHAIN_USDT,
+                APPCHAIN_USDC,
                 RARI_CHAIN_ID
             ));
             
             // Test reverse lookup
             (uint32 sourceChain, address sourceToken) = tokenRegistry.getSourceToken(
                 RARI_CHAIN_ID,
-                gsUSDT
+                gsUSDC
             );
             assertEq(sourceChain, APPCHAIN_CHAIN_ID);
-            assertEq(sourceToken, APPCHAIN_USDT);
+            assertEq(sourceToken, APPCHAIN_USDC);
         }
         
         if (gsWETH != address(0)) {
@@ -136,8 +136,8 @@ contract EspressoDefaultsTest is Test {
     function test_TokenDecimalHandling() public {
         // Test different decimal conversions
         
-        // USDT: 6 decimals
-        uint256 usdtAmount = 1000000; // 1 USDT
+        // USDC: 6 decimals
+        uint256 usdtAmount = 1000000; // 1 USDC
         uint256 usdtTo18 = tokenRegistry.convertAmount(usdtAmount, 6, 18);
         assertEq(usdtTo18, 1000000000000000000); // 1 * 10^18
         

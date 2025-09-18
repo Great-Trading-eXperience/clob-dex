@@ -10,7 +10,7 @@ abstract contract TokenRegistryStorage {
         address sourceToken;         // Address of the source token
         uint32 targetChainId;        // Chain ID where synthetic token exists
         address syntheticToken;      // Address of the synthetic token
-        string symbol;               // Symbol of the synthetic token (e.g., "gsUSDT")
+        string symbol;               // Symbol of the synthetic token (e.g., "gsUSDC")
         uint8 sourceDecimals;        // Decimals of the source token
         uint8 syntheticDecimals;     // Decimals of the synthetic token
         bool isActive;               // Whether this mapping is active

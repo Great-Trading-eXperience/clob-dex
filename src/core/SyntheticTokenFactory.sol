@@ -119,16 +119,8 @@ contract SyntheticTokenFactory is Initializable, OwnableUpgradeable, SyntheticTo
         $.allSyntheticTokens.push(syntheticToken);
         $.chainToSynthetics[sourceChainId].push(syntheticToken);
         
-        // Register in TokenRegistry
-        $.tokenRegistry.registerTokenMapping(
-            sourceChainId,
-            sourceToken,
-            targetChainId,
-            syntheticToken,
-            symbol,
-            sourceDecimals,
-            syntheticDecimals
-        );
+        // Note: TokenRegistry registration is now handled separately by the caller
+        // This allows for better control over access permissions and deployment flow
         
         emit SyntheticTokenCreated(
             syntheticToken,

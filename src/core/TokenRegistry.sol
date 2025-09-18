@@ -72,9 +72,6 @@ contract TokenRegistry is Initializable, OwnableUpgradeable, TokenRegistryStorag
     
     function initialize(address _owner) public initializer {
         __Ownable_init(_owner);
-        
-        // Register default Espresso testnet token mappings
-        _registerDefaultMappings();
     }
     
     /**
@@ -383,98 +380,4 @@ contract TokenRegistry is Initializable, OwnableUpgradeable, TokenRegistryStorag
     ) internal pure returns (bytes32) {
         return keccak256(abi.encodePacked(targetChainId, syntheticToken));
     }
-    
-    /**
-     * @dev Register default Espresso testnet token mappings
-     */
-    function _registerDefaultMappings() internal {
-        Storage storage $ = getStorage();
-        
-        // Appchain USDT -> Rari gsUSDT
-        bytes32 usdtKey = _getMappingKey(4661, 0x1362Dd75d8F1579a0Ebd62DF92d8F3852C3a7516, 1918988905);
-        $.tokenMappings[usdtKey] = TokenMapping({
-            sourceChainId: 4661,
-            sourceToken: 0x1362Dd75d8F1579a0Ebd62DF92d8F3852C3a7516,
-            targetChainId: 1918988905,
-            syntheticToken: 0x8bA339dDCC0c7140dC6C2E268ee37bB308cd4C68,
-            symbol: "gsUSDT",
-            sourceDecimals: 6,
-            syntheticDecimals: 6,
-            isActive: true,
-            registeredAt: block.timestamp
-        });
-        
-        bytes32 usdtReverseKey = _getReverseMappingKey(1918988905, 0x8bA339dDCC0c7140dC6C2E268ee37bB308cd4C68);
-        $.reverseMappings[usdtReverseKey] = ReverseMapping({
-            sourceChainId: 4661,
-            sourceToken: 0x1362Dd75d8F1579a0Ebd62DF92d8F3852C3a7516
-        });
-        
-        $.chainToTokens[4661].push(0x1362Dd75d8F1579a0Ebd62DF92d8F3852C3a7516);
-        
-        // Appchain WETH -> Rari gsWETH
-        bytes32 wethKey = _getMappingKey(4661, 0x02950119C4CCD1993f7938A55B8Ab8384C3CcE4F, 1918988905);
-        $.tokenMappings[wethKey] = TokenMapping({
-            sourceChainId: 4661,
-            sourceToken: 0x02950119C4CCD1993f7938A55B8Ab8384C3CcE4F,
-            targetChainId: 1918988905,
-            syntheticToken: 0xC7A1777e80982E01e07406e6C6E8B30F5968F836,
-            symbol: "gsWETH",
-            sourceDecimals: 18,
-            syntheticDecimals: 18,
-            isActive: true,
-            registeredAt: block.timestamp
-        });
-        
-        bytes32 wethReverseKey = _getReverseMappingKey(1918988905, 0xC7A1777e80982E01e07406e6C6E8B30F5968F836);
-        $.reverseMappings[wethReverseKey] = ReverseMapping({
-            sourceChainId: 4661,
-            sourceToken: 0x02950119C4CCD1993f7938A55B8Ab8384C3CcE4F
-        });
-        
-        $.chainToTokens[4661].push(0x02950119C4CCD1993f7938A55B8Ab8384C3CcE4F);
-        
-        // Appchain WBTC -> Rari gsWBTC
-        bytes32 wbtcKey = _getMappingKey(4661, 0xb2e9Eabb827b78e2aC66bE17327603778D117d18, 1918988905);
-        $.tokenMappings[wbtcKey] = TokenMapping({
-            sourceChainId: 4661,
-            sourceToken: 0xb2e9Eabb827b78e2aC66bE17327603778D117d18,
-            targetChainId: 1918988905,
-            syntheticToken: 0x996BB75Aa83EAF0Ee2916F3fb372D16520A99eEF,
-            symbol: "gsWBTC",
-            sourceDecimals: 8,
-            syntheticDecimals: 8,
-            isActive: true,
-            registeredAt: block.timestamp
-        });
-        
-        bytes32 wbtcReverseKey = _getReverseMappingKey(1918988905, 0x996BB75Aa83EAF0Ee2916F3fb372D16520A99eEF);
-        $.reverseMappings[wbtcReverseKey] = ReverseMapping({
-            sourceChainId: 4661,
-            sourceToken: 0xb2e9Eabb827b78e2aC66bE17327603778D117d18
-        });
-        
-        $.chainToTokens[4661].push(0xb2e9Eabb827b78e2aC66bE17327603778D117d18);
-    }
-    
-    /**
-     * @dev Set factory address (only owner)
-     */
-    function setFactory(address _factory) external onlyOwner {
-        if (_factory == address(0)) revert InvalidFactory();
-        
-        Storage storage $ = getStorage();
-        address oldFactory = $.factory;
-        $.factory = _factory;
-        
-        emit FactoryUpdated(oldFactory, _factory);
-    }
-    
-    /**
-     * @dev Get factory address
-     */
-    function getFactory() external view returns (address) {
-        return getStorage().factory;
-    }
-    
 }

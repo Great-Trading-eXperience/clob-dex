@@ -27,6 +27,10 @@ contract BalanceManager is
     OwnableUpgradeable,
     ReentrancyGuardUpgradeable
 {
+    // Custom errors
+    error IncorrectEthAmount(uint256 expected, uint256 actual);
+    error EthSentForErc20Deposit();
+    error FeeExceedsTransferAmount(uint256 fee, uint256 amount);
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
         _disableInitializers();
@@ -99,23 +103,12 @@ contract BalanceManager is
         }
 
         if (currency.isAddressZero()) {
-            require(msg.value == amount, "Incorrect ETH amount sent");
-        } else {
-            require(msg.value == 0, "No ETH should be sent for ERC20 deposit");
-
-            IERC20 token = IERC20(Currency.unwrap(currency));
-            uint256 allowance = token.allowance(sender, address(this));
-            uint256 balance = token.balanceOf(sender);
-
-            console.log("Token allowance from sender to BalanceManager:", allowance);
-            console.log("Token balance of sender:", balance);
-            console.log("Amount to transfer:", amount);
-
-            if (allowance < amount) {
-                console.log("INSUFFICIENT ALLOWANCE! Required:", amount, "Available:", allowance);
+            if (msg.value != amount) {
+                revert IncorrectEthAmount(amount, msg.value);
             }
-            if (balance < amount) {
-                console.log("INSUFFICIENT BALANCE! Required:", amount, "Available:", balance);
+        } else {
+            if (msg.value != 0) {
+                revert EthSentForErc20Deposit();
             }
 
             currency.transferFrom(sender, address(this), amount);
@@ -123,13 +116,9 @@ contract BalanceManager is
 
         uint256 currencyId = currency.toId();
 
-        uint256 balanceBefore = $.balanceOf[user][currencyId];
-
         unchecked {
             $.balanceOf[user][currencyId] += amount;
         }
-
-        uint256 balanceAfter = $.balanceOf[user][currencyId];
 
         emit Deposit(user, currencyId, amount);
     }
@@ -269,7 +258,9 @@ contract BalanceManager is
 
         // Determine fee based on the role (maker/taker)
         uint256 feeAmount = amount * $.feeTaker / _feeUnit();
-        require(feeAmount <= amount, "Fee exceeds the transfer amount");
+        if (feeAmount > amount) {
+            revert FeeExceedsTransferAmount(feeAmount, amount);
+        }
 
         // Deduct fee and update balances
         $.lockedBalanceOf[sender][msg.sender][currency.toId()] -= amount;
@@ -293,7 +284,9 @@ contract BalanceManager is
 
         // Determine fee based on the role (maker/taker)
         uint256 feeAmount = amount * $.feeMaker / _feeUnit();
-        require(feeAmount <= amount, "Fee exceeds the transfer amount");
+        if (feeAmount > amount) {
+            revert FeeExceedsTransferAmount(feeAmount, amount);
+        }
 
         // Deduct fee and update balances
         $.balanceOf[sender][currency.toId()] -= amount;
@@ -506,10 +499,6 @@ contract BalanceManager is
     ) external view returns (bool) {
         return getStorage().processedMessages[messageId];
     }
-
-    // =============================================================
-    //                     LOCAL DEPOSIT FUNCTIONS
-    // =============================================================
 
     // Deposit local tokens and mint synthetic tokens on the same chain
     function depositLocal(address token, uint256 amount, address recipient) external nonReentrant {
