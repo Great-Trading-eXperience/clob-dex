@@ -3,7 +3,7 @@
 pragma solidity ^0.8.26;
 
 import {Script, console} from "forge-std/Script.sol";
-import {DeployHelpers} from "../DeployHelpers.s.sol";
+import {DeployHelpers} from "../utils/DeployHelpers.s.sol";
 import {Faucet} from "../../src/faucet/Faucet.sol";
 import {MockWETH} from "../../src/mocks/MockWETH.sol";
 import {MockUSDC} from "../../src/mocks/MockUSDC.sol";
@@ -11,8 +11,8 @@ import {MockUSDC} from "../../src/mocks/MockUSDC.sol";
 contract AddToken is DeployHelpers {
     // Contract address keys
     string constant FAUCET_ADDRESS = "PROXY_FAUCET";
-    string constant WETH_ADDRESS = "MOCK_TOKEN_WETH";
-    string constant USDC_ADDRESS = "MOCK_TOKEN_USDC";
+    string constant WETH_ADDRESS = "WETH";
+    string constant USDC_ADDRESS = "USDC";
 
     // Contracts
     Faucet faucet;
@@ -26,7 +26,7 @@ contract AddToken is DeployHelpers {
 
     function loadContracts() private {
         // Load faucet contract
-        faucet = Faucet(deployed[FAUCET_ADDRESS].addr);
+        faucet = Faucet(payable(deployed[FAUCET_ADDRESS].addr));
 
         // Load mock tokens
         mockWETH = MockWETH(deployed[WETH_ADDRESS].addr);

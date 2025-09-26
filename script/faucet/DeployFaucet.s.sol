@@ -2,7 +2,7 @@
 pragma solidity ^0.8.26;
 
 import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
-import "../DeployHelpers.s.sol";
+import "../utils/DeployHelpers.s.sol";
 import "../../src/faucet/Faucet.sol";
 
 contract DeployFaucet is DeployHelpers {
@@ -15,7 +15,7 @@ contract DeployFaucet is DeployHelpers {
 
         // Deploy beacon
         console.log("========== DEPLOYING FAUCET BEACON ==========");
-        address faucetBeacon = Upgrades.deployBeacon("Faucet.sol", beaconOwner);
+        address faucetBeacon = Upgrades.deployBeacon("Faucet.sol:Faucet", beaconOwner);
 
         // Store beacon address
         deployments.push(Deployment("BEACON_FAUCET", faucetBeacon));

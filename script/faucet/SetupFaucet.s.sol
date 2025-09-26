@@ -3,7 +3,7 @@
 pragma solidity ^0.8.26;
 
 import "../../src/faucet/Faucet.sol";
-import "../DeployHelpers.s.sol";
+import "../utils/DeployHelpers.s.sol";
 import {console} from "forge-std/console.sol";
 
 contract SetupFaucet is DeployHelpers {
@@ -17,7 +17,7 @@ contract SetupFaucet is DeployHelpers {
 
         // Load deployed contract address
         address faucetProxy = deployed[FAUCET_ADDRESS].addr;
-        faucet = Faucet(faucetProxy);
+        faucet = Faucet(payable(faucetProxy));
     }
 
     function run() public {

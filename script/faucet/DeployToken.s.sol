@@ -2,7 +2,7 @@
 pragma solidity ^0.8.26;
 
 import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
-import "../DeployHelpers.s.sol";
+import "../utils/DeployHelpers.s.sol";
 import "../../src/faucet/Faucet.sol";
 
 contract DeployFaucet is DeployHelpers {

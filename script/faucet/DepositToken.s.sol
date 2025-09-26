@@ -4,7 +4,7 @@ pragma solidity ^0.8.26;
 import {Script, console} from "forge-std/Script.sol";
 import {Faucet} from "../../src/faucet/Faucet.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "../DeployHelpers.s.sol";
+import "../utils/DeployHelpers.s.sol";
 
 contract DepositToken is DeployHelpers {
     // Contract address keys
@@ -20,7 +20,7 @@ contract DepositToken is DeployHelpers {
         loadDeployments();
 
         // Load deployed contract addresses
-        address faucetProxy = deployed[FAUCET_ADDRESS].addr;
+        address payable faucetProxy = payable(deployed[FAUCET_ADDRESS].addr);
         address wethAddress = deployed[WETH_ADDRESS].addr;
         address usdcAddress = deployed[USDC_ADDRESS].addr;
 
