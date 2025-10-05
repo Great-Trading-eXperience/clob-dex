@@ -37,7 +37,7 @@ contract MockERC20 is ERC20 {
 /**
  * @title Deploy Core Chain Tokens
  * @dev Deploy native tokens and synthetic tokens on the core chain
- * Usage: make deploy-core-chain-tokens network=gtx_anvil
+ * Usage: make deploy-core-chain-tokens network=gtx_core_devnet
  * Note: Trading pools should be created separately using dedicated pool creation script
  */
 contract DeployCoreChainTokens is DeployHelpers {

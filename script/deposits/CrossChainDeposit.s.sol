@@ -26,10 +26,10 @@ import "../utils/DeployHelpers.s.sol";
  * Usage Examples:
  *   # Test USDC deposit from chain 31338 to chain 31337
  *   SIDE_CHAIN=31338 CORE_CHAIN=31337 TOKEN_SYMBOL=USDC DEPOSIT_AMOUNT=1000000000 \
- *   forge script script/TestCrossChainDeposit.s.sol:TestCrossChainDeposit --rpc-url https://side-anvil.gtxdex.xyz --broadcast
+ *   forge script script/TestCrossChainDeposit.s.sol:TestCrossChainDeposit --rpc-url https://side-devnet.gtxdex.xyz --broadcast
  *
  *   # Check all trading pools on core chain
- *   CORE_CHAIN=31337 forge script script/TestCrossChainDeposit.s.sol:TestCrossChainDeposit --rpc-url https://anvil.gtxdex.xyz --sig "checkAllTradingPools()"
+ *   CORE_CHAIN=31337 forge script script/TestCrossChainDeposit.s.sol:TestCrossChainDeposit --rpc-url https://core-devnet.gtxdex.xyz --sig "checkAllTradingPools()"
  *
  *   # Test WETH deposit from appchain to rari  
  *   SIDE_CHAIN=4661 CORE_CHAIN=1918988905 TOKEN_SYMBOL=WETH DEPOSIT_AMOUNT=1000000000000000000 \

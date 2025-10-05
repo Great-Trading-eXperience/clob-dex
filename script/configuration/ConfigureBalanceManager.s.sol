@@ -11,7 +11,7 @@ import "../utils/DeployHelpers.s.sol";
 /**
  * @title Configure BalanceManager
  * @dev Configures BalanceManager for cross-chain operations
- * Usage: SIDE_CHAIN=gtx-anvil-2 forge script script/ConfigureBalanceManager.s.sol:ConfigureBalanceManager --rpc-url https://anvil.gtxdex.xyz --broadcast
+ * Usage: SIDE_CHAIN=gtx-anvil-2 forge script script/ConfigureBalanceManager.s.sol:ConfigureBalanceManager --rpc-url https://core-devnet.gtxdex.xyz --broadcast
  */
 contract ConfigureBalanceManager is DeployHelpers {
     

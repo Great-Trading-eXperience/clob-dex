@@ -18,7 +18,7 @@ import "../utils/DeployHelpers.s.sol";
  *   LOCAL_TOKEN      - Address of local token to map (optional, uses deployment file)
  *
  * Usage Examples:
- *   TOKEN_SYMBOL=USDC DEPOSIT_AMOUNT=1000000000 forge script script/LocalDeposit.s.sol:LocalDeposit --rpc-url https://anvil.gtxdex.xyz --broadcast
+ *   TOKEN_SYMBOL=USDC DEPOSIT_AMOUNT=1000000000 forge script script/LocalDeposit.s.sol:LocalDeposit --rpc-url https://core-devnet.gtxdex.xyz --broadcast
  *   TOKEN_SYMBOL=WETH LOCAL_TOKEN=0x123... DEPOSIT_AMOUNT=1000000000000000000 forge script script/LocalDeposit.s.sol:LocalDeposit --rpc-url $RPC_URL --broadcast
  */
 contract LocalDeposit is DeployHelpers {
@@ -41,12 +41,20 @@ contract LocalDeposit is DeployHelpers {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         address deployer = vm.addr(deployerPrivateKey);
 
+        vm.startBroadcast();
+        
+        // After broadcast starts, msg.sender is the actual signer
+        address actualSigner = msg.sender;
+        
+        vm.stopBroadcast();
+
         // Load configuration from environment
-        _loadConfiguration(deployer);
+        _loadConfiguration(deployer, actualSigner);
 
         console.log("========== TESTING LOCAL DEPOSIT ==========");
         console.log("Chain ID:", block.chainid);
         console.log("Deployer:", deployer);
+        console.log("Actual Signer:", actualSigner);
         console.log("Test Recipient:", testRecipient);
         console.log("Token Symbol:", tokenSymbol);
         console.log("Deposit Amount:", depositAmount);
@@ -55,7 +63,7 @@ contract LocalDeposit is DeployHelpers {
         // Load contract addresses from deployments
         _loadContracts();
 
-        vm.startBroadcast(deployerPrivateKey);
+        vm.startBroadcast();
 
         // Execute local deposit test
         _executeLocalDepositTest();
@@ -68,7 +76,7 @@ contract LocalDeposit is DeployHelpers {
         console.log("[INFO] Check BalanceManager balances for results");
     }
     
-    function _loadConfiguration(address deployer) internal {
+    function _loadConfiguration(address deployer, address actualSigner) internal {
         // Token symbol to test
         tokenSymbol = vm.envOr("TOKEN_SYMBOL", string("USDC"));
         
@@ -88,8 +96,8 @@ contract LocalDeposit is DeployHelpers {
             }
         }
         
-        // Test recipient (default to deployer)
-        testRecipient = vm.envOr("TEST_RECIPIENT", deployer);
+        // Test recipient (default to actual signer, fallback to deployer)
+        testRecipient = vm.envOr("TEST_RECIPIENT", actualSigner);
         
         // Custom local token address (optional)
         localTokenAddress = vm.envOr("LOCAL_TOKEN", address(0));
@@ -136,14 +144,17 @@ contract LocalDeposit is DeployHelpers {
         // No need to set up mappings here
         
         // Check initial balances
-        uint256 initialTokenBalance = localToken.balanceOf(testRecipient);
+        address depositor = msg.sender; // The account running the script
+        uint256 initialTokenBalance = localToken.balanceOf(depositor);
         console.log("Initial token balance:", initialTokenBalance);
         
         if (initialTokenBalance < depositAmount) {
             console.log("ERROR: Insufficient token balance for test");
             console.log("  Required:", depositAmount);
             console.log("  Available:", initialTokenBalance);
-            return;
+            console.log("  Depositor:", depositor);
+            console.log("  Test Recipient:", testRecipient);
+            revert("Insufficient token balance for deposit");
         }
         
         // Approve and execute deposit
@@ -164,10 +175,10 @@ contract LocalDeposit is DeployHelpers {
             console.log("Approval successful");
         } catch Error(string memory reason) {
             console.log("Approval failed:", reason);
-            return;
+            revert(string.concat("Token approval failed: ", reason));
         } catch (bytes memory) {
             console.log("Approval failed with low-level error");
-            return;
+            revert("Token approval failed with low-level error");
         }
         
         uint256 allowance = localToken.allowance(depositor, address(balanceManager));
@@ -175,7 +186,7 @@ contract LocalDeposit is DeployHelpers {
         
         if (allowance < depositAmount) {
             console.log("ERROR: Approval insufficient");
-            return;
+            revert("Token allowance insufficient after approval");
         }
         
         // Execute local deposit
@@ -192,8 +203,10 @@ contract LocalDeposit is DeployHelpers {
             
         } catch Error(string memory reason) {
             console.log("Local deposit failed:", reason);
+            revert(string.concat("Local deposit failed: ", reason));
         } catch (bytes memory) {
             console.log("Local deposit failed with low-level error");
+            revert("Local deposit failed with low-level error");
         }
     }
 }

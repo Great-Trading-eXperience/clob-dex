@@ -49,7 +49,7 @@ elif [ -f "deployments/gtx-anvil.json" ]; then
 else
     echo "❌ CRITICAL: Core chain deployment file missing!"
     echo "   Expected: deployments/31337.json or deployments/gtx-anvil.json"
-    echo "   Run: make deploy-core-chain-trading network=gtx_anvil"
+    echo "   Run: make deploy-core-chain-trading network=gtx_core_devnet"
     exit 1
 fi
 
@@ -60,7 +60,7 @@ elif [ -f "deployments/gtx-anvil-2.json" ]; then
 else
     echo "❌ CRITICAL: Side chain deployment file missing!"
     echo "   Expected: deployments/31338.json or deployments/gtx-anvil-2.json"
-    echo "   Run: make deploy-side-chain-bm network=gtx_anvil_2"
+    echo "   Run: make deploy-side-chain-bm network=gtx_side_devnet"
     exit 1
 fi
 
@@ -79,7 +79,7 @@ for contract_pair in "BalanceManager:PROXY_BALANCEMANAGER" "TokenRegistry:PROXY_
         exit 1
     fi
     
-    CODE=$(cast code $ADDRESS --rpc-url https://anvil.gtxdex.xyz 2>/dev/null || echo "0x")
+    CODE=$(cast code $ADDRESS --rpc-url https://core-devnet.gtxdex.xyz 2>/dev/null || echo "0x")
     if [ "$CODE" = "0x" ]; then
         echo "❌ CRITICAL: $DISPLAY_NAME at $ADDRESS has no code on core chain!"
         echo "   Contract not deployed. Redeploy core chain first."
@@ -99,7 +99,7 @@ for contract in ChainBalanceManager USDC WETH WBTC; do
         exit 1
     fi
     
-    CODE=$(cast code $ADDRESS --rpc-url https://side-anvil.gtxdex.xyz 2>/dev/null || echo "0x")
+    CODE=$(cast code $ADDRESS --rpc-url https://side-devnet.gtxdex.xyz 2>/dev/null || echo "0x")
     if [ "$CODE" = "0x" ]; then
         echo "❌ CRITICAL: $contract at $ADDRESS has no code on side chain!"
         echo "   Contract not deployed. Redeploy side chain first."
@@ -119,7 +119,7 @@ for token_pair in "USDC:gsUSDC" "WETH:gsWETH" "WBTC:gsWBTC"; do
     SIDE_TOKEN=$(jq -r ".$SIDE_TOKEN_KEY" $SIDE_DEPLOYMENT)
     CORE_SYNTHETIC=$(jq -r ".$CORE_TOKEN_KEY" $CORE_DEPLOYMENT)
     
-    MAPPED_SYNTHETIC=$(cast call $SIDE_CHAINBM "getTokenMapping(address)" $SIDE_TOKEN --rpc-url https://side-anvil.gtxdex.xyz 2>/dev/null || echo "0x0000000000000000000000000000000000000000")
+    MAPPED_SYNTHETIC=$(cast call $SIDE_CHAINBM "getTokenMapping(address)" $SIDE_TOKEN --rpc-url https://side-devnet.gtxdex.xyz 2>/dev/null || echo "0x0000000000000000000000000000000000000000")
     
     # Extract actual address from the 32-byte return value
     if [[ $MAPPED_SYNTHETIC == 0x000000000000000000000000* ]]; then
@@ -132,7 +132,7 @@ for token_pair in "USDC:gsUSDC" "WETH:gsWETH" "WBTC:gsWBTC"; do
         echo "❌ CRITICAL: $SIDE_TOKEN_KEY token mapping not set in ChainBalanceManager!"
         echo "   Side $SIDE_TOKEN_KEY: $SIDE_TOKEN"
         echo "   Expected synthetic: $CORE_SYNTHETIC"
-        echo "   Fix: Run 'make configure-cross-chain-tokens network=gtx_anvil'"
+        echo "   Fix: Run 'make configure-cross-chain-tokens network=gtx_core_devnet'"
         exit 1
     fi
     
@@ -144,7 +144,7 @@ for token_pair in "USDC:gsUSDC" "WETH:gsWETH" "WBTC:gsWBTC"; do
         echo "   Side $SIDE_TOKEN_KEY: $SIDE_TOKEN"
         echo "   Expected synthetic: $CORE_SYNTHETIC"
         echo "   Actual mapping: $MAPPED_ADDR"
-        echo "   Fix: Run 'make configure-cross-chain-tokens network=gtx_anvil'"
+        echo "   Fix: Run 'make configure-cross-chain-tokens network=gtx_core_devnet'"
         exit 1
     fi
     
@@ -156,7 +156,7 @@ echo "=== Validating BalanceManager Configuration ==="
 BALANCE_MANAGER=$(jq -r '.PROXY_BALANCEMANAGER' $CORE_DEPLOYMENT)
 TOKEN_REGISTRY=$(jq -r '.PROXY_TOKENREGISTRY' $CORE_DEPLOYMENT)
 
-CONFIGURED_REGISTRY=$(cast call $BALANCE_MANAGER "getTokenRegistry()" --rpc-url https://anvil.gtxdex.xyz 2>/dev/null || echo "0x0000000000000000000000000000000000000000")
+CONFIGURED_REGISTRY=$(cast call $BALANCE_MANAGER "getTokenRegistry()" --rpc-url https://core-devnet.gtxdex.xyz 2>/dev/null || echo "0x0000000000000000000000000000000000000000")
 
 # Extract actual address from the 32-byte return value if needed
 if [[ $CONFIGURED_REGISTRY == 0x000000000000000000000000* ]] && [ ${#CONFIGURED_REGISTRY} -eq 66 ]; then
@@ -173,7 +173,7 @@ if [ "$CONFIGURED_LOWER" != "$EXPECTED_REGISTRY_LOWER" ]; then
     echo "   BalanceManager: $BALANCE_MANAGER"
     echo "   Expected TokenRegistry: $TOKEN_REGISTRY"
     echo "   Configured TokenRegistry: $CONFIGURED_ADDR"
-    echo "   Fix: Run 'make configure-cross-chain-tokens network=gtx_anvil'"
+    echo "   Fix: Run 'make configure-cross-chain-tokens network=gtx_core_devnet'"
     exit 1
 fi
 
@@ -205,7 +205,7 @@ for token_pair in "USDC:gsUSDC" "WETH:gsWETH" "WBTC:gsWBTC"; do
     echo "Checking local mapping for $REGULAR_TOKEN_KEY..."
     
     # Check if local mapping is active (sourceChain = targetChain = 31337)
-    LOCAL_MAPPING_ACTIVE=$(cast call $TOKEN_REGISTRY "isTokenMappingActive(uint32,address,uint32)" 31337 $REGULAR_TOKEN 31337 --rpc-url https://anvil.gtxdex.xyz 2>/dev/null || echo "0x0000000000000000000000000000000000000000000000000000000000000000")
+    LOCAL_MAPPING_ACTIVE=$(cast call $TOKEN_REGISTRY "isTokenMappingActive(uint32,address,uint32)" 31337 $REGULAR_TOKEN 31337 --rpc-url https://core-devnet.gtxdex.xyz 2>/dev/null || echo "0x0000000000000000000000000000000000000000000000000000000000000000")
     
     if [[ $LOCAL_MAPPING_ACTIVE != *"0000000000000000000000000000000000000000000000000000000000000001" ]]; then
         echo "❌ CRITICAL: Local mapping not active for $REGULAR_TOKEN_KEY!"
@@ -217,7 +217,7 @@ for token_pair in "USDC:gsUSDC" "WETH:gsWETH" "WBTC:gsWBTC"; do
     fi
     
     # Get the synthetic token address that TokenRegistry returns for local mapping
-    MAPPED_SYNTHETIC=$(cast call $TOKEN_REGISTRY "getSyntheticToken(uint32,address,uint32)" 31337 $REGULAR_TOKEN 31337 --rpc-url https://anvil.gtxdex.xyz 2>/dev/null || echo "0x0000000000000000000000000000000000000000000000000000000000000000")
+    MAPPED_SYNTHETIC=$(cast call $TOKEN_REGISTRY "getSyntheticToken(uint32,address,uint32)" 31337 $REGULAR_TOKEN 31337 --rpc-url https://core-devnet.gtxdex.xyz 2>/dev/null || echo "0x0000000000000000000000000000000000000000000000000000000000000000")
     
     # Extract actual address from the 32-byte return value
     if [[ $MAPPED_SYNTHETIC == 0x000000000000000000000000* ]] && [ ${#MAPPED_SYNTHETIC} -eq 66 ]; then
@@ -248,7 +248,7 @@ echo "=== Validating ChainBalanceManager Registration ==="
 SIDE_CHAINBM=$(jq -r '.ChainBalanceManager' $SIDE_DEPLOYMENT)
 CHAIN_ID=31338
 
-REGISTERED_CBM=$(cast call $BALANCE_MANAGER "getChainBalanceManager(uint32)" $CHAIN_ID --rpc-url https://anvil.gtxdex.xyz 2>/dev/null || echo "0x0000000000000000000000000000000000000000")
+REGISTERED_CBM=$(cast call $BALANCE_MANAGER "getChainBalanceManager(uint32)" $CHAIN_ID --rpc-url https://core-devnet.gtxdex.xyz 2>/dev/null || echo "0x0000000000000000000000000000000000000000")
 
 # Extract actual address from the 32-byte return value if needed
 if [[ $REGISTERED_CBM == 0x000000000000000000000000* ]] && [ ${#REGISTERED_CBM} -eq 66 ]; then
@@ -265,7 +265,7 @@ if [ "$REGISTERED_LOWER" != "$EXPECTED_CBM_LOWER" ]; then
     echo "   Chain ID: $CHAIN_ID"
     echo "   Expected ChainBalanceManager: $SIDE_CHAINBM"
     echo "   Registered ChainBalanceManager: $REGISTERED_ADDR"
-    echo "   Fix: Run 'make configure-cross-chain-tokens network=gtx_anvil'"
+    echo "   Fix: Run 'make configure-cross-chain-tokens network=gtx_core_devnet'"
     exit 1
 fi
 
@@ -276,14 +276,14 @@ echo "=== Validating Mailbox Configuration ==="
 echo "Checking BalanceManager mailbox configuration..."
 
 # Check BalanceManager mailbox
-MAILBOX_CONFIG=$(cast call $BALANCE_MANAGER "getMailboxConfig()" --rpc-url https://anvil.gtxdex.xyz 2>/dev/null || echo "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000")
+MAILBOX_CONFIG=$(cast call $BALANCE_MANAGER "getMailboxConfig()" --rpc-url https://core-devnet.gtxdex.xyz 2>/dev/null || echo "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000")
 
 # Check if mailbox is configured (first 32 bytes should not be zero)
 ZERO_ADDRESS="0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
 if [ "$MAILBOX_CONFIG" = "$ZERO_ADDRESS" ]; then
     echo "❌ CRITICAL: BalanceManager mailbox not configured!"
     echo "   BalanceManager: $BALANCE_MANAGER"
-    echo "   Fix: Run 'make configure-cross-chain-tokens network=gtx_anvil'"
+    echo "   Fix: Run 'make configure-cross-chain-tokens network=gtx_core_devnet'"
     exit 1
 fi
 
@@ -303,7 +303,7 @@ echo "✅ BalanceManager mailbox validated: $CORE_MAILBOX_ADDR (domain: $CORE_DO
 echo "Checking ChainBalanceManager mailbox configuration..."
 
 # Check ChainBalanceManager mailbox
-SIDE_MAILBOX_CONFIG=$(cast call $SIDE_CHAINBM "getMailboxConfig()" --rpc-url https://side-anvil.gtxdex.xyz 2>/dev/null || echo "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000")
+SIDE_MAILBOX_CONFIG=$(cast call $SIDE_CHAINBM "getMailboxConfig()" --rpc-url https://side-devnet.gtxdex.xyz 2>/dev/null || echo "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000")
 
 # Check if side chain mailbox is configured
 if [ "$SIDE_MAILBOX_CONFIG" = "$ZERO_ADDRESS" ]; then
@@ -328,7 +328,7 @@ echo "✅ ChainBalanceManager mailbox validated: $SIDE_MAILBOX_ADDR (domain: $SI
 # Validate that mailboxes have code deployed
 echo "Verifying mailbox contracts are deployed..."
 
-CORE_MAILBOX_CODE=$(cast code $CORE_MAILBOX_ADDR --rpc-url https://anvil.gtxdex.xyz 2>/dev/null || echo "0x")
+CORE_MAILBOX_CODE=$(cast code $CORE_MAILBOX_ADDR --rpc-url https://core-devnet.gtxdex.xyz 2>/dev/null || echo "0x")
 if [ "$CORE_MAILBOX_CODE" = "0x" ]; then
     echo "❌ CRITICAL: Core mailbox at $CORE_MAILBOX_ADDR has no code!"
     echo "   The mailbox contract is not deployed on the core chain"
@@ -336,7 +336,7 @@ if [ "$CORE_MAILBOX_CODE" = "0x" ]; then
     exit 1
 fi
 
-SIDE_MAILBOX_CODE=$(cast code $SIDE_MAILBOX_ADDR --rpc-url https://side-anvil.gtxdex.xyz 2>/dev/null || echo "0x")
+SIDE_MAILBOX_CODE=$(cast code $SIDE_MAILBOX_ADDR --rpc-url https://side-devnet.gtxdex.xyz 2>/dev/null || echo "0x")
 if [ "$SIDE_MAILBOX_CODE" = "0x" ]; then
     echo "❌ CRITICAL: Side mailbox at $SIDE_MAILBOX_ADDR has no code!"
     echo "   The mailbox contract is not deployed on the side chain"
@@ -356,7 +356,7 @@ if [ "$POOL_MANAGER" = "null" ] || [ -z "$POOL_MANAGER" ] || [ "$POOL_MANAGER" =
     echo "   This is optional but required for trading functionality"
     echo "   Pools: gsWETH/gsUSDC, gsWBTC/gsUSDC will not be validated"
 else
-    POOL_MANAGER_CODE=$(cast code $POOL_MANAGER --rpc-url https://anvil.gtxdex.xyz 2>/dev/null || echo "0x")
+    POOL_MANAGER_CODE=$(cast code $POOL_MANAGER --rpc-url https://core-devnet.gtxdex.xyz 2>/dev/null || echo "0x")
     if [ "$POOL_MANAGER_CODE" = "0x" ]; then
         echo "❌ CRITICAL: PoolManager at $POOL_MANAGER has no code on core chain!"
         echo "   Contract not deployed properly"
@@ -380,14 +380,14 @@ else
         
         # Call poolExists(Currency,Currency) function
         # Both tokens are passed as addresses wrapped in Currency type
-        POOL_EXISTS=$(cast call $POOL_MANAGER "poolExists(address,address)" $TOKEN1 $TOKEN2 --rpc-url https://anvil.gtxdex.xyz 2>/dev/null || echo "0x0000000000000000000000000000000000000000000000000000000000000000")
+        POOL_EXISTS=$(cast call $POOL_MANAGER "poolExists(address,address)" $TOKEN1 $TOKEN2 --rpc-url https://core-devnet.gtxdex.xyz 2>/dev/null || echo "0x0000000000000000000000000000000000000000000000000000000000000000")
         
         # Extract boolean result from 32-byte return value (last byte)
         if [[ $POOL_EXISTS == *"0000000000000000000000000000000000000000000000000000000000000001" ]]; then
             echo "✅ $POOL_NAME pool exists"
             
             # Try to get liquidity score
-            LIQUIDITY_SCORE=$(cast call $POOL_MANAGER "getPoolLiquidityScore(address,address)" $TOKEN1 $TOKEN2 --rpc-url https://anvil.gtxdex.xyz 2>/dev/null || echo "unknown")
+            LIQUIDITY_SCORE=$(cast call $POOL_MANAGER "getPoolLiquidityScore(address,address)" $TOKEN1 $TOKEN2 --rpc-url https://core-devnet.gtxdex.xyz 2>/dev/null || echo "unknown")
             if [ "$LIQUIDITY_SCORE" != "unknown" ]; then
                 # Convert hex to decimal if it's a valid hex number
                 if [[ $LIQUIDITY_SCORE =~ ^0x[0-9a-fA-F]+$ ]]; then
@@ -442,7 +442,7 @@ echo "✅ Cross-chain messaging infrastructure ready"
 echo "✅ System ready for cross-chain testing"
 echo ""
 echo "You can now proceed with cross-chain deposit testing:"
-echo "   make test-cross-chain-deposit network=gtx_anvil_2"
+echo "   make test-cross-chain-deposit network=gtx_side_devnet"
 echo ""
 echo "For trading functionality, ensure the following pools exist:"
 echo "   • gsWETH/gsUSDC"

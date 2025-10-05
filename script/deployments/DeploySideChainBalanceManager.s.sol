@@ -40,7 +40,7 @@ contract DeploySideChainBalanceManager is DeployHelpers {
         address coreBalanceManager = _loadCoreChainBalanceManager();
 
         if (coreBalanceManager == address(0)) {
-            revert("Core chain BalanceManager not found. Please deploy core chain first with: make deploy-core-chain-trading network=gtx_anvil");
+            revert("Core chain BalanceManager not found. Please deploy core chain first with: make deploy-core-chain-trading network=gtx_core_devnet");
         }
 
         console.log("========== DEPLOYING SIDE CHAIN BALANCE MANAGER ==========");
@@ -121,7 +121,7 @@ contract DeploySideChainBalanceManager is DeployHelpers {
         try vm.envString("SIDE_RPC") returns (string memory rpc) {
             SIDE_RPC = rpc;
         } catch {
-            SIDE_RPC = "https://side-anvil.gtxdex.xyz";
+            SIDE_RPC = "https://side-devnet.gtxdex.xyz";
         }
         
         try vm.envString("SIDE_NAME") returns (string memory name) {
@@ -137,7 +137,7 @@ contract DeploySideChainBalanceManager is DeployHelpers {
         try vm.envString("CORE_RPC") returns (string memory rpc) {
             CORE_RPC = rpc;
         } catch {
-            CORE_RPC = "https://anvil.gtxdex.xyz";
+            CORE_RPC = "https://core-devnet.gtxdex.xyz";
         }
         
         try vm.envString("CORE_NAME") returns (string memory name) {

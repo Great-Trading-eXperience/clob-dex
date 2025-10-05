@@ -9,7 +9,7 @@ import "../utils/DeployHelpers.s.sol";
 /**
  * @title Register Side Chain
  * @dev Registers side chain in ChainRegistry for cross-chain operations
- * Usage: SIDE_CHAIN=gtx-anvil-2 forge script script/RegisterSideChain.s.sol:RegisterSideChain --rpc-url https://anvil.gtxdex.xyz --broadcast
+ * Usage: SIDE_CHAIN=gtx-anvil-2 forge script script/RegisterSideChain.s.sol:RegisterSideChain --rpc-url https://core-devnet.gtxdex.xyz --broadcast
  */
 contract RegisterSideChain is DeployHelpers {
     

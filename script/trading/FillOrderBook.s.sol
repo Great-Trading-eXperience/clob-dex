@@ -127,8 +127,8 @@ contract FillMockOrderBook is Script, DeployHelpers {
         // _makeLocalDeposits(100e18, 500_000e6); // Deposit 100 ETH, 500,000 USDC to BalanceManager
 
         // Place BUY orders (bids) - ascending price from 1900 to 1980
-        // Increase order size to 0.01 ETH to meet minimum requirements
-        _placeBuyOrders(pool, 1900e6, 1980e6, 10e6, 10, 1e16);
+        // Use smaller order size (0.005 ETH) so trading bots can consume with larger orders
+        _placeBuyOrders(pool, 1900e6, 1980e6, 10e6, 10, 5e15);
 
         console.log("Skipping SELL orders due to balance calculation issue - BUY orders successfully created!");
 
@@ -214,10 +214,12 @@ contract FillMockOrderBook is Script, DeployHelpers {
         // _makeLocalDeposits(100e18, 500_000e6); // Deposit 100 ETH, 500,000 USDC to BalanceManager
 
         // Place BUY orders (bids) - ascending price from 1900 to 1980
-        _placeBuyOrders(pool, 1900e6, 1980e6, 10e6, 10, 1e15);
+        // Use smaller order size (0.005 ETH) so trading bots can consume with larger orders
+        _placeBuyOrders(pool, 1900e6, 1980e6, 10e6, 10, 5e15);
 
         // Place SELL orders (asks) - ascending price from 2000 to 2100
-        _placeSellOrders(pool, 2000e6, 2100e6, 10e6, 10, 1e15);
+        // Use smaller order size (0.005 ETH) so trading bots can consume with larger orders
+        _placeSellOrders(pool, 2000e6, 2100e6, 10e6, 10, 5e15);
 
         console.log("Order book filled with custom tokens:");
         console.log("Token0 (%s):", token0Key, token0Address);

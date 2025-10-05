@@ -79,7 +79,7 @@ check_trader_balance() {
     
     echo "Checking $TRADER_NAME $TOKEN_NAME balance..."
     
-    BALANCE=$(cast call $BALANCE_MANAGER "getBalance(address,address)" $TRADER $TOKEN_ADDRESS --rpc-url https://anvil.gtxdex.xyz 2>/dev/null || echo "0")
+    BALANCE=$(cast call $BALANCE_MANAGER "getBalance(address,address)" $TRADER $TOKEN_ADDRESS --rpc-url https://core-devnet.gtxdex.xyz 2>/dev/null || echo "0")
     
     # Convert hex to decimal using cast to avoid overflow issues
     if [[ $BALANCE =~ ^0x[0-9a-fA-F]+$ ]]; then
@@ -155,7 +155,7 @@ check_pool_liquidity() {
     echo "Checking $POOL_NAME liquidity..."
     
     # Check if pool exists first
-    POOL_EXISTS=$(cast call $POOL_MANAGER "poolExists(address,address)" $TOKEN1 $TOKEN2 --rpc-url https://anvil.gtxdex.xyz 2>/dev/null || echo "0x0000000000000000000000000000000000000000000000000000000000000000")
+    POOL_EXISTS=$(cast call $POOL_MANAGER "poolExists(address,address)" $TOKEN1 $TOKEN2 --rpc-url https://core-devnet.gtxdex.xyz 2>/dev/null || echo "0x0000000000000000000000000000000000000000000000000000000000000000")
     
     if [[ $POOL_EXISTS != *"0000000000000000000000000000000000000000000000000000000000000001" ]]; then
         echo "❌ CRITICAL: $POOL_NAME pool does not exist!"
@@ -164,7 +164,7 @@ check_pool_liquidity() {
     fi
     
     # Get liquidity score
-    LIQUIDITY_SCORE=$(cast call $POOL_MANAGER "getPoolLiquidityScore(address,address)" $TOKEN1 $TOKEN2 --rpc-url https://anvil.gtxdex.xyz 2>/dev/null || echo "0x0")
+    LIQUIDITY_SCORE=$(cast call $POOL_MANAGER "getPoolLiquidityScore(address,address)" $TOKEN1 $TOKEN2 --rpc-url https://core-devnet.gtxdex.xyz 2>/dev/null || echo "0x0")
     
     # Convert hex to decimal if it's a valid hex number using cast to avoid overflow
     if [[ $LIQUIDITY_SCORE =~ ^0x[0-9a-fA-F]+$ ]]; then
@@ -176,7 +176,7 @@ check_pool_liquidity() {
     if [ "$LIQUIDITY_DECIMAL" = "0" ]; then
         echo "❌ CRITICAL: $POOL_NAME has no liquidity!"
         echo "   No limit orders have been placed"
-        echo "   Fix: Run 'PRIVATE_KEY=\$PRIVATE_KEY make fill-orderbook network=gtx_anvil'"
+        echo "   Fix: Run 'PRIVATE_KEY=\$PRIVATE_KEY make fill-orderbook network=gtx_core_devnet'"
         return 1
     else
         echo "✅ $POOL_NAME has liquidity score: $LIQUIDITY_DECIMAL"
@@ -210,7 +210,7 @@ echo "=== Validating Trading Activity ==="
 echo "Checking for recent trading events to verify market orders were executed..."
 
 # Get the latest block number
-LATEST_BLOCK=$(cast block-number --rpc-url https://anvil.gtxdex.xyz 2>/dev/null || echo "0")
+LATEST_BLOCK=$(cast block-number --rpc-url https://core-devnet.gtxdex.xyz 2>/dev/null || echo "0")
 
 if [ "$LATEST_BLOCK" -eq 0 ]; then
     echo "❌ CRITICAL: Cannot get latest block number!"
@@ -230,7 +230,7 @@ echo "Searching for trading events from block $FROM_BLOCK to $LATEST_BLOCK..."
 
 # Get OrderBook addresses for gsWETH/gsUSDC pool
 echo "Getting OrderBook address for gsWETH/gsUSDC pool..."
-POOL_DATA=$(cast call $POOL_MANAGER "getPool((address,address))" "($GSWETH,$GSUSDC)" --rpc-url https://anvil.gtxdex.xyz 2>/dev/null || echo "")
+POOL_DATA=$(cast call $POOL_MANAGER "getPool((address,address))" "($GSWETH,$GSUSDC)" --rpc-url https://core-devnet.gtxdex.xyz 2>/dev/null || echo "")
 
 if [ -z "$POOL_DATA" ] || [ "$POOL_DATA" = "0x" ]; then
     echo "❌ CRITICAL: Cannot get pool data for gsWETH/gsUSDC!"
@@ -251,7 +251,7 @@ fi
 echo "Found OrderBook address: $ORDERBOOK_ADDR"
 
 # Check for OrderPlaced events from OrderBook (correct IOrderBook events)
-ORDER_EVENTS=$(cast logs --from-block $FROM_BLOCK --to-block $LATEST_BLOCK --address $ORDERBOOK_ADDR "OrderPlaced(uint48,address,uint8,uint128,uint128,uint48,bool,uint8)" --rpc-url https://anvil.gtxdex.xyz 2>/dev/null | wc -l || echo "0")
+ORDER_EVENTS=$(cast logs --from-block $FROM_BLOCK --to-block $LATEST_BLOCK --address $ORDERBOOK_ADDR "OrderPlaced(uint48,address,uint8,uint128,uint128,uint48,bool,uint8)" --rpc-url https://core-devnet.gtxdex.xyz 2>/dev/null | wc -l || echo "0")
 
 if [ "$ORDER_EVENTS" -gt 0 ]; then
     echo "✅ Found $ORDER_EVENTS OrderPlaced events (limit orders created)"
@@ -261,7 +261,7 @@ else
 fi
 
 # Check for OrderMatched events from OrderBook (correct IOrderBook events) 
-MATCHED_EVENTS=$(cast logs --from-block $FROM_BLOCK --to-block $LATEST_BLOCK --address $ORDERBOOK_ADDR "OrderMatched(address,uint48,uint48,uint8,uint48,uint128,uint128)" --rpc-url https://anvil.gtxdex.xyz 2>/dev/null | wc -l || echo "0")
+MATCHED_EVENTS=$(cast logs --from-block $FROM_BLOCK --to-block $LATEST_BLOCK --address $ORDERBOOK_ADDR "OrderMatched(address,uint48,uint48,uint8,uint48,uint128,uint128)" --rpc-url https://core-devnet.gtxdex.xyz 2>/dev/null | wc -l || echo "0")
 
 if [ "$MATCHED_EVENTS" -gt 0 ]; then
     echo "✅ Found $MATCHED_EVENTS OrderMatched events (orders matched)"
@@ -274,18 +274,18 @@ else
     echo "   3. Orders were placed too long ago (outside recent blocks)"
     echo ""
     echo "   To execute market orders:"
-    echo "   PRIVATE_KEY_2=\$PRIVATE_KEY_2 make market-order network=gtx_anvil"
+    echo "   PRIVATE_KEY_2=\$PRIVATE_KEY_2 make market-order network=gtx_core_devnet"
 fi
 
 # Check for UpdateOrder events (indicates orders being filled)
-UPDATE_EVENTS=$(cast logs --from-block $FROM_BLOCK --to-block $LATEST_BLOCK --address $ORDERBOOK_ADDR "UpdateOrder(uint48,uint48,uint128,uint8)" --rpc-url https://anvil.gtxdex.xyz 2>/dev/null | wc -l || echo "0")
+UPDATE_EVENTS=$(cast logs --from-block $FROM_BLOCK --to-block $LATEST_BLOCK --address $ORDERBOOK_ADDR "UpdateOrder(uint48,uint48,uint128,uint8)" --rpc-url https://core-devnet.gtxdex.xyz 2>/dev/null | wc -l || echo "0")
 
 if [ "$UPDATE_EVENTS" -gt 0 ]; then
     echo "✅ Found $UPDATE_EVENTS UpdateOrder events (orders being filled/updated)"
 fi
 
 # Check for BalanceUpdated events (indicates successful deposits)
-BALANCE_EVENTS=$(cast logs --from-block $FROM_BLOCK --to-block $LATEST_BLOCK --address $BALANCE_MANAGER "BalanceUpdated(address,address,uint256)" --rpc-url https://anvil.gtxdex.xyz 2>/dev/null | wc -l || echo "0")
+BALANCE_EVENTS=$(cast logs --from-block $FROM_BLOCK --to-block $LATEST_BLOCK --address $BALANCE_MANAGER "BalanceUpdated(address,address,uint256)" --rpc-url https://core-devnet.gtxdex.xyz 2>/dev/null | wc -l || echo "0")
 
 if [ "$BALANCE_EVENTS" -gt 0 ]; then
     echo "✅ Found $BALANCE_EVENTS BalanceUpdated events (deposits successful)"
@@ -319,7 +319,7 @@ if [ "$TOTAL_ISSUES" -eq 0 ]; then
         echo "✅ Complete trading flow verified"
     else
         echo "⚠️  Market orders may not have been executed yet"
-        echo "   Run: PRIVATE_KEY_2=\$PRIVATE_KEY_2 make market-order network=gtx_anvil"
+        echo "   Run: PRIVATE_KEY_2=\$PRIVATE_KEY_2 make market-order network=gtx_core_devnet"
     fi
     
     echo ""
@@ -345,18 +345,18 @@ fi
 echo ""
 echo "🔍 Quick Debug Commands:"
 echo "   # Check primary trader balances"
-echo "   cast call $BALANCE_MANAGER \"getBalance(address,address)\" $PRIMARY_TRADER $GSUSDC --rpc-url https://anvil.gtxdex.xyz"
-echo "   cast call $BALANCE_MANAGER \"getBalance(address,address)\" $PRIMARY_TRADER $GSWETH --rpc-url https://anvil.gtxdex.xyz"
+echo "   cast call $BALANCE_MANAGER \"getBalance(address,address)\" $PRIMARY_TRADER $GSUSDC --rpc-url https://core-devnet.gtxdex.xyz"
+echo "   cast call $BALANCE_MANAGER \"getBalance(address,address)\" $PRIMARY_TRADER $GSWETH --rpc-url https://core-devnet.gtxdex.xyz"
 echo ""
 echo "   # Check secondary trader balances"
-echo "   cast call $BALANCE_MANAGER \"getBalance(address,address)\" $SECONDARY_TRADER $GSUSDC --rpc-url https://anvil.gtxdex.xyz"
-echo "   cast call $BALANCE_MANAGER \"getBalance(address,address)\" $SECONDARY_TRADER $GSWETH --rpc-url https://anvil.gtxdex.xyz"
+echo "   cast call $BALANCE_MANAGER \"getBalance(address,address)\" $SECONDARY_TRADER $GSUSDC --rpc-url https://core-devnet.gtxdex.xyz"
+echo "   cast call $BALANCE_MANAGER \"getBalance(address,address)\" $SECONDARY_TRADER $GSWETH --rpc-url https://core-devnet.gtxdex.xyz"
 echo ""
 echo "   # Check pool liquidity"
-echo "   cast call $POOL_MANAGER \"getPoolLiquidityScore(address,address)\" $GSWETH $GSUSDC --rpc-url https://anvil.gtxdex.xyz"
+echo "   cast call $POOL_MANAGER \"getPoolLiquidityScore(address,address)\" $GSWETH $GSUSDC --rpc-url https://core-devnet.gtxdex.xyz"
 echo ""
 echo "   # Get OrderBook address for gsWETH/gsUSDC"
-echo "   cast call $POOL_MANAGER \"getPool((address,address))\" \"($GSWETH,$GSUSDC)\" --rpc-url https://anvil.gtxdex.xyz"
+echo "   cast call $POOL_MANAGER \"getPool((address,address))\" \"($GSWETH,$GSUSDC)\" --rpc-url https://core-devnet.gtxdex.xyz"
 echo ""
 echo "Validation completed at: $(date)"
 

@@ -17,19 +17,19 @@ Deploy the complete GTX two-chain trading system with cross-chain token deposits
 ### 1. Hyperlane Infrastructure
 ```bash
 # Deploy Hyperlane to both chains
-cd $PROJECT_DIR/hyperlane-anvil
-hyperlane core deploy --chain anvil --registry $PROJECT_DIR/hyperlane-anvil --key $PRIVATE_KEY --yes
-hyperlane core deploy --chain anvil2 --registry $PROJECT_DIR/hyperlane-anvil --key $PRIVATE_KEY --yes
+cd $PROJECT_DIR/hyperlane-gtx-core-devnet
+hyperlane core deploy --chain gtx-core-devnet --registry $PROJECT_DIR/hyperlane-gtx-core-devnet --key $PRIVATE_KEY --yes
+hyperlane core deploy --chain gtx-side-devnet --registry $PROJECT_DIR/hyperlane-gtx-core-devnet --key $PRIVATE_KEY --yes
 
 # Start relayer
-hyperlane relayer --chains anvil,anvil2 --registry $PROJECT_DIR/hyperlane-anvil --key $PRIVATE_KEY --yes 2>&1 | tee relayer.log
+hyperlane relayer --chains gtx-core-devnet,gtx-side-devnet --registry $PROJECT_DIR/hyperlane-gtx-core-devnet --key $PRIVATE_KEY --yes 2>&1 | tee relayer.log
 ```
 
 ### 2. Set Environment Variables
 ```bash
 # Extract mailbox addresses
-export CORE_MAILBOX=$(grep 'mailbox:' $PROJECT_DIR/hyperlane-anvil/chains/anvil/addresses.yaml | awk '{print $2}' | tr -d '"')
-export SIDE_MAILBOX=$(grep 'mailbox:' $PROJECT_DIR/hyperlane-anvil/chains/anvil2/addresses.yaml | awk '{print $2}' | tr -d '"')
+export CORE_MAILBOX=$(grep 'mailbox:' $PROJECT_DIR/hyperlane-gtx-core-devnet/chains/gtx-core-devnet/addresses.yaml | awk '{print $2}' | tr -d '"')
+export SIDE_MAILBOX=$(grep 'mailbox:' $PROJECT_DIR/hyperlane-gtx-core-devnet/chains/gtx-side-devnet/addresses.yaml | awk '{print $2}' | tr -d '"')
 
 # Verify extraction worked
 echo "CORE_MAILBOX: $CORE_MAILBOX"
@@ -46,40 +46,40 @@ rm -rf broadcast/ cache/ out/
 
 ### Step 1: Deploy Core Chain Trading
 ```bash
-CORE_MAILBOX=$CORE_MAILBOX SIDE_MAILBOX=$SIDE_MAILBOX make deploy-core-chain-trading network=gtx_anvil
+CORE_MAILBOX=$CORE_MAILBOX SIDE_MAILBOX=$SIDE_MAILBOX make deploy-core-chain-trading network=gtx_core_devnet
 ```
 
 ### Step 2: Deploy Side Chain Tokens
 ```bash
-make deploy-side-chain-tokens network=gtx_anvil_2
+make deploy-side-chain-tokens network=gtx_side_devnet
 ```
 
 ### Step 3: Deploy Core Chain Tokens
 ```bash
-make deploy-core-chain-tokens network=gtx_anvil
+make deploy-core-chain-tokens network=gtx_core_devnet
 ```
 
 ### Step 4: Create Trading Pools
 ```bash
-make create-trading-pools network=gtx_anvil
+make create-trading-pools network=gtx_core_devnet
 ```
 
 ### Step 5: Deploy Side Chain Balance Manager
 ```bash
-SIDE_MAILBOX=$SIDE_MAILBOX CORE_MAILBOX=$CORE_MAILBOX make deploy-side-chain-bm network=gtx_anvil_2
+SIDE_MAILBOX=$SIDE_MAILBOX CORE_MAILBOX=$CORE_MAILBOX make deploy-side-chain-bm network=gtx_side_devnet
 ```
 
 ### Step 6: Configure Cross-Chain
 ```bash
 # Chain IDs are now auto-detected from network parameter - no manual specification needed!
-make register-side-chain network=gtx_anvil
-make configure-balance-manager network=gtx_anvil
-make update-core-chain-mappings network=gtx_anvil
+make register-side-chain network=gtx_core_devnet
+make configure-balance-manager network=gtx_core_devnet
+make update-core-chain-mappings network=gtx_core_devnet
 ```
 
 ### Step 7: Update Side Chain Mappings
 ```bash
-make update-side-chain-mappings network=gtx_anvil_2
+make update-side-chain-mappings network=gtx_side_devnet
 ```
 
 **⚠️ NOTE**: Step 6 above now automatically configures both cross-chain AND local token mappings:
@@ -112,19 +112,19 @@ This validates:
 ### 3. Test Cross-Chain Deposits
 ```bash
 # Test USDC cross-chain deposit
-make test-cross-chain-deposit network=gtx_anvil_2 side_chain=31338 core_chain=31337 token=USDC amount=1000000000
+make test-cross-chain-deposit network=gtx_side_devnet side_chain=31338 core_chain=31337 token=USDC amount=1000000000
 
 # Test WETH cross-chain deposit  
-make test-cross-chain-deposit network=gtx_anvil_2 side_chain=31338 core_chain=31337 token=WETH amount=1000000000000000000
+make test-cross-chain-deposit network=gtx_side_devnet side_chain=31338 core_chain=31337 token=WETH amount=1000000000000000000
 ```
 
 ### 4. Test Local Deposits
 ```bash
 # Test USDC local deposit on core chain
-make test-local-deposit network=gtx_anvil token=USDC amount=1000000000
+make test-local-deposit network=gtx_core_devnet token=USDC amount=1000000000
 
 # Test WETH local deposit on core chain
-make test-local-deposit network=gtx_anvil token=WETH amount=1000000000000000000
+make test-local-deposit network=gtx_core_devnet token=WETH amount=1000000000000000000
 ```
 
 ### 5. Test Data Population (Optional)
@@ -146,8 +146,8 @@ make validate-deployment
 make validate-cross-chain-deposit
 
 # 3. Test both deposit methods
-make test-cross-chain-deposit network=gtx_anvil_2 side_chain=31338 core_chain=31337 token=USDC amount=1000000000
-make test-local-deposit network=gtx_anvil token=USDC amount=1000000000
+make test-cross-chain-deposit network=gtx_side_devnet side_chain=31338 core_chain=31337 token=USDC amount=1000000000
+make test-local-deposit network=gtx_core_devnet token=USDC amount=1000000000
 
 # 4. Optional: Populate with trading data
 make validate-data-population

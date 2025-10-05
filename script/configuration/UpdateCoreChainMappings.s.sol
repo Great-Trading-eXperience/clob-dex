@@ -10,7 +10,7 @@ import "../utils/DeployHelpers.s.sol";
 /**
  * @title Update Core Chain Mappings
  * @dev Updates core chain token mappings for cross-chain operations
- * Usage: SIDE_CHAIN=gtx-anvil-2 forge script script/UpdateCoreChainMappings.s.sol:UpdateCoreChainMappings --rpc-url https://anvil.gtxdex.xyz --broadcast
+ * Usage: SIDE_CHAIN=gtx-anvil-2 forge script script/UpdateCoreChainMappings.s.sol:UpdateCoreChainMappings --rpc-url https://core-devnet.gtxdex.xyz --broadcast
  */
 contract UpdateCoreChainMappings is DeployHelpers {
     
@@ -171,7 +171,7 @@ contract UpdateCoreChainMappings is DeployHelpers {
                 }
             } catch {
                 console.log("# ERROR: Synthetic token %s not found in deployment", token.symbol);
-                console.log("# SOLUTION: Run 'make deploy-core-chain-tokens network=gtx_anvil' first");
+                console.log("# SOLUTION: Run 'make deploy-core-chain-tokens network=gtx_core_devnet' first");
                 revert(string.concat("DEPLOYMENT FAILED: Synthetic token ", token.symbol, " not found. Deploy tokens first."));
             }
         }

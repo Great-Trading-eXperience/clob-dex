@@ -22,7 +22,7 @@ import "../utils/DeployHelpers.s.sol";
  *   CREATE_NATIVE_POOLS  - Create native-to-native pools (defaults to "false")  
  *   CREATE_BRIDGE_POOLS  - Create native-to-synthetic pools (defaults to "false")
  * 
- * Usage: make create-trading-pools network=gtx_anvil
+ * Usage: make create-trading-pools network=gtx_core_devnet
  */
 contract CreateTradingPools is DeployHelpers {
     

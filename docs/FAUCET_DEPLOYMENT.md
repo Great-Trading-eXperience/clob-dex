@@ -42,8 +42,8 @@ This command will automatically:
 ### Supported Networks
 
 Use any of the configured networks:
-- `gtx_anvil` - Local Anvil instance (https://anvil.gtxdex.xyz)
-- `gtx_anvil_2` - Side chain Anvil (https://side-anvil.gtxdex.xyz)
+- `gtx_core_devnet` - Local Anvil instance (https://core-devnet.gtxdex.xyz)
+- `gtx_side_devnet` - Side chain Anvil (https://side-devnet.gtxdex.xyz)
 - `rari_testnet` - Rari testnet
 - `appchain_testnet` - Appchain testnet
 - `arbitrum_sepolia` - Arbitrum Sepolia
@@ -235,15 +235,15 @@ Here's a complete example of deploying the faucet on the local anvil network:
 export PRIVATE_KEY=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
 
 # 2. Deploy the complete faucet system
-make deploy-faucet network=gtx_anvil
+make deploy-faucet network=gtx_core_devnet
 
 # 3. Verify deployment
-cast call <PROXY_FAUCET_ADDRESS> "getFaucetAmount()" --rpc-url https://anvil.gtxdex.xyz
-cast call <PROXY_FAUCET_ADDRESS> "getCooldown()" --rpc-url https://anvil.gtxdex.xyz
+cast call <PROXY_FAUCET_ADDRESS> "getFaucetAmount()" --rpc-url https://core-devnet.gtxdex.xyz
+cast call <PROXY_FAUCET_ADDRESS> "getCooldown()" --rpc-url https://core-devnet.gtxdex.xyz
 
 # 4. Test faucet functionality
 cast send <PROXY_FAUCET_ADDRESS> "requestTokens(address)" <WETH_TOKEN_ADDRESS> \
-  --private-key $PRIVATE_KEY --rpc-url https://anvil.gtxdex.xyz
+  --private-key $PRIVATE_KEY --rpc-url https://core-devnet.gtxdex.xyz
 ```
 
 ## Script Details
