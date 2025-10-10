@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.26;
 
-import "../src/core/ChainBalanceManager.sol";
-import "./DeployHelpers.s.sol";
+import "../../src/core/ChainBalanceManager.sol";
+import "../utils/DeployHelpers.s.sol";
 import "@openzeppelin/contracts/proxy/beacon/UpgradeableBeacon.sol";
 import "@openzeppelin/contracts/proxy/beacon/BeaconProxy.sol";
 

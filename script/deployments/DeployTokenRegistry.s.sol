@@ -5,7 +5,7 @@ import {Script, console} from "forge-std/Script.sol";
 import {BeaconProxy} from "@openzeppelin/contracts/proxy/beacon/BeaconProxy.sol";
 import {UpgradeableBeacon} from "@openzeppelin/contracts/proxy/beacon/UpgradeableBeacon.sol";
 
-import {TokenRegistry} from "../src/core/TokenRegistry.sol";
+import {TokenRegistry} from "../../src/core/TokenRegistry.sol";
 
 /**
  * @title DeployTokenRegistry

@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.26;
 
-import "../src/mocks/MockToken.sol";
-import "../src/mocks/MockUSDC.sol";
-import "../src/mocks/MockWETH.sol";
+import "../../src/mocks/MockToken.sol";
+import "../../src/mocks/MockUSDC.sol";
+import "../../src/mocks/MockWETH.sol";
 import "./DeployHelpers.s.sol";
 import "forge-std/console.sol";
 

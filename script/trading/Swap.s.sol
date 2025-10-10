@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import "../script/DeployHelpers.s.sol";
-import {MockToken} from "../src/mocks/MockToken.sol";
-import {GTXRouter} from "../src/core/GTXRouter.sol";
-import {BalanceManager} from "../src/core/BalanceManager.sol";
-import {PoolManager} from "../src/core/PoolManager.sol";
-import {IPoolManager} from "../src/core/interfaces/IPoolManager.sol";
-import {IOrderBook} from "../src/core/interfaces/IOrderBook.sol";
-import {Currency} from "../src/core/libraries/Currency.sol";
-import {PoolKey} from "../src/core/libraries/Pool.sol";
+import "../utils/DeployHelpers.s.sol";
+import {MockToken} from "../../src/mocks/MockToken.sol";
+import {GTXRouter} from "../../src/core/GTXRouter.sol";
+import {BalanceManager} from "../../src/core/BalanceManager.sol";
+import {PoolManager} from "../../src/core/PoolManager.sol";
+import {IPoolManager} from "../../src/core/interfaces/IPoolManager.sol";
+import {IOrderBook} from "../../src/core/interfaces/IOrderBook.sol";
+import {Currency} from "../../src/core/libraries/Currency.sol";
+import {PoolKey} from "../../src/core/libraries/Pool.sol";
 
 contract Swap is Script, DeployHelpers {
    // Contract address keys

@@ -91,8 +91,8 @@ contract LocalDepositTest is Test {
         localWETH = new MockWETH();
 
         // Deploy synthetic tokens 
-        gsUSDC = new SyntheticToken("Synthetic USDC", "gsUSDC", address(balanceManager));
-        gsWETH = new SyntheticToken("Synthetic WETH", "gsWETH", address(balanceManager));
+        gsUSDC = new SyntheticToken("Synthetic USDC", "gsUSDC", 6, address(balanceManager));
+        gsWETH = new SyntheticToken("Synthetic WETH", "gsWETH", 18, address(balanceManager));
 
         // Set up BalanceManager with TokenRegistry
         vm.startPrank(owner);

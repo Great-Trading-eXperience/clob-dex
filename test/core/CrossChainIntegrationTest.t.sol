@@ -89,21 +89,14 @@ contract CrossChainIntegrationTest is Test {
         
         vm.startPrank(user);
         
-        // Step 1: Approve and deposit to vault
+        // Approve and deposit to vault (this automatically bridges to synthetic)
         sourceToken.approve(address(chainBalanceManager), depositAmount);
-        chainBalanceManager.deposit(address(sourceToken), depositAmount);
         
-        // Verify vault balance
-        assertEq(chainBalanceManager.getBalance(user, address(sourceToken)), depositAmount);
-        
-        // Step 2: Bridge to synthetic tokens
+        // Expect the BridgeToSynthetic event to be emitted during deposit
         vm.expectEmit(true, true, true, true);
         emit BridgeToSynthetic(user, address(sourceToken), address(syntheticToken), depositAmount);
         
-        chainBalanceManager.bridgeToSynthetic(address(sourceToken), depositAmount);
-        
-        // Verify locked in vault (balance reduced)
-        assertEq(chainBalanceManager.getBalance(user, address(sourceToken)), 0);
+        chainBalanceManager.deposit(address(sourceToken), depositAmount, user);
         
         // Verify nonce incremented
         assertEq(chainBalanceManager.getUserNonce(user), 1);
@@ -187,7 +180,7 @@ contract CrossChainIntegrationTest is Test {
         // Setup: Deposit tokens to vault first
         vm.startPrank(user);
         sourceToken.approve(address(chainBalanceManager), 100e6);
-        chainBalanceManager.deposit(address(sourceToken), 100e6);
+        chainBalanceManager.deposit(address(sourceToken), 100e6, user);
         vm.stopPrank();
         
         // Create withdraw message (simulating message from BalanceManager)

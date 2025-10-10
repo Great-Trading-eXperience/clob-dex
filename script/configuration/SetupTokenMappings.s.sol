@@ -2,7 +2,7 @@
 pragma solidity ^0.8.26;
 
 import {Script, console} from "forge-std/Script.sol";
-import {ChainBalanceManager} from "../src/core/ChainBalanceManager.sol";
+import {ChainBalanceManager} from "../../src/core/ChainBalanceManager.sol";
 
 /**
  * @title SetupTokenMappings

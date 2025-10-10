@@ -4,8 +4,8 @@ pragma solidity ^0.8.26;
 import {UpgradeableBeacon} from "@openzeppelin/contracts/proxy/beacon/UpgradeableBeacon.sol";
 import {Script, console} from "forge-std/Script.sol";
 
-import "../src/core/BalanceManager.sol";
-import "../src/core/ChainBalanceManager.sol";
+import "../../src/core/BalanceManager.sol";
+import "../../src/core/ChainBalanceManager.sol";
 
 /**
  * @title Upgrade GTX Contract
