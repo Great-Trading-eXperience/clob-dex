@@ -16,6 +16,8 @@ import {IMessageRecipient} from "./interfaces/IMessageRecipient.sol";
 import {Currency} from "./libraries/Currency.sol";
 import {HyperlaneMessages} from "./libraries/HyperlaneMessages.sol";
 import {ChainBalanceManagerStorage} from "./storages/ChainBalanceManagerStorage.sol";
+import {IVaultFactory} from "../vaults/interfaces/IVaultFactory.sol";
+import {IVault} from "../vaults/interfaces/IVault.sol";
 
 /**
  * @title ChainBalanceManager
@@ -42,6 +44,10 @@ contract ChainBalanceManager is
     event CrossChainConfigUpdated(uint32 indexed destinationDomain, address indexed destinationBalanceManager);
     event DestinationChainConfigUpdated(bool isDestinationChain, address messageHandler);
     event LocalDomainUpdated(uint32 indexed oldDomain, uint32 indexed newDomain);
+    event VaultFactorySet(address indexed vaultFactory);
+    event VaultCreated(address indexed token, address indexed vault);
+    event AllocationSettingsUpdated(address indexed token, uint256 keepBps, uint256 vaultBps);
+    event Rebalanced(address indexed token, uint256 keepAmount, uint256 vaultAmount);
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -76,7 +82,7 @@ contract ChainBalanceManager is
         
         // Validate we're targeting a different chain (source -> destination)
         if ($.localDomain == _destinationDomain) {
-            revert("ChainBalanceManager requires different source and destination chains");
+            revert InvalidChainConfiguration();
         }
         
         emit DestinationChainConfigUpdated(false, _mailbox);
@@ -99,7 +105,7 @@ contract ChainBalanceManager is
     function initialize(
         address _owner
     ) external override {
-        revert("Use initialize with full parameters");
+        revert InvalidChainConfiguration();
     }
 
     modifier onlyWhitelistedToken(
@@ -533,6 +539,207 @@ contract ChainBalanceManager is
         emit CrossChainConfigUpdated(_destinationDomain, _destinationBalanceManager);
     }
 
+
+    // =============================================================
+    //                    VAULT MANAGEMENT
+    // =============================================================
+
+    /**
+     * @dev Set the vault factory address
+     * @param _vaultFactory The vault factory address
+     */
+    function setVaultFactory(address _vaultFactory) external onlyOwner {
+        if (_vaultFactory == address(0)) {
+            revert ZeroAddress();
+        }
+
+        Storage storage $ = getStorage();
+        $.vaultFactory = _vaultFactory;
+
+        emit VaultFactorySet(_vaultFactory);
+    }
+
+    /**
+     * @dev Create a vault for a token
+     * @param token The token to create a vault for
+     * @param lendingPool The lending pool address for yield generation
+     */
+    function createVault(address token, address lendingPool) external onlyOwner {
+        Storage storage $ = getStorage();
+
+        if ($.vaultFactory == address(0)) {
+            revert ZeroAddress();
+        }
+
+        if ($.tokenVaults[token] != address(0)) {
+            revert VaultAlreadyExists(token);
+        }
+
+        // Create vault through factory
+        address vault = IVaultFactory($.vaultFactory).createVault(token, lendingPool);
+
+        $.tokenVaults[token] = vault;
+
+        emit VaultCreated(token, vault);
+    }
+
+    /**
+     * @dev Set allocation settings for a token
+     * @param token The token to set allocation for
+     * @param keepBps Basis points to keep in ChainBalanceManager (e.g., 2000 = 20%)
+     * @param vaultBps Basis points to allocate to vault (e.g., 8000 = 80%)
+     */
+    function setAllocationSettings(address token, uint256 keepBps, uint256 vaultBps) external onlyOwner {
+        if (keepBps + vaultBps != 10000) {
+            revert InvalidAllocation(keepBps, vaultBps);
+        }
+
+        Storage storage $ = getStorage();
+        $.vaultAllocationBps[token] = vaultBps;
+
+        emit AllocationSettingsUpdated(token, keepBps, vaultBps);
+    }
+
+    /**
+     * @dev Set default allocation settings
+     * @param keepBps Default basis points to keep (e.g., 2000 = 20%)
+     * @param vaultBps Default basis points to vault (e.g., 8000 = 80%)
+     */
+    function setDefaultAllocation(uint256 keepBps, uint256 vaultBps) external onlyOwner {
+        if (keepBps + vaultBps != 10000) {
+            revert InvalidAllocation(keepBps, vaultBps);
+        }
+
+        Storage storage $ = getStorage();
+        $.defaultKeepBps = keepBps;
+        $.defaultVaultBps = vaultBps;
+    }
+
+    /**
+     * @dev Rebalance funds between ChainBalanceManager and vault
+     * @param token The token to rebalance
+     */
+    function rebalance(address token) external onlyOwner nonReentrant {
+        Storage storage $ = getStorage();
+
+        address vault = $.tokenVaults[token];
+        if (vault == address(0)) {
+            revert VaultNotFound(token);
+        }
+
+        // Get allocation settings
+        uint256 vaultBps = $.vaultAllocationBps[token];
+        if (vaultBps == 0) {
+            vaultBps = $.defaultVaultBps;
+        }
+
+        uint256 keepBps = 10000 - vaultBps;
+
+        // Get current amounts
+        uint256 currentBalance = token == address(0)
+            ? address(this).balance
+            : IERC20(token).balanceOf(address(this));
+
+        uint256 vaultBalance = IVault(vault).totalAssets();
+
+        // Calculate total available funds (including vault balance with yield)
+        uint256 totalDeposited = $.totalDeposited[token];
+        uint256 totalWithdrawn = $.totalWithdrawn[token];
+        uint256 totalUnlocked = $.totalUnlocked[token];
+
+        // Available = deposited - withdrawn - unlocked + vault yield
+        // The vault balance includes both principal and generated yield
+        uint256 totalAvailableFromDeposits = totalDeposited - totalWithdrawn - totalUnlocked;
+
+        // Total available should account for actual funds: what's in manager + what's in vault
+        uint256 totalActualFunds = currentBalance + vaultBalance;
+
+        // Use the actual total funds for rebalancing to include yield
+        uint256 totalAvailable = totalActualFunds;
+
+        // Calculate target amounts
+        uint256 targetKeep = (totalAvailable * keepBps) / 10000;
+        uint256 targetVault = (totalAvailable * vaultBps) / 10000;
+
+        // Rebalance if needed
+        if (currentBalance > targetKeep) {
+            // Transfer excess to vault
+            uint256 excess = currentBalance - targetKeep;
+
+            if (token != address(0)) {
+                IERC20(token).safeIncreaseAllowance(vault, excess);
+            }
+
+            IVault(vault).deposit(excess);
+        } else if (currentBalance < targetKeep && vaultBalance > 0) {
+            // Withdraw from vault to meet target
+            uint256 needed = targetKeep - currentBalance;
+            uint256 toWithdraw = needed > vaultBalance ? vaultBalance : needed;
+
+            IVault(vault).withdraw(toWithdraw, address(this));
+        }
+
+        emit Rebalanced(token, targetKeep, targetVault);
+    }
+
+    /**
+     * @dev Get vault for a token
+     * @param token The token to get vault for
+     * @return The vault address
+     */
+    function getVault(address token) external view returns (address) {
+        return getStorage().tokenVaults[token];
+    }
+
+    /**
+     * @dev Get allocation settings for a token
+     * @param token The token to get allocation for
+     * @return keepBps Basis points to keep
+     * @return vaultBps Basis points to vault
+     */
+    function getAllocationSettings(address token) external view returns (uint256 keepBps, uint256 vaultBps) {
+        Storage storage $ = getStorage();
+        vaultBps = $.vaultAllocationBps[token];
+
+        if (vaultBps == 0) {
+            vaultBps = $.defaultVaultBps;
+        }
+
+        keepBps = 10000 - vaultBps;
+    }
+
+    /**
+     * @dev Get vault factory address
+     * @return The vault factory address
+     */
+    function getVaultFactory() external view returns (address) {
+        return getStorage().vaultFactory;
+    }
+
+    /**
+     * @dev Withdraw all funds from a vault (emergency/owner only)
+     * @param token The token whose vault to withdraw from
+     */
+    function withdrawAllFromVault(address token) external onlyOwner nonReentrant {
+        Storage storage $ = getStorage();
+
+        address vault = $.tokenVaults[token];
+        if (vault == address(0)) {
+            revert VaultNotFound(token);
+        }
+
+        // Get total assets in vault
+        uint256 vaultBalance = IVault(vault).totalAssets();
+
+        if (vaultBalance == 0) {
+            revert ZeroAmount();
+        }
+
+        // Withdraw all funds from vault to ChainBalanceManager
+        IVault(vault).withdraw(vaultBalance, address(this));
+
+        emit Rebalanced(token, 0, 0);
+    }
 
     // =============================================================
     //                    LEGACY COMPATIBILITY

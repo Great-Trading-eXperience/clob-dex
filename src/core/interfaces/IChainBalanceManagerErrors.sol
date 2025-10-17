@@ -19,4 +19,10 @@ interface IChainBalanceManagerErrors {
     error MessageAlreadyProcessed(bytes32 messageId);
     error TokenMappingNotFound(address token);
     error InvalidSyntheticToken(address syntheticToken);
+
+    // Vault-related errors
+    error VaultNotFound(address token);
+    error VaultAlreadyExists(address token);
+    error InvalidAllocation(uint256 keepBps, uint256 vaultBps);
+    error InvalidChainConfiguration();
 }

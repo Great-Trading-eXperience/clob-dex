@@ -40,6 +40,13 @@ abstract contract ChainBalanceManagerStorage {
         mapping(address => uint256) totalDeposited;      // Total deposited per token
         mapping(address => uint256) totalWithdrawn;      // Total withdrawn per token
         mapping(address => uint256) totalUnlocked;       // Total unlocked per token
+
+        // Vault integration
+        address vaultFactory;                            // VaultFactory contract address
+        mapping(address => address) tokenVaults;         // token => vault address
+        mapping(address => uint256) vaultAllocationBps;  // token => allocation in basis points (e.g., 8000 = 80%)
+        uint256 defaultKeepBps;                          // Default % to keep (e.g., 2000 = 20%)
+        uint256 defaultVaultBps;                         // Default % to vault (e.g., 8000 = 80%)
     }
 
     function getStorage() internal pure returns (Storage storage $) {
