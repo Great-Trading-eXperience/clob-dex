@@ -1,10 +1,17 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.26;
 
+<<<<<<< Updated upstream
 import "../../src/core/ChainBalanceManager.sol";
 import "../utils/DeployHelpers.s.sol";
 import "@openzeppelin/contracts/proxy/beacon/UpgradeableBeacon.sol";
+=======
+import "../../script/utils/DeployHelpers.s.sol";
+import "../../src/core/ChainBalanceManager.sol";
+
+>>>>>>> Stashed changes
 import "@openzeppelin/contracts/proxy/beacon/BeaconProxy.sol";
+import "@openzeppelin/contracts/proxy/beacon/UpgradeableBeacon.sol";
 
 contract DeployChainBalanceManager is DeployHelpers {
     // Contract address keys
@@ -14,9 +21,9 @@ contract DeployChainBalanceManager is DeployHelpers {
 
     function run() public {
         uint256 deployerPrivateKey = getDeployerKey();
-        
+
         loadDeployments();
-        
+
         address beaconOwner;
         if (deployed[OWNER_ADDRESS].isSet) {
             beaconOwner = deployed[OWNER_ADDRESS].addr;
@@ -54,10 +61,10 @@ contract DeployChainBalanceManager is DeployHelpers {
         console.log("PROXY_CHAINBALANCEMANAGER=%s", chainBalanceManagerProxy);
 
         vm.stopBroadcast();
-        
+
         // Save deployments to JSON
         exportDeployments();
-        
+
         console.log("\n========== DEPLOYMENT SUMMARY ==========");
         console.log("# Deployment addresses saved to JSON file:");
         console.log("BEACON_CHAINBALANCEMANAGER=%s", chainBalanceManagerBeacon);

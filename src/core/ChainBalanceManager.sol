@@ -16,6 +16,8 @@ import {IMessageRecipient} from "./interfaces/IMessageRecipient.sol";
 import {Currency} from "./libraries/Currency.sol";
 import {HyperlaneMessages} from "./libraries/HyperlaneMessages.sol";
 import {ChainBalanceManagerStorage} from "./storages/ChainBalanceManagerStorage.sol";
+import {IERC4626} from "@openzeppelin/contracts/interfaces/IERC4626.sol";
+import {MerkleProof} from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 
 /**
  * @title ChainBalanceManager
@@ -42,6 +44,18 @@ contract ChainBalanceManager is
     event CrossChainConfigUpdated(uint32 indexed destinationDomain, address indexed destinationBalanceManager);
     event DestinationChainConfigUpdated(bool isDestinationChain, address messageHandler);
     event LocalDomainUpdated(uint32 indexed oldDomain, uint32 indexed newDomain);
+
+    // Yield system events
+    event VaultSet(address indexed token, address indexed vault);
+    event VaultRatioUpdated(uint256 oldRatio, uint256 newRatio);
+    event VaultDeposit(address indexed token, address indexed vault, uint256 amount);
+    event TokenSnapshotUpdated(uint256 indexed day, address indexed token, bytes32 merkleRoot, uint256 totalSupply);
+    event DailySnapshotUpdated(uint256 indexed day, uint256 tokenCount);
+    event YieldClaimed(address indexed user, address indexed token, uint256 amount, uint256 day);
+
+    // Constants
+    uint256 private constant BASIS_POINTS = 10000;
+    uint256 private constant DEFAULT_VAULT_RATIO = 8000; // 80%
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -149,6 +163,26 @@ contract ChainBalanceManager is
         }
 
         $.totalDeposited[token] += amount;
+
+        // Deploy to vault if configured (only for ERC20 tokens)
+        if (token != address(0)) {
+            address vault = $.vaults[token];
+            if (vault != address(0)) {
+                // Use configured ratio or default (80%)
+                uint256 ratio = $.vaultRatio > 0 ? $.vaultRatio : DEFAULT_VAULT_RATIO;
+                uint256 vaultAmount = (amount * ratio) / BASIS_POINTS;
+
+                if (vaultAmount > 0) {
+                    // Approve vault to spend tokens
+                    IERC20(token).approve(vault, vaultAmount);
+
+                    // Deposit to ERC-4626 vault (receives vault shares)
+                    IERC4626(vault).deposit(vaultAmount, address(this));
+
+                    emit VaultDeposit(token, vault, vaultAmount);
+                }
+            }
+        }
 
         // Get and increment user nonce (security pattern)
         uint256 currentNonce = $.userNonces[recipient]++;
@@ -429,6 +463,235 @@ contract ChainBalanceManager is
     }
 
     // =============================================================
+    //                   YIELD VAULT MANAGEMENT
+    // =============================================================
+
+    /**
+     * @dev Set ERC-4626 vault for a token (DRY: works for any token)
+     * @param token The token address
+     * @param vault The ERC-4626 vault address (or address(0) to remove)
+     */
+    function setVault(address token, address vault) external onlyOwner {
+        Storage storage $ = getStorage();
+
+        if (!$.whitelistedTokens[token] && token != address(0)) {
+            revert TokenNotWhitelisted(token);
+        }
+
+        $.vaults[token] = vault;
+        emit VaultSet(token, vault);
+    }
+
+    /**
+     * @dev Set vault ratio (percentage deployed to vaults)
+     * @param newRatio Ratio in basis points (e.g., 8000 = 80%)
+     */
+    function setVaultRatio(uint256 newRatio) external onlyOwner {
+        if (newRatio > BASIS_POINTS) {
+            revert("Vault ratio cannot exceed 100%");
+        }
+
+        Storage storage $ = getStorage();
+        uint256 oldRatio = $.vaultRatio;
+        $.vaultRatio = newRatio;
+
+        emit VaultRatioUpdated(oldRatio, newRatio);
+    }
+
+    // =============================================================
+    //                MERKLE SNAPSHOT SYSTEM (DYNAMIC)
+    // =============================================================
+
+    /**
+     * @dev Snapshot data for a single token (DRY: same struct for all tokens)
+     */
+    struct TokenSnapshot {
+        address token;
+        bytes32 merkleRoot;
+        uint256 totalSupply;      // Total synthetic supply on trading chain
+        uint256 cumulativeYield;  // Cumulative yield from vault since inception
+    }
+
+    /**
+     * @dev Update daily snapshots for all tokens (posted by indexer)
+     * DYNAMIC: Accepts array of any length, works for 4 tokens or 400 tokens!
+     * @param day The snapshot day (e.g., days since epoch)
+     * @param snapshots Array of token snapshots
+     */
+    function updateDailySnapshot(
+        uint256 day,
+        TokenSnapshot[] calldata snapshots
+    ) external onlyOwner {
+        Storage storage $ = getStorage();
+
+        // Clear previous token list for this day
+        delete $.snapshotTokens[day];
+
+        // Store each token's snapshot (DRY: same code for all tokens)
+        for (uint256 i = 0; i < snapshots.length; i++) {
+            TokenSnapshot calldata snap = snapshots[i];
+
+            $.snapshotMerkleRoots[day][snap.token] = snap.merkleRoot;
+            $.snapshotTotalSupply[day][snap.token] = snap.totalSupply;
+            $.snapshotCumulativeYield[day][snap.token] = snap.cumulativeYield;
+            $.snapshotTokens[day].push(snap.token);
+
+            emit TokenSnapshotUpdated(day, snap.token, snap.merkleRoot, snap.totalSupply);
+        }
+
+        $.snapshotTimestamps[day] = block.timestamp;
+        $.latestSnapshotDay = day;
+
+        emit DailySnapshotUpdated(day, snapshots.length);
+    }
+
+    // =============================================================
+    //                   YIELD CLAIMING (PER-TOKEN)
+    // =============================================================
+
+    /**
+     * @dev Claim yield for a single token using Merkle proof
+     * DRY: Same function works for ALL tokens (USDC, WETH, WBTC, etc.)
+     * @param day The snapshot day to claim from
+     * @param token The token to claim yield for
+     * @param userBalance User's synthetic token balance on snapshot day
+     * @param merkleProof Merkle proof for verification
+     */
+    function claimYield(
+        uint256 day,
+        address token,
+        uint256 userBalance,
+        bytes32[] calldata merkleProof
+    ) external nonReentrant {
+        Storage storage $ = getStorage();
+
+        // Get snapshot data for this token
+        bytes32 merkleRoot = $.snapshotMerkleRoots[day][token];
+        if (merkleRoot == bytes32(0)) {
+            revert("Snapshot not found for this day/token");
+        }
+
+        // Verify Merkle proof (KISS: simple leaf = hash(user, balance))
+        bytes32 leaf = keccak256(abi.encodePacked(msg.sender, userBalance));
+        if (!MerkleProof.verify(merkleProof, merkleRoot, leaf)) {
+            revert("Invalid Merkle proof");
+        }
+
+        // Calculate user's yield share (per-token distribution)
+        uint256 totalSupply = $.snapshotTotalSupply[day][token];
+        uint256 vaultYield = $.snapshotCumulativeYield[day][token];
+
+        if (totalSupply == 0 || userBalance == 0) {
+            revert("No yield to claim");
+        }
+
+        // Pro-rata yield: (totalYield × userBalance) / totalSupply
+        uint256 userYield = (vaultYield * userBalance) / totalSupply;
+
+        // Check if already claimed
+        uint256 alreadyClaimed = $.userClaimedYield[msg.sender][token];
+        if (userYield <= alreadyClaimed) {
+            revert("Yield already claimed");
+        }
+
+        uint256 claimableYield = userYield - alreadyClaimed;
+        $.userClaimedYield[msg.sender][token] = userYield;
+
+        // Withdraw from vault or direct transfer (DRY: works for any token)
+        _withdrawYield(token, claimableYield, msg.sender);
+
+        emit YieldClaimed(msg.sender, token, claimableYield, day);
+    }
+
+    /**
+     * @dev Claim proof for batch claiming
+     */
+    struct ClaimProof {
+        address token;
+        uint256 userBalance;
+        bytes32[] merkleProof;
+    }
+
+    /**
+     * @dev Batch claim yield for multiple tokens (more gas-efficient)
+     * @param day The snapshot day to claim from
+     * @param proofs Array of claim proofs for different tokens
+     */
+    function claimYieldBatch(
+        uint256 day,
+        ClaimProof[] calldata proofs
+    ) external nonReentrant {
+        for (uint256 i = 0; i < proofs.length; i++) {
+            ClaimProof calldata proof = proofs[i];
+
+            Storage storage $ = getStorage();
+
+            // Get snapshot data for this token
+            bytes32 merkleRoot = $.snapshotMerkleRoots[day][proof.token];
+            if (merkleRoot == bytes32(0)) {
+                continue; // Skip if no snapshot
+            }
+
+            // Verify Merkle proof
+            bytes32 leaf = keccak256(abi.encodePacked(msg.sender, proof.userBalance));
+            if (!MerkleProof.verify(proof.merkleProof, merkleRoot, leaf)) {
+                continue; // Skip invalid proofs
+            }
+
+            // Calculate yield
+            uint256 totalSupply = $.snapshotTotalSupply[day][proof.token];
+            uint256 vaultYield = $.snapshotCumulativeYield[day][proof.token];
+
+            if (totalSupply == 0 || proof.userBalance == 0) {
+                continue; // Skip if no yield
+            }
+
+            uint256 userYield = (vaultYield * proof.userBalance) / totalSupply;
+            uint256 alreadyClaimed = $.userClaimedYield[msg.sender][proof.token];
+
+            if (userYield <= alreadyClaimed) {
+                continue; // Skip if already claimed
+            }
+
+            uint256 claimableYield = userYield - alreadyClaimed;
+            $.userClaimedYield[msg.sender][proof.token] = userYield;
+
+            // Withdraw yield
+            _withdrawYield(proof.token, claimableYield, msg.sender);
+
+            emit YieldClaimed(msg.sender, proof.token, claimableYield, day);
+        }
+    }
+
+    /**
+     * @dev Internal function to withdraw yield from vault or direct transfer
+     * DRY: Generic withdrawal that works for any token
+     * @param token The token to withdraw
+     * @param amount The amount to withdraw
+     * @param recipient The recipient address
+     */
+    function _withdrawYield(
+        address token,
+        uint256 amount,
+        address recipient
+    ) internal {
+        Storage storage $ = getStorage();
+        address vault = $.vaults[token];
+
+        if (vault != address(0)) {
+            // Withdraw from ERC-4626 vault
+            IERC4626(vault).withdraw(amount, recipient, address(this));
+        } else {
+            // Direct transfer (if no vault configured)
+            if (token == address(0)) {
+                payable(recipient).transfer(amount);
+            } else {
+                IERC20(token).safeTransfer(recipient, amount);
+            }
+        }
+    }
+
+    // =============================================================
     //                      VIEW FUNCTIONS
     // =============================================================
 
@@ -557,5 +820,118 @@ contract ChainBalanceManager is
         uint256 index
     ) external view returns (address) {
         return getStorage().tokenList[index];
+    }
+
+    // =============================================================
+    //              YIELD SYSTEM VIEW FUNCTIONS
+    // =============================================================
+
+    /**
+     * @dev Get vault address for a token
+     */
+    function getVault(address token) external view returns (address) {
+        return getStorage().vaults[token];
+    }
+
+    /**
+     * @dev Get current vault ratio
+     */
+    function getVaultRatio() external view returns (uint256) {
+        Storage storage $ = getStorage();
+        return $.vaultRatio > 0 ? $.vaultRatio : DEFAULT_VAULT_RATIO;
+    }
+
+    /**
+     * @dev Get snapshot data for a specific day and token
+     */
+    function getSnapshot(
+        uint256 day,
+        address token
+    ) external view returns (
+        bytes32 merkleRoot,
+        uint256 totalSupply,
+        uint256 cumulativeYield
+    ) {
+        Storage storage $ = getStorage();
+        return (
+            $.snapshotMerkleRoots[day][token],
+            $.snapshotTotalSupply[day][token],
+            $.snapshotCumulativeYield[day][token]
+        );
+    }
+
+    /**
+     * @dev Get all tokens that had snapshots on a specific day
+     */
+    function getSnapshotTokens(uint256 day) external view returns (address[] memory) {
+        return getStorage().snapshotTokens[day];
+    }
+
+    /**
+     * @dev Get snapshot timestamp
+     */
+    function getSnapshotTimestamp(uint256 day) external view returns (uint256) {
+        return getStorage().snapshotTimestamps[day];
+    }
+
+    /**
+     * @dev Get latest snapshot day
+     */
+    function getLatestSnapshotDay() external view returns (uint256) {
+        return getStorage().latestSnapshotDay;
+    }
+
+    /**
+     * @dev Get user's claimed yield for a token
+     */
+    function getUserClaimedYield(address user, address token) external view returns (uint256) {
+        return getStorage().userClaimedYield[user][token];
+    }
+
+    /**
+     * @dev Calculate claimable yield for a user (requires off-chain balance data)
+     * @param day The snapshot day
+     * @param token The token
+     * @param userBalance User's synthetic token balance on snapshot day
+     * @return claimable The amount of yield that can be claimed
+     */
+    function calculateClaimableYield(
+        uint256 day,
+        address token,
+        uint256 userBalance
+    ) external view returns (uint256 claimable) {
+        Storage storage $ = getStorage();
+
+        uint256 totalSupply = $.snapshotTotalSupply[day][token];
+        uint256 vaultYield = $.snapshotCumulativeYield[day][token];
+
+        if (totalSupply == 0 || userBalance == 0) {
+            return 0;
+        }
+
+        uint256 userYield = (vaultYield * userBalance) / totalSupply;
+        uint256 alreadyClaimed = $.userClaimedYield[msg.sender][token];
+
+        if (userYield <= alreadyClaimed) {
+            return 0;
+        }
+
+        return userYield - alreadyClaimed;
+    }
+
+    /**
+     * @dev Get total deposited, withdrawn, and unlocked for a token
+     */
+    function getTokenStats(address token) external view returns (
+        uint256 totalDeposited,
+        uint256 totalWithdrawn,
+        uint256 totalUnlocked
+    ) {
+        Storage storage $ = getStorage();
+        return (
+            $.totalDeposited[token],
+            $.totalWithdrawn[token],
+            $.totalUnlocked[token]
+        );
     }
 }

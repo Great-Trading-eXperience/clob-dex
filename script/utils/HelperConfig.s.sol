@@ -1,9 +1,15 @@
 // SPDX-License-Identifier: SEE LICENSE IN LICENSE
 pragma solidity ^0.8.20;
 
+<<<<<<< Updated upstream
 import {MockToken} from "../../src/mocks/MockToken.sol";
 import {MockUSDC} from "../../src/mocks/MockUSDC.sol";
 import {MockWETH} from "../../src/mocks/MockWETH.sol";
+=======
+import {MockToken} from "@gtx/mocks/MockToken.sol";
+import {MockUSDC} from "@gtx/mocks/MockUSDC.sol";
+import {MockWETH} from "@gtx/mocks/MockWETH.sol";
+>>>>>>> Stashed changes
 import {DeployHelpers} from "./DeployHelpers.s.sol";
 import {ERC20Mock} from "@openzeppelin/contracts/mocks/token/ERC20Mock.sol";
 

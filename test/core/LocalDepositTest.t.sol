@@ -90,7 +90,11 @@ contract LocalDepositTest is Test {
         localUSDC = new MockUSDC();
         localWETH = new MockWETH();
 
+<<<<<<< Updated upstream
         // Deploy synthetic tokens 
+=======
+        // Deploy synthetic tokens
+>>>>>>> Stashed changes
         gsUSDC = new SyntheticToken("Synthetic USDC", "gsUSDC", 6, address(balanceManager));
         gsWETH = new SyntheticToken("Synthetic WETH", "gsWETH", 18, address(balanceManager));
 
