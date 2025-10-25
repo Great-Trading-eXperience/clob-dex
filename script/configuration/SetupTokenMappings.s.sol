@@ -3,10 +3,7 @@ pragma solidity ^0.8.26;
 
 import {ChainBalanceManager} from "../../src/core/ChainBalanceManager.sol";
 import {Script, console} from "forge-std/Script.sol";
-<<<<<<< Updated upstream
 import {ChainBalanceManager} from "../../src/core/ChainBalanceManager.sol";
-=======
->>>>>>> Stashed changes
 
 /**
  * @title SetupTokenMappings

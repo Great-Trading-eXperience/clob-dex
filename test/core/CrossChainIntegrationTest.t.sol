@@ -88,29 +88,16 @@ contract CrossChainIntegrationTest is Test {
         uint256 depositAmount = 100e6; // 100 USDC
 
         vm.startPrank(user);
-<<<<<<< Updated upstream
-        
+
         // Approve and deposit to vault (this automatically bridges to synthetic)
         sourceToken.approve(address(chainBalanceManager), depositAmount);
-        
+
         // Expect the BridgeToSynthetic event to be emitted during deposit
         vm.expectEmit(true, true, true, true);
         emit BridgeToSynthetic(user, address(sourceToken), address(syntheticToken), depositAmount);
-        
-        chainBalanceManager.deposit(address(sourceToken), depositAmount, user);
-        
-=======
-
-        // Step 1: Approve and deposit (which automatically bridges to synthetic tokens)
-        sourceToken.approve(address(chainBalanceManager), depositAmount);
-
-        // Expect BridgeToSynthetic event to be emitted during deposit
-        vm.expectEmit(true, true, true, true);
-        emit BridgeToSynthetic(user, address(sourceToken), address(syntheticToken), depositAmount);
 
         chainBalanceManager.deposit(address(sourceToken), depositAmount, user);
 
->>>>>>> Stashed changes
         // Verify nonce incremented
         assertEq(chainBalanceManager.getUserNonce(user), 1);
 

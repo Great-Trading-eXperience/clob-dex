@@ -10,11 +10,12 @@ yarn.lock
 /deployments/31337.json
 
 /developments
+/playground
 localhost.json
 
 # Dotenv file
 .env
-
+.claude
 .vscode
 
 node_modules

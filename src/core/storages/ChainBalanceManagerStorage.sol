@@ -46,6 +46,7 @@ abstract contract ChainBalanceManagerStorage {
         // Vault management (DRY: token => vault address)
         mapping(address => address) vaults;              // token => ERC4626 vault
         uint256 vaultRatio;                              // % deployed to vault (e.g., 8000 = 80%)
+        mapping(address => uint256) vaultShares;         // token => ChainBalanceManager's vault shares
 
         // Per-token Merkle snapshots (KISS: simple flat mappings)
         // day => token => merkleRoot

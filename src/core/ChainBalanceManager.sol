@@ -48,7 +48,7 @@ contract ChainBalanceManager is
     // Yield system events
     event VaultSet(address indexed token, address indexed vault);
     event VaultRatioUpdated(uint256 oldRatio, uint256 newRatio);
-    event VaultDeposit(address indexed token, address indexed vault, uint256 amount);
+    event VaultDeposit(address indexed token, address indexed vault, uint256 amount, uint256 shares);
     event TokenSnapshotUpdated(uint256 indexed day, address indexed token, bytes32 merkleRoot, uint256 totalSupply);
     event DailySnapshotUpdated(uint256 indexed day, uint256 tokenCount);
     event YieldClaimed(address indexed user, address indexed token, uint256 amount, uint256 day);
@@ -176,10 +176,11 @@ contract ChainBalanceManager is
                     // Approve vault to spend tokens
                     IERC20(token).approve(vault, vaultAmount);
 
-                    // Deposit to ERC-4626 vault (receives vault shares)
-                    IERC4626(vault).deposit(vaultAmount, address(this));
+                    // Deposit to ERC-4626 vault and track shares received
+                    uint256 shares = IERC4626(vault).deposit(vaultAmount, address(this));
+                    $.vaultShares[token] += shares;
 
-                    emit VaultDeposit(token, vault, vaultAmount);
+                    emit VaultDeposit(token, vault, vaultAmount, shares);
                 }
             }
         }
@@ -831,6 +832,13 @@ contract ChainBalanceManager is
      */
     function getVault(address token) external view returns (address) {
         return getStorage().vaults[token];
+    }
+
+    /**
+     * @dev Get vault shares owned by ChainBalanceManager for a token
+     */
+    function getVaultShares(address token) external view returns (uint256) {
+        return getStorage().vaultShares[token];
     }
 
     /**
