@@ -1,0 +1,31 @@
+{
+  "networkName": "base-sepolia",
+  "chainId": 84532,
+  "VAULT_FACTORY": "0x72774445e92788c986157B798e085D77262A95B7",
+  "vaults": {
+    "gtxUSDC": {
+      "address": "0x60f08658aA1BB59104e7a635146Ec0c2127D28a2",
+      "asset": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+      "name": "GTX USDC Yield Vault",
+      "symbol": "gtxUSDC"
+    },
+    "gtxWETH": {
+      "address": "0x27618872871258c4E2D17F8d32635388118a2ED0",
+      "asset": "0x4200000000000000000000000000000000000006",
+      "name": "GTX WETH Yield Vault",
+      "symbol": "gtxWETH"
+    },
+    "gtxWBTC": {
+      "address": "0xae5dE0C7099C120bc1da792d30B73Cc0a0E9451f",
+      "asset": "0x0a6756095519627Bdd389e8ce5a64f658fdc0cD2",
+      "name": "GTX WBTC Yield Vault",
+      "symbol": "gtxWBTC",
+      "note": "Mock WBTC for testnet only"
+    }
+  },
+  "tokens": {
+    "USDC": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+    "WETH": "0x4200000000000000000000000000000000000006",
+    "WBTC": "0x0a6756095519627Bdd389e8ce5a64f658fdc0cD2"
+  }
+}

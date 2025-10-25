@@ -67,7 +67,7 @@ contract UpgradeGTXContract is Script {
         console.log("Post-upgrade verification:");
         address newImplAddress = beacon.implementation();
         console.log("  New implementation:", newImplAddress);
-        
+
         if (newImplAddress == address(newImpl)) {
             console.log("[SUCCESS] BalanceManager upgraded successfully");
         } else {
@@ -100,7 +100,7 @@ contract UpgradeGTXContract is Script {
         console.log("Post-upgrade verification:");
         address newImplAddress = beacon.implementation();
         console.log("  New implementation:", newImplAddress);
-        
+
         if (newImplAddress == address(newImpl)) {
             console.log("[SUCCESS] ChainBalanceManager upgraded successfully");
             console.log("[SUCCESS] All proxies using this beacon automatically updated");

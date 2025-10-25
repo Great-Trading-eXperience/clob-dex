@@ -86,21 +86,21 @@ contract CrossChainIntegrationTest is Test {
 
     function test_CrossChainDeposit() public {
         uint256 depositAmount = 100e6; // 100 USDC
-        
+
         vm.startPrank(user);
-        
+
         // Approve and deposit to vault (this automatically bridges to synthetic)
         sourceToken.approve(address(chainBalanceManager), depositAmount);
-        
+
         // Expect the BridgeToSynthetic event to be emitted during deposit
         vm.expectEmit(true, true, true, true);
         emit BridgeToSynthetic(user, address(sourceToken), address(syntheticToken), depositAmount);
-        
+
         chainBalanceManager.deposit(address(sourceToken), depositAmount, user);
-        
+
         // Verify nonce incremented
         assertEq(chainBalanceManager.getUserNonce(user), 1);
-        
+
         vm.stopPrank();
     }
 
